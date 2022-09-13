@@ -1,18 +1,11 @@
 import sys, os
-import logging
 
-import pytorch_lightning as pl
 from pytorch_lightning import LightningModule
-from datetime import timedelta
 import torch.nn.functional as F
 from torch_geometric.data import DataLoader
-from torch.nn import Linear
 import torch
-import numpy as np
 
-from .models.utils import load_dataset, purity_sample, LargeDataset
-from .models.interaction_gnn import InteractionGNN
-from sklearn.metrics import roc_auc_score
+from .utils import str_to_class
 
 
 class GNNStage(LightningModule):
@@ -27,7 +20,7 @@ class GNNStage(LightningModule):
         self.trainset, self.valset, self.testset = None, None, None
 
         # Load in the model to be used
-        self.model = self.hparams["model"](self.hparams)
+        self.model = str_to_class(self.hparams["model_name"])(self.hparams)
     
     def forward(self, batch):
 
@@ -319,35 +312,3 @@ class GNNStage(LightningModule):
         # update params
         optimizer.step(closure=optimizer_closure)
         optimizer.zero_grad()
-
-        
-class LargeGNNBase(GNNBase):
-    def __init__(self, hparams):
-        super().__init__(hparams)
-
-    def setup(self, stage):
-        # Handle any subset of [train, val, test] data split, assuming that ordering
-
-        self.trainset, self.valset, self.testset = [
-            LargeDataset(
-                self.hparams["input_dir"],
-                subdir,
-                split,
-                self.hparams
-            )
-            for subdir, split in zip(self.hparams["datatype_names"], self.hparams["datatype_split"])
-        ]
-
-        if (
-            (self.trainer)
-            and ("logger" in self.trainer.__dict__.keys())
-            and ("_experiment" in self.logger.__dict__.keys())
-        ):
-            self.logger.experiment.define_metric("val_loss", summary="min")
-            self.logger.experiment.define_metric("sig_auc", summary="max")
-            self.logger.experiment.define_metric("tot_auc", summary="max")
-            self.logger.experiment.define_metric("sig_fake_ratio", summary="max")
-            self.logger.experiment.define_metric("custom_f1", summary="max")
-            self.logger.experiment.log({"sig_auc": 0})
-            self.logger.experiment.log({"sig_fake_ratio": 0})
-            self.logger.experiment.log({"custom_f1": 0})

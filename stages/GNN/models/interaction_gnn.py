@@ -12,7 +12,7 @@ class InteractionGNN(nn.Module):
     """
 
     def __init__(self, hparams):
-        super().__init__(hparams)
+        super().__init__()
         """
         Initialise the Lightning Module that can scan over different GNN training regimes
         """
