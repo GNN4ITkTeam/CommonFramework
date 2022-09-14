@@ -11,11 +11,16 @@ data_split: [1, 1, 1] # Number of [training, validation, testing] examples
 
 # Define overwriting weight/truth config - the default is all true edges set to +1, all negative edges set to -1
 weighting_config:
-  10: 
-    y: True
-    pt: [1000., .inf]
-    primary: True 
-    n_hits: [3, .inf]
+  # function: dynamic_region ?
+  # 10: 
+  #   y: True
+  #   pt: [1000., .inf]
+  #   primary: True 
+  #   n_hits: [3, .inf]
+
+  0.1:
+    y: False
+
   0:
     y: True 
     pt: [0., 1000.]

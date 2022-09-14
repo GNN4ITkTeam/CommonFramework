@@ -70,3 +70,10 @@ class GNNStage(LightningModule):
             if dataset is not None:
                 for data in dataset:
                     construct_truth(data, self.hparams)
+
+    def build_infer_data(self):
+
+        for events in [ self.testset ]:
+            if events is not None:
+                for event in events:
+                    construct_truth(event, self.hparams)

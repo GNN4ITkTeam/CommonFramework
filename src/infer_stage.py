@@ -25,34 +25,23 @@ def main(config_file):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.
     """
-    train(config_file)
+    infer(config_file)
 
-def train(config_file):
+def infer(config_file):
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     # load stage
     stage = config["stage"]
-    stage_module = str_to_class(f"{stage}Stage")(config)
 
-    # setup stage
-    stage_module.setup(stage="fit")
-
-    checkpoint_callback = ModelCheckpoint(
-        monitor="auc", mode="max", save_top_k=2, save_last=True
+    #  infer stage
+    stage_module = str_to_class(f"{stage}Stage").load_from_checkpoint(
+        os.path.join(config["input_dir"], "checkpoints", "last.ckpt")
     )
 
-    # train stage
-    trainer = Trainer(
-        gpus=config["gpus"],
-        num_nodes=config["nodes"],
-        max_epochs=config["max_epochs"],
-        callbacks=[checkpoint_callback]
-    )
-    
-    # TODO:
-    trainer.fit(stage_module)
+    stage_module.setup(stage="infer")
+    stage_module.build_infer_data()
 
 
 if __name__ == "__main__":
