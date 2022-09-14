@@ -1,3 +1,4 @@
+stage: GNN
 input_dir: test_construction_project # Should contain the files used in training and inference
 stage_dir: test_gnn_project # A directory to be created that will store logs, artifacts, and output data
 project: ITk_1GeVSignal_GNN # Used in logging
@@ -8,8 +9,16 @@ nodes: 1
 # Dataset parameters
 data_split: [1, 1, 1] # Number of [training, validation, testing] examples
 
-# Truth and weighting parameters
-
+# Define overwriting weight/truth config - the default is all true edges set to +1, all negative edges set to -1
+weighting_config:
+  10: 
+    y: True
+    pt: [1000., .inf]
+    primary: True 
+    n_hits: [3, .inf]
+  0:
+    y: True 
+    pt: [0., 1000.]
 
 # Model parameters
 edge_cut: 0.5
