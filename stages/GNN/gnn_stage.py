@@ -1,11 +1,13 @@
-import sys, os
+import sys
+import os
+import warnings
 
 from pytorch_lightning import LightningModule
 import torch.nn.functional as F
 from torch_geometric.data import DataLoader
 import torch
 
-from .utils import str_to_class, load_dataset_from_dir
+from .utils import str_to_class, load_dataset_from_dir, run_data_tests
 
 
 class GNNStage(LightningModule):
@@ -51,8 +53,14 @@ class GNNStage(LightningModule):
         """
         Test the data to ensure it is of the right format and loaded correctly.
         """
-        pass
+        required_features = ["x", "edge_index", "truth_graph"]
+        optional_features = ["pid", "n_hits", "primary", "pdg_id", "ghost", "shared", "module_id", "region_id", "hit_id"]
 
+        run_data_tests(self.trainset, self.valset, self.testset, required_features, optional_features)
+
+        assert self.trainset[0].x.shape[1] == self.hparams["spatial_channels"], "Input dimension does not match the data"
+
+        
     def construct_truth(self):
         """
         Construct the truth and weighting labels for the model training.
