@@ -4,19 +4,22 @@ from torch_scatter import scatter_add, scatter_mean, scatter_max
 from torch.utils.checkpoint import checkpoint
 from .utils import make_mlp
 
+from ..gnn_stage import GNNStage
 
-class InteractionGNN(nn.Module):
+
+class InteractionGNN(GNNStage):
 
     """
     An interaction network class
     """
 
     def __init__(self, hparams):
-        super().__init__()
+        super().__init__(hparams)
         """
         Initialise the Lightning Module that can scan over different GNN training regimes
         """
 
+        # Define the dataset to be used, if not using the default
         self.hparams = hparams
 
         concatenation_factor = (
@@ -153,3 +156,4 @@ class InteractionGNN(nn.Module):
             x, e = checkpoint(self.message_step, x, start, end, e)
 
         return self.output_step(x, start, end, e)
+

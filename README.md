@@ -1,5 +1,14 @@
 # Common Framework for GNN4ITk Project
 
+## Install
+
+To install the GNN4ITK common framework, assuming GPU capability, run
+
+```
+conda env create -f gpu_environment.yml
+```
+
+otherwise use the `cpu_environment.yml` file.
 
 ## Planning Doc
 

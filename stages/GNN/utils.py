@@ -12,10 +12,8 @@ from .models import *
 def str_to_class(classname):
     return getattr(sys.modules[__name__], classname)
 
-def load_dataset_from_dir(input_dir, data_name, data_num):
-    """
-    Load in the PyG Data dataset from the data directory.
-    """
+def load_datafiles_in_dir(input_dir, data_name, data_num):
+
     data_dir = os.path.join(input_dir, "data", data_name)
     if not os.path.exists(data_dir):
         warnings.warn(f"Data directory {data_dir} does not exist. Looking in {input_dir}.")
@@ -27,6 +25,14 @@ def load_dataset_from_dir(input_dir, data_name, data_num):
     assert len(data_files) > 0, f"No data files found in {data_dir}"
     assert len(data_files) == data_num, f"Number of data files found ({len(data_files)}) is less than the number requested ({data_num})"
 
+    return data_files
+
+def load_dataset_from_dir(input_dir, data_name, data_num):
+    """
+    Load in the PyG Data dataset from the data directory.
+    """
+    data_files = load_datafiles_in_dir(input_dir, data_name, data_num)
+    
     return [ torch.load(f, map_location="cpu") for f in data_files ]
 
 def run_data_tests(trainset, valset, testset, required_features, optional_features):
@@ -57,7 +63,7 @@ def convert_to_latest_pyg_format(event):
     """
     return Data.from_dict(event.__dict__)
 
-def construct_truth(event, config):
+def construct_event_truth(event, config):
     event.edge_index, event.y = graph_intersection(event.edge_index, event.truth_graph)
     assert event.y.shape[0] == event.edge_index.shape[1], f"Input graph has {event.edge_index.shape[1]} edges, but {event.y.shape[0]} truth labels"
 
@@ -74,8 +80,7 @@ def handle_weighting(event, weighting_config):
     """
     Take the specification of the weighting and convert this into float values. The default is:
     - True edges have weight 1.0
-    - Negative edges have weight -1.0
-    Such that the loss is then weight * (pred - truth)^2 (the standard BCE loss)
+    - Negative edges have weight 1.0
 
     The weighting_config can be used to change this behaviour. For example, we might up-weight target particles - that is edges that pass:
     - y == 1
@@ -88,6 +93,10 @@ def handle_weighting(event, weighting_config):
     - primary == False
     - pt < 1 GeV
     - etc. As desired.
+    """
+
+    """
+    TODO: This now needs to handle the new edge feature system
     """
 
     for weight_val, weight_conditions in weighting_config.items():
