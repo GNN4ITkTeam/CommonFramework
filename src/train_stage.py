@@ -34,7 +34,7 @@ def train(config_file):
 
     # load stage
     stage = config["stage"]
-    stage_module = str_to_class(f"{stage}Stage")(config)
+    stage_module = str_to_class(f"{stage}")(config)
 
     # setup stage
     stage_module.setup(stage="fit")

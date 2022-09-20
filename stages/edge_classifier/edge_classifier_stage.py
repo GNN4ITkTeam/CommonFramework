@@ -10,7 +10,7 @@ import torch
 
 from .utils import str_to_class, load_datafiles_in_dir, run_data_tests, construct_event_truth
 
-class GNNStage(LightningModule):
+class EdgeClassifierStage(LightningModule):
     def __init__(self, hparams):
         super().__init__()
         """

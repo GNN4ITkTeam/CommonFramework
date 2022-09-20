@@ -1,8 +1,9 @@
-stage: GNN
-input_dir: test_construction_project # Should contain the files used in training and inference
-stage_dir: test_gnn_project # A directory to be created that will store logs, artifacts, and output data
+stage: EdgeClassifierStage
 project: ITk_1GeVSignal_GNN # Used in logging
 model_name: InteractionGNN # The model class to be loaded
+
+input_dir: test_construction_project # Should contain the files used in training and inference
+stage_dir: test_gnn_project # A directory to be created that will store logs, artifacts, and output data
 gpus: 0
 nodes: 1
 
@@ -10,6 +11,7 @@ nodes: 1
 data_split: [1, 1, 1] # Number of [training, validation, testing] examples
 
 # Define overwriting weight/truth config - the default is all true edges set to +1, all negative edges set to -1
+# TODO: Add ignore_split_module option
 weighting_config:
   - weight: 10 
     y: True

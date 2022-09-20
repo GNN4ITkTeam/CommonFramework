@@ -8,7 +8,7 @@ def test_model_load():
     """
     Test the model to ensure it is of the right format and loaded correctly.
     """
-    from stages.GNN.gnn_stage import GNNStage
+    from stages.edge_classifier.gnn_stage import GNNStage
 
     # load test_gnn_config.yaml
     with open("test_gnn_config.yaml", "r") as f:
@@ -28,7 +28,7 @@ def test_data_load():
     3. Test a data load without enough events
     4. Missing directory
     """
-    from stages.GNN.gnn_stage import GNNStage
+    from stages.edge_classifier.gnn_stage import GNNStage
 
     # load test_gnn_config.yaml
     with open("test_gnn_config.yaml", "r") as f:
