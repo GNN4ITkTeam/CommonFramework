@@ -27,21 +27,31 @@ def main(config_file):
     """
     infer(config_file)
 
+# def infer(config_file):
+#     # load config
+#     with open(config_file, "r") as f:
+#         config = yaml.load(f, Loader=yaml.FullLoader)
+
+#     # load stage
+#     stage = config["stage"]
+
+#     #  infer stage
+#     stage_module = str_to_class(f"{stage}Stage").load_from_checkpoint(
+#         os.path.join(config["input_dir"], "checkpoints", "last.ckpt")
+#     )
+
+#     stage_module.setup(stage="infer")
+#     stage_module.build_infer_data()
+
 def infer(config_file):
+
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     # load stage
     stage = config["stage"]
-
-    #  infer stage
-    stage_module = str_to_class(f"{stage}Stage").load_from_checkpoint(
-        os.path.join(config["input_dir"], "checkpoints", "last.ckpt")
-    )
-
-    stage_module.setup(stage="infer")
-    stage_module.build_infer_data()
+    str_to_class(f"{stage}Stage").infer(config_file)
 
 
 if __name__ == "__main__":
