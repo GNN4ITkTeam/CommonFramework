@@ -10,6 +10,12 @@ conda env create -f gpu_environment.yml
 
 otherwise use the `cpu_environment.yml` file.
 
+## First Example: Inference of Pipeline with Module Map, GNN and Connected Components
+
+## Second Example: Inference of Pipeline with Metric Learning, GNN and Walkthrough
+
+## Third Example: Training a Custom Pipeline
+
 ## Planning Doc
 
 ### Intro
@@ -28,3 +34,14 @@ Given a set of wishes for how to work together, what do we need to produce to ge
 - [ ] Be well-documented
 - [ ] Private for the use of the GNN4ITk group but can freeze certain examples and configurations for public release (using a technique like this one: a public release mirror that can be cited)
 - [ ] Be clean - keep messy development and random ideas out of the repository. Can include several different models and configurations, but these should have been tested already elsewhere
+
+### Roadmap for Documentation & Tutorials
+- [ ] Make password-protected example data available for testing and examples
+- [ ] Make a tutorial for how to run Example 1: An inference of a pipeline with module map, GNN and connected components
+- [ ] Make a tutorial for how to run Example 2: An inference of a pipeline with metric learning, GNN and walkthrough
+- [ ] Make a tutorial for how to run Example 3: Training a custom pipeline
+
+### Roadmap for Codebase
+- [ ] Training script written and tested
+- [ ] Inference script written and tested
+- [ ] Evaluation script written and tested
