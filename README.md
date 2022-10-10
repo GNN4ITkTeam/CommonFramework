@@ -12,9 +12,15 @@ otherwise use the `cpu_environment.yml` file.
 
 ## First Example: Inference of Pipeline with Module Map, GNN and Connected Components
 
+TODO
+
 ## Second Example: Inference of Pipeline with Metric Learning, GNN and Walkthrough
 
+TODO
+
 ## Third Example: Training a Custom Pipeline
+
+TODO
 
 ## Planning Doc
 
@@ -36,7 +42,8 @@ Given a set of wishes for how to work together, what do we need to produce to ge
 - [ ] Be clean - keep messy development and random ideas out of the repository. Can include several different models and configurations, but these should have been tested already elsewhere
 
 ### Roadmap for Documentation & Tutorials
-- [ ] Make password-protected example data available for testing and examples
+- [X] Make password-protected example data available for testing and examples: available at 
+https://portal.nersc.gov/cfs/m3443/dtmurnane/GNN4ITk/ExampleData/athena_100_events.zip and https://cernbox.cern.ch/index.php/s/CTBnzv4DlntgHJ7
 - [ ] Make a tutorial for how to run Example 1: An inference of a pipeline with module map, GNN and connected components
 - [ ] Make a tutorial for how to run Example 2: An inference of a pipeline with metric learning, GNN and walkthrough
 - [ ] Make a tutorial for how to run Example 3: Training a custom pipeline
