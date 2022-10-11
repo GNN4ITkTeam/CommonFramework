@@ -5,3 +5,5 @@
 *wandb*
 *logs*
 *.ckpt*
+*_dev
+**_dev

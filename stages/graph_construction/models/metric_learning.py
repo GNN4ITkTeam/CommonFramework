@@ -13,7 +13,7 @@ import logging
 from .utils import make_mlp, build_edges
 
 
-class MetricLearning(GraphConstructionStage):
+class MetricLearning(GraphConstructionStage, LightningModule):
     def __init__(self, hparams):
         super().__init__(hparams)
         """

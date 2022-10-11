@@ -28,19 +28,17 @@ class EventReader:
         else:
             raise NotImplementedError
 
-    @classmethod
-    def infer(cls, config):
+    def infer(self):
         """ 
         The gateway for the inference stage. This class method is called from the infer_stage.py script.
         It assumes a set of basic steps. These are:
         1. Convert to CSV - This should be implemented by the user
         2. Convert to PyG
         """
-        reader = cls(config)
-        reader.convert_to_csv()
-        reader._test_csv_conversion()
-        reader._convert_to_pyg()
-        return reader 
+        
+        self.convert_to_csv()
+        self._test_csv_conversion()
+        self._convert_to_pyg()
 
     def convert_to_csv(self):
         raise NotImplementedError

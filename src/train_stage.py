@@ -39,20 +39,24 @@ def train(config_file):
     # setup stage
     stage_module.setup(stage="fit")
 
-    checkpoint_callback = ModelCheckpoint(
-        monitor="auc", mode="max", save_top_k=2, save_last=True
-    )
+    if isinstance(stage_module, LightningModule):
+        checkpoint_callback = ModelCheckpoint(
+            monitor="auc", mode="max", save_top_k=2, save_last=True
+        )
 
-    # train stage
-    trainer = Trainer(
-        gpus=config["gpus"],
-        num_nodes=config["nodes"],
-        max_epochs=config["max_epochs"],
-        callbacks=[checkpoint_callback]
-    )
-    
-    # TODO:
-    trainer.fit(stage_module)
+        # train stage
+        trainer = Trainer(
+            gpus=config["gpus"],
+            num_nodes=config["nodes"],
+            max_epochs=config["max_epochs"],
+            callbacks=[checkpoint_callback]
+        )
+        
+        # TODO:
+        trainer.fit(stage_module)
+
+    else:
+        stage_module.train()
 
 
 if __name__ == "__main__":
