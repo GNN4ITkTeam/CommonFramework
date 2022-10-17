@@ -1,3 +1,7 @@
-from .graph_construction_stage import GraphConstructionStage
+from .models.metric_learning import MetricLearning
+from .models.py_module_map import PyModuleMap
 
-__all__ = ['GraphConstructionStage']
+__all__ = [
+    'MetricLearning',
+    'PyModuleMap'
+    ]

@@ -1,6 +1,9 @@
 import os
 import numpy as np
 from torch.utils.data import random_split
+from tqdm import tqdm
+from tqdm.contrib.concurrent import process_map
+from functools import partial
 
 from ..data_reading_stage import EventReader
 from .athena_utils import read_particles, read_spacepoints, read_clusters, convert_barcodes, get_truth_spacepoints, get_detectable_particles
@@ -45,41 +48,55 @@ class AthenaReader(EventReader):
 
         for dataset, dataset_name in zip([self.trainset, self.valset, self.testset], ["trainset", "valset", "testset"]):
             self.build_csv_dataset(dataset, dataset_name)
+            
+
+    def _build_single_csv(self, event, output_dir=None):
+
+        clusters_file = event["clusters"]
+        particles_file = event["particles"]
+        spacepoints_file = event["spacepoints"]
+        event_id = event["event_id"]
+
+        # Check if file already exists
+        if os.path.exists(os.path.join(output_dir, "event{:09}-particles.csv".format(int(event_id)))) and os.path.exists(os.path.join(output_dir, "event{:09}-truth.csv".format(int(event_id)))):
+            print(f"File {event_id} already exists, skipping...")
+            return
+
+        # Read particles
+        particles = read_particles(particles_file)
+        particles = convert_barcodes(particles)
+        particles = particles.astype(self.config["particles_datatypes"])
+
+        # Read spacepoints
+        pixel_spacepoints, strip_spacepoints = read_spacepoints(spacepoints_file)
+
+        # Read clusters
+        clusters = read_clusters(clusters_file, particles, self.config["column_lookup"])
+
+        # Get truth spacepoints
+        truth = get_truth_spacepoints(pixel_spacepoints, strip_spacepoints, clusters, self.config["spacepoints_datatypes"])
+
+        # Get detectable particles
+        detectable_particles = get_detectable_particles(particles, clusters)
+
+        # Save to CSV
+        truth.to_csv(os.path.join(output_dir, "event{:09}-truth.csv".format(int(event_id))), index=False)
+        detectable_particles.to_csv(os.path.join(output_dir, "event{:09}-particles.csv".format(int(event_id))), index=False)
 
     def build_csv_dataset(self, dataset, data_name):
 
-        output_dir = os.path.join(self.config["output_dir"], data_name)
+        output_dir = os.path.join(self.config["stage_dir"], data_name)
         os.makedirs(output_dir, exist_ok=True)
 
-        for event in dataset:
-
-            clusters_file = event["clusters"]
-            particles_file = event["particles"]
-            spacepoints_file = event["spacepoints"]
-            event_id = event["event_id"]
-
-            # Check if file already exists
-            if os.path.exists(os.path.join(output_dir, "event{:09}-particles.csv".format(int(event_id)))) and os.path.exists(os.path.join(self.config["output_dir"], "event{:09}-truth.csv".format(int(event_id)))):
-                print("File already exists, skipping...")
-                continue
-
-            # Read particles
-            particles = read_particles(particles_file)
-            particles = convert_barcodes(particles)
-            particles = particles.astype(self.config["particles_datatypes"])
-
-            # Read spacepoints
-            pixel_spacepoints, strip_spacepoints = read_spacepoints(spacepoints_file)
-
-            # Read clusters
-            clusters = read_clusters(clusters_file, particles, self.config["column_lookup"])
-
-            # Get truth spacepoints
-            truth = get_truth_spacepoints(pixel_spacepoints, strip_spacepoints, clusters, self.config["spacepoints_datatypes"])
-
-            # Get detectable particles
-            detectable_particles = get_detectable_particles(particles, clusters)
-
-            # Save to CSV
-            truth.to_csv(os.path.join(output_dir, "event{:09}-truth.csv".format(int(event_id))), index=False)
-            detectable_particles.to_csv(os.path.join(output_dir, "event{:09}-particles.csv".format(int(event_id))), index=False)
+        # Build CSV files, optionally with multiprocessing
+        max_workers = self.config["max_workers"] if "max_workers" in self.config else None
+        if max_workers != 1:
+            process_map(
+                partial(self._build_single_csv, output_dir=output_dir), 
+                dataset, max_workers=max_workers, 
+                chunksize=1, 
+                desc=f"Building {data_name} CSV files"
+            )
+        else:
+            for event in tqdm(dataset, desc=f"Building {data_name} CSV files"):
+                self._build_single_csv(event, output_dir=output_dir)

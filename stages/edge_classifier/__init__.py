@@ -1,3 +1,3 @@
-from .edge_classifier_stage import EdgeClassifierStage
+from .models.interaction_gnn import InteractionGNN
 
-__all__ = ['EdgeClassifierStage']
+__all__ = ['InteractionGNN']

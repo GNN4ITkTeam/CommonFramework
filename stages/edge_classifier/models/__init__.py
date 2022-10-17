@@ -1,3 +1,5 @@
-from .interaction_gnn import InteractionGNN
+# print("Importing", __name__)
 
-__all__ = ["InteractionGNN"]
+# from .interaction_gnn import InteractionGNN
+
+# __all__ = ["InteractionGNN"]

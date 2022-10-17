@@ -1,9 +1,8 @@
 import sys
 sys.path.append("../")
-import os
-import warnings
-
+import stages
 from stages import *
 
-def str_to_class(classname):
-    return getattr(sys.modules[__name__], classname)
+def str_to_class(stage, model):
+
+    return getattr(getattr(stages, stage), model)

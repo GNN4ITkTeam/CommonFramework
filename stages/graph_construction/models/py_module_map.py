@@ -1,5 +1,11 @@
 # 3rd party imports
 import logging
+import pandas as pd
+import torch
+try:
+    import cudf
+except ImportError:
+    logging.warning("cuDF not found, using pandas instead")
 
 # Local imports
 from ..graph_construction_stage import GraphConstructionStage
@@ -10,14 +16,8 @@ class PyModuleMap(GraphConstructionStage):
         """
         Initialise the PyModuleMap - a python implementation of the Triplet Module Map.
         """
-
-        try:
-            import torch
-            import cudf
-            self.gpu_available = torch.cuda.is_available()
-        except ImportError:
-            self.gpu_available = False
-
+        self.hparams = hparams
+        self.gpu_available = torch.cuda.is_available()
         self.load_module_map()
 
     def load_module_map(self):
@@ -26,13 +26,13 @@ class PyModuleMap(GraphConstructionStage):
         """
 
         names = ["mid_1","mid_2","mid_3","occurence","z0max_12","z0min_12","dphimax_12","dphimin_12","phiSlopemax_12","phiSlopemin_12","detamax_12","detamin_12","z0max_23","z0min_23","dphimax_23","dphimin_23","phiSlopemax_23","phiSlopemin_23","detamax_23","detamin_23","diff_dzdr_max","diff_dzdr_min","diff_dydx_max","diff_dydx_min"]
-        self.MM = pd.read_csv(map_path,names=names,header=None, delim_whitespace=True)
-        self.MM_1, self.MM_2, self.MM_triplet = self.get_module_features(MM)
+        self.MM = pd.read_csv(self.hparams["module_map_path"],names=names,header=None, delim_whitespace=True)
+        self.MM_1, self.MM_2, self.MM_triplet = self.get_module_features(self.MM)
         
         if self.gpu_available:
-            self.MM_1 = cudf.from_pandas(MM_1)
-            self.MM_2 = cudf.from_pandas(MM_2)
-            self.MM_triplet = cudf.from_pandas(MM_triplet)
+            self.MM_1 = cudf.from_pandas(self.MM_1)
+            self.MM_2 = cudf.from_pandas(self.MM_2)
+            self.MM_triplet = cudf.from_pandas(self.MM_triplet)
 
     def build_graphs(self, dataset, data_name):
         """

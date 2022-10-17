@@ -4,10 +4,10 @@ from torch_scatter import scatter_add, scatter_mean, scatter_max
 from torch.utils.checkpoint import checkpoint
 from .utils import make_mlp
 
-from ..gnn_stage import GNNStage
+from ..edge_classifier_stage import EdgeClassifierStage
 
 
-class InteractionGNN(GNNStage):
+class InteractionGNN(EdgeClassifierStage):
 
     """
     An interaction network class

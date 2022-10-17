@@ -44,7 +44,8 @@ def infer(config_file):
 
     # load stage
     stage = config["stage"]
-    stage_module = str_to_class(f"{stage}").infer(config)
+    model = config["model"]
+    stage_module = str_to_class(stage, model).infer(config)
 
 
 if __name__ == "__main__":

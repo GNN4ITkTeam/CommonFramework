@@ -5,6 +5,9 @@ import pandas as pd
 import yaml
 from typing import Union
 import glob
+from tqdm import tqdm
+from tqdm.contrib.concurrent import process_map
+from functools import partial
 import re
 from itertools import chain, product
 from torch_geometric.data import Data
@@ -28,7 +31,8 @@ class EventReader:
         else:
             raise NotImplementedError
 
-    def infer(self):
+    @classmethod
+    def infer(cls, config):
         """ 
         The gateway for the inference stage. This class method is called from the infer_stage.py script.
         It assumes a set of basic steps. These are:
@@ -36,28 +40,61 @@ class EventReader:
         2. Convert to PyG
         """
         
-        self.convert_to_csv()
-        self._test_csv_conversion()
-        self._convert_to_pyg()
+        reader = cls(config)
+        reader.convert_to_csv()
+        reader._test_csv_conversion()
+        reader._convert_to_pyg()
+        reader._test_pyg_conversion()
+
+        return reader
 
     def convert_to_csv(self):
         raise NotImplementedError
 
+    def _test_pyg_conversion(self):
+        """
+        This is called after the base class has finished processing the hits, particles and tracks.
+        TODO: Implement some tests!
+        """
+        pass
+
     def _convert_to_pyg(self):
 
-        self.csv_events = self.get_file_names(self.config["output_dir"], filename_terms = ["particles", "truth"])
+        for dataset_name in ["trainset", "valset", "testset"]:
+            self.build_pyg_dataset(dataset_name)
 
-        for event in self.csv_events:
-            particles = pd.read_csv(event["particles"])
-            hits = pd.read_csv(event["truth"])
-            hits, particles = self._select_hits(hits, particles)
-            hits = self._add_all_features(hits)
-            hits = self._clean_noise_duplicates(hits)
+    def _build_single_pyg_event(self, event, output_dir=None):
 
-            tracks, track_features, hits = self._build_true_tracks(hits, particles)
-            hits, particles, tracks = self._custom_processing(hits, particles, tracks)
-            graph = self._build_graph(hits, tracks, track_features)
-            self._save_pyg_data(graph, event["event_id"])
+        event_id = event["event_id"]
+        if os.path.exists(os.path.join(output_dir, f"event{event_id}-graph.pyg")):
+            print(f"Graph {event_id} already exists, skipping...")
+            return
+
+        particles = pd.read_csv(event["particles"])
+        hits = pd.read_csv(event["truth"])
+        hits, particles = self._select_hits(hits, particles)
+        hits = self._add_all_features(hits)
+        hits = self._clean_noise_duplicates(hits)
+
+        tracks, track_features, hits = self._build_true_tracks(hits, particles)
+        hits, particles, tracks = self._custom_processing(hits, particles, tracks)
+        graph = self._build_graph(hits, tracks, track_features)
+        self._save_pyg_data(graph, output_dir, event_id)
+
+    def build_pyg_dataset(self, dataset_name):
+        stage_dir = os.path.join(self.config["stage_dir"], dataset_name)
+        csv_events = self.get_file_names(stage_dir, filename_terms = ["particles", "truth"])
+        max_workers = self.config["max_workers"] if "max_workers" in self.config else None
+        if max_workers != 1:
+            process_map(
+                partial(self._build_single_pyg_event, output_dir=stage_dir),
+                csv_events,
+                max_workers=max_workers,
+                desc=f"Building {dataset_name} graphs",
+            )
+        else:
+            for event in tqdm(csv_events, desc=f"Building {dataset_name} graphs"):
+                self._build_single_pyg_event(event, output_dir=stage_dir)
 
     def _build_graph(self, hits, tracks, track_features):
         """
@@ -72,13 +109,17 @@ class EventReader:
         for feature in self.config["feature_sets"]["track_features"]:
             graph[feature] = torch.from_numpy(track_features[feature])
 
+        # TODO:
+        # Add config dictionary to the graph object
+        graph.config = [self.config]
+
         return graph
 
-    def _save_pyg_data(self, graph, event_id):
+    def _save_pyg_data(self, graph, output_dir, event_id):
         """
         Save the PyG constructed graph
         """
-        torch.save(graph, os.path.join(self.config["output_dir"], f"event{event_id}-graph.pyg"))
+        torch.save(graph, os.path.join(output_dir, f"event{event_id}-graph.pyg"))
 
 
     @staticmethod
@@ -138,8 +179,8 @@ class EventReader:
         return hits
 
     def _add_all_features(self, hits):
-        assert all([col in hits.columns for col in ["x","y","z"]]), "Need to add (x,y,z) features"
-        
+        assert all(col in hits.columns for col in ["x", "y", "z"]), "Need to add (x,y,z) features"
+
         r = np.sqrt(hits.x**2 + hits.y**2)
         phi = np.arctan2(hits.y, hits.x)
         eta = self.calc_eta(r, hits.z)
@@ -149,7 +190,7 @@ class EventReader:
 
     def _build_true_tracks(self, hits, particles):
 
-        assert all([col in hits.columns for col in ["particle_id", "hit_id", "x","y","z","vx","vy","vz"]]), "Need to add (particle_id, hit_id), (x,y,z) and (vx,vy,vz) features to hits dataframe in custom EventReader class"
+        assert all(col in hits.columns for col in ["particle_id", "hit_id", "x", "y", "z", "vx", "vy", "vz"]), "Need to add (particle_id, hit_id), (x,y,z) and (vx,vy,vz) features to hits dataframe in custom EventReader class"
 
         signal = hits[(hits.particle_id != 0)]
 
@@ -167,7 +208,7 @@ class EventReader:
         # Group by particle ID
         if "module_columns" not in self.config or self.config["module_columns"] is None:
             module_columns = ["barrel_endcap", "hardware", "layer_disk", "eta_module", "phi_module"]
-        
+
         signal_index_list = (signal.groupby(
                 ["particle_id"] + module_columns,
                 sort=False,
@@ -231,19 +272,18 @@ class EventReader:
 
         all_files_in_template = [ glob.glob(os.path.join(inputdir, f"*{template}*")) for template in filename_terms ]
         all_files_in_template = list(chain.from_iterable(all_files_in_template))
-        all_event_ids = sorted(list(set([re.findall("[0-9]+", file)[-1] for file in all_files_in_template])))
+        all_event_ids = sorted(list({re.findall("[0-9]+", file)[-1] for file in all_files_in_template}))
+
 
         all_events = []
         for event_id in all_event_ids:
             event = {"event_id": event_id}
             for term in filename_terms:
-                # Search for a file containing the term and EXACTLY the event id (i.e. no other numbers)
-                template_file = [file for file in all_files_in_template if term in os.path.basename(file) and re.findall("[0-9]+", file)[-1] == event_id]
-                if len(template_file) == 0:
+                if template_file := [file for file in all_files_in_template if term in os.path.basename(file) and re.findall("[0-9]+", file)[-1] == event_id]:
+                    event[term] = template_file[0]
+                else:
                     print(f"Could not find file for term {term} and event id {event_id}")
                     break
-                else:
-                    event[term] = template_file[0]
             else:
                 all_events.append(event)
 
@@ -257,15 +297,16 @@ class EventReader:
 
     def _test_csv_conversion(self):
         
-        self.csv_events = self.get_file_names(self.config["output_dir"], filename_terms=["truth", "particles"])
-        assert len(self.csv_events) > 0, "No CSV files found in output directory matching the formats (event[eventID]-truth.csv, event[eventID]-particles.csv). Please check that the conversion to CSV was successful."
+        for data_name in ["trainset", "valset", "testset"]:
+            self.csv_events = self.get_file_names(os.path.join(self.config["stage_dir"], data_name), filename_terms=["truth", "particles"])
+            assert len(self.csv_events) > 0, "No CSV files found in output directory matching the formats (event[eventID]-truth.csv, event[eventID]-particles.csv). Please check that the conversion to CSV was successful."
 
-        # Load the first event
-        event = self.csv_events[0]
-        truth = pd.read_csv(event["truth"])
-        particles = pd.read_csv(event["particles"])
-        assert len(truth) > 0, "No truth spacepoints found in CSV file. Please check that the conversion to CSV was successful."
-        assert len(particles) > 0, "No particles found in CSV file. Please check that the conversion to CSV was successful."
+            # Probe the first event
+            event = self.csv_events[0]
+            truth = pd.read_csv(event["truth"])
+            particles = pd.read_csv(event["particles"])
+            assert len(truth) > 0, f"No truth spacepoints found in CSV file in {data_name}. Please check that the conversion to CSV was successful."
+            assert len(particles) > 0, f"No particles found in CSV file in {data_name}. Please check that the conversion to CSV was successful."
 
     def __len__(self):
         return len(self.files)
