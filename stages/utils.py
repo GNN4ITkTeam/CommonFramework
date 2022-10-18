@@ -1,13 +1,12 @@
 import sys
 import os
+from typing import List
 import warnings
 
 import numpy as np
 import scipy as sp
 import torch
 from torch_geometric.data import Data
-
-from .models import *   
 
 def str_to_class(classname):
     return getattr(sys.modules[__name__], classname)
@@ -35,27 +34,27 @@ def load_dataset_from_dir(input_dir, data_name, data_num):
     
     return [ torch.load(f, map_location="cpu") for f in data_files ]
 
-def run_data_tests(trainset, valset, testset, required_features, optional_features):
+def run_data_tests(datasets: List, required_features, optional_features):
     
-    sample_event = trainset[0]
-    assert sample_event is not None, "No data loaded"
-    # Check that the event is the latest PyG format
-    try:
-        _ = len(sample_event)
-    except RuntimeError:
-        warnings.warn("Data is not in the latest PyG format, so will be converted on-the-fly. Consider re-saving the data in latest PyG Data type.")
-        for dataset in [trainset, valset, testset]:
+    for dataset in datasets:
+        sample_event = dataset[0]
+        assert sample_event is not None, "No data loaded"
+        # Check that the event is the latest PyG format
+        try:
+            _ = len(sample_event)
+        except RuntimeError:
+            warnings.warn("Data is not in the latest PyG format, so will be converted on-the-fly. Consider re-saving the data in latest PyG Data type.")
             if dataset is not None:
                 for i, event in enumerate(dataset):
                     dataset[i] = convert_to_latest_pyg_format(event)
-        sample_event = trainset[0]
+            sample_event = dataset[0]
 
-    for feature in required_features:
-        assert feature in sample_event, f"Feature {feature} not found in data, this is REQUIRED"
-    
-    missing_optional_features = [ feature for feature in optional_features if feature not in sample_event ]
-    for feature in missing_optional_features:
-        warnings.warn(f"OPTIONAL feature [{feature}] not found in data")
+        for feature in required_features:
+            assert feature in sample_event, f"Feature {feature} not found in data, this is REQUIRED"
+        
+        missing_optional_features = [ feature for feature in optional_features if feature not in sample_event ]
+        for feature in missing_optional_features:
+            warnings.warn(f"OPTIONAL feature [{feature}] not found in data")
 
 def convert_to_latest_pyg_format(event):
     """
