@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch_geometric.data import DataLoader, Dataset
 import torch
 
-from .utils import str_to_class, load_datafiles_in_dir, run_data_tests, construct_event_truth
+from ..utils import str_to_class, load_datafiles_in_dir, run_data_tests, construct_event_truth
 
 class EdgeClassifierStage(LightningModule):
     def __init__(self, hparams):

@@ -50,7 +50,7 @@ def run_data_tests(datasets: List, required_features, optional_features):
             sample_event = dataset[0]
 
         for feature in required_features:
-            assert feature in sample_event, f"Feature {feature} not found in data, this is REQUIRED"
+            assert feature in sample_event, f"Feature {feature} not found in data, this is REQUIRED. Features found: {sample_event.keys}"
         
         missing_optional_features = [ feature for feature in optional_features if feature not in sample_event ]
         for feature in missing_optional_features:

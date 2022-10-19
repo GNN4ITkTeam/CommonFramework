@@ -1,7 +1,10 @@
 # 3rd party imports
+import os
 import logging
 import pandas as pd
+import numpy as np
 import torch
+from tqdm import tqdm
 try:
     import cudf
 except ImportError:
@@ -17,6 +20,8 @@ class PyModuleMap(GraphConstructionStage):
         Initialise the PyModuleMap - a python implementation of the Triplet Module Map.
         """
         self.hparams = hparams
+        self.use_pyg = True
+        self.use_csv = True
         self.gpu_available = torch.cuda.is_available()
         self.load_module_map()
 
@@ -39,24 +44,25 @@ class PyModuleMap(GraphConstructionStage):
         Build the graphs for the data.
         """
 
-        logging.info("Building graphs for {}".format(data_name))
-        for hits, graph in tqdm(dataset):
+        logging.info(f"Building graphs for {data_name}")
+        for graph, _, hits in tqdm(dataset):
             if self.gpu_available:
-                cudf.from_pandas(hits)
+                hits = cudf.from_pandas(hits)
 
+            hits = self.get_hit_features(hits)
             merged_hits_1 = hits.merge(self.MM_1, how="inner", left_on="mid", right_on="mid_2").drop(columns="mid")
             merged_hits_2 = hits.merge(self.MM_2, how="inner", left_on="mid", right_on="mid_2").drop(columns="mid")
 
-            doublet_edges_1 = get_doublet_edges(merged_hits_1, "mid", "mid_1", first_doublet=True)
+            doublet_edges_1 = self.get_doublet_edges(hits, merged_hits_1, "mid", "mid_1", first_doublet=True)
             doublet_edges_1 = doublet_edges_1[["hid_1", "hid_2", "mid_1", "mid_2", "mid_3", "x_1", "x_2", "y_1", "y_2", "r_1", "r_2", "z_1", "z_2"]]
 
-            doublet_edges_2 = get_doublet_edges(merged_hits_2, "mid_3", "mid", first_doublet=False)
+            doublet_edges_2 = self.get_doublet_edges(hits, merged_hits_2, "mid_3", "mid", first_doublet=False)
             doublet_edges_2 = doublet_edges_2[["hid_1", "hid_2", "mid_1", "mid_2", "mid_3", "x_2", "y_2", "r_2", "z_2"]].rename(columns={"hid_1": "hid_2", "hid_2": "hid_3", "x_2": "x_3", "y_2": "y_3", "r_2": "r_3", "z_2": "z_3"})
 
             doublet_edges_2 = doublet_edges_2.merge(self.MM_triplet, how="inner", left_on=["mid_1", "mid_2", "mid_3"], right_on=["mid_1", "mid_2", "mid_3"])
             triplet_edges = doublet_edges_1.merge(doublet_edges_2, how="inner", on=["hid_1", "hid_2", "mid_3"], suffixes=("_1", "_2"))
 
-            triplet_edges = apply_triplet_cuts(triplet_edges)
+            triplet_edges = self.apply_triplet_cuts(triplet_edges)
 
             if self.gpu_available:
                 doublet_edges = cudf.concat([triplet_edges[["hid_1", "hid_2"]], triplet_edges[["hid_2", "hid_3"]].rename(columns={"hid_2": "hid_1", "hid_3": "hid_2"})])
@@ -67,11 +73,25 @@ class PyModuleMap(GraphConstructionStage):
             doublet_edges = doublet_edges.drop_duplicates()
             graph.edge_index = torch.tensor(doublet_edges.values.T, dtype=torch.long)
             # TODO: Graph name file??
-            torch.save(graph, os.path.join(self.hparams.stage_dir, data_name, "{}.pyg".format(graph.name)))
+            torch.save(graph, os.path.join(self.hparams.stage_dir, data_name, f"{graph.name}.pyg"))
 
+    def get_hit_features(self, hits):
+        hits = hits.rename(columns={"hit_id": "hid", "ID": "mid"})
+        hits["r"] = np.sqrt(hits.x**2 + hits.y**2)
+        hits["z"] = hits.z
+        hits["eta"] = self.calc_eta(hits.r, hits.z)
+        hits["phi"] = np.arctan2(hits.y, hits.x)
 
+        # Drop all other columns
+        hits = hits[["hid", "mid", "r", "x", "y", "z", "eta", "phi"]]
+        return hits
 
-    def get_doublet_edges(self, merged_hits, left_merge, right_merge, first_doublet=True):
+    @staticmethod
+    def calc_eta(r, z):
+        theta = np.arctan2(r, z)
+        return -1. * np.log(np.tan(theta / 2.))
+
+    def get_doublet_edges(self, hits, merged_hits, left_merge, right_merge, first_doublet=True):
         """
         Get the doublet edges for the merged hits.
         """
@@ -81,7 +101,7 @@ class PyModuleMap(GraphConstructionStage):
         for batch_idx in np.arange(0, merged_hits.shape[0], self.batch_size):
             start_idx, end_idx = batch_idx, batch_idx + self.batch_size
             subset_edges = merged_hits.iloc[start_idx:end_idx].merge(hits, how="inner", left_on=left_merge, right_on=right_merge, suffixes=("_1", "_2"))
-            subset_edges = apply_doublet_cuts(subset_edges, first_doublet)
+            subset_edges = self.apply_doublet_cuts(subset_edges, first_doublet)
             doublet_edges.append(subset_edges)
 
         if isinstance(merged_hits, cudf.DataFrame):
@@ -104,15 +124,14 @@ class PyModuleMap(GraphConstructionStage):
 
         return MM_ids_1, MM_ids_2, MM_triplet
 
-    @staticmethod
-    def get_deltas(hits):
+    def get_deltas(self, hits):
     
         delta_eta = hits.eta_1 - hits.eta_2
         delta_z = hits.z_2 - hits.z_1
         delta_r = hits.r_2 - hits.r_1
 
         delta_phi = hits.phi_2 - hits.phi_1
-        delta_phi = reset_angle(delta_phi)
+        delta_phi = self.reset_angle(delta_phi)
 
         z0 = hits.z_1 - (hits.r_1 * delta_z / delta_r)
 
@@ -121,7 +140,14 @@ class PyModuleMap(GraphConstructionStage):
         return delta_eta, delta_phi, z0, phi_slope
 
     @staticmethod
-    def apply_doublet_cuts(hits, first_doublet=True):
+    def reset_angle(angles):
+    
+        angles[angles > np.pi] = angles[angles > np.pi] - 2*np.pi
+        angles[angles < -np.pi] = angles[angles < -np.pi] + 2*np.pi
+
+        return angles
+
+    def apply_doublet_cuts(self, hits, first_doublet=True):
         suffix = "12" if first_doublet else "23"
 
         delta_eta = hits.eta_1 - hits.eta_2
@@ -137,13 +163,13 @@ class PyModuleMap(GraphConstructionStage):
         hits = hits[r_z_mask]
 
         delta_phi = hits.phi_2 - hits.phi_1
-        delta_phi = reset_angle(delta_phi)
+        delta_phi = self.reset_angle(delta_phi)
 
         phi_mask = (delta_phi < hits[f"dphimax_{suffix}"]) & (delta_phi > hits[f"dphimin_{suffix}"])
         hits = hits[phi_mask]
 
         delta_phi = hits.phi_2 - hits.phi_1
-        delta_phi = reset_angle(delta_phi)
+        delta_phi = self.reset_angle(delta_phi)
         delta_r = hits.r_2 - hits.r_1
         phi_slope = delta_phi / delta_r
         phi_slope_mask = (phi_slope < hits[f"phiSlopemax_{suffix}"]) & (phi_slope > hits[f"phiSlopemin_{suffix}"])
@@ -189,9 +215,7 @@ class PyModuleMap(GraphConstructionStage):
         diff_dAdB = dA_12 / dB_12 - dA_23 / dB_23
         diff_dAdB[(dB_12 == 0) & (dB_23 == 0)] = 0
 
-        dAdB_mask = (diff_dAdB < triplet_edges[feats_min_max[1]]) & (diff_dAdB > triplet_edges[feats_min_max[0]])
-
-        return dAdB_mask
+        return (diff_dAdB < triplet_edges[feats_min_max[1]]) & (diff_dAdB > triplet_edges[feats_min_max[0]])
 
     @property
     def batch_size(self):

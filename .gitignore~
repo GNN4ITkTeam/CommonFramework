@@ -1,6 +1,0 @@
-*.csv*
-*.pt*
-*.pyg*
-*wandb*
-*logs*
-*.ckpt*

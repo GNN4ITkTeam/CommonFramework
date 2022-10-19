@@ -7,3 +7,6 @@
 *.ckpt*
 *_dev
 **_dev
+*.egg-info*
+*~*
+*__pycache__*
