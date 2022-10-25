@@ -14,7 +14,11 @@ unzip Example_1.zip
 ```
 and enter the password provided by the GNN4ITk team. The location of these files should be specified in the `yaml` config files below, before running each step.
 
-The following commands will run the Example 1 pipeline.
+The following commands will run the Example 1 pipeline. In general, they follow the pattern
+```
+**train** --> **infer** --> **eval**
+``` 
+where `train` is used to train a model, `infer` is used to apply the model to data, and `eval` is used to evaluate the performance of the model. If a model has already been trained (in the case of the Module Map in Example 1), we do not need to train it, only provide the model to the `infer` step.
 
 **1.** First, we build our input data from the raw Athena events:
 ```bash
@@ -26,7 +30,7 @@ g4i-infer data_reader.yaml
 g4i-infer module_map_infer.yaml
 ```
 
-**2a** (Optional) We can examine the performance of the Module Map, by printing some efficiency plots:
+**2a.** (Optional) We can examine the performance of the Module Map, by printing some efficiency plots:
 ```bash
 g4i-eval module_map_eval.yaml
 ```
