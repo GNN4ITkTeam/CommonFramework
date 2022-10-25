@@ -9,7 +9,7 @@ data_split: [0, 0, 10] # Number of [training, validation, testing] examples
 
 # Evaluation parameters
 target_tracks: 
-  pt: [1000, .inf]
+  pt: [1000., .inf]
   nhits: [3., .inf]
   primary: True
 
