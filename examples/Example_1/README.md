@@ -16,7 +16,7 @@ and enter the password provided by the GNN4ITk team. The location of these files
 
 The following commands will run the Example 1 pipeline. In general, they follow the pattern
 ```
-**train** --> **infer** --> **eval**
+train --> infer --> eval
 ``` 
 where `train` is used to train a model, `infer` is used to apply the model to data, and `eval` is used to evaluate the performance of the model. If a model has already been trained (in the case of the Module Map in Example 1), we do not need to train it, only provide the model to the `infer` step.
 
