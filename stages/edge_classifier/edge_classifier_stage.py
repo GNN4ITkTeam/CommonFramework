@@ -8,9 +8,11 @@ import torch.nn.functional as F
 from torch_geometric.data import DataLoader, Dataset
 import torch
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 from ..utils import str_to_class, load_datafiles_in_dir, run_data_tests, construct_event_truth
 
-class EdgeClassifierStage(LightningModule):
+class EdgeClassifierStage:
     def __init__(self, hparams):
         super().__init__()
         """
@@ -18,19 +20,10 @@ class EdgeClassifierStage(LightningModule):
         """
 
         # Assign hyperparameters
-        self.save_hyperparameters(hparams)
         self.trainset, self.valset, self.testset = None, None, None
         self.dataset_class = LargeGraphDataset
 
-        # Load in the model to be used
-        self.model = str_to_class(self.hparams["model_name"])(self.hparams)
-
-
-    def forward(self, batch):
-
-        return self.model(batch)
-
-    def setup(self, stage):
+    def setup(self, stage="fit"):
         """
         The setup logic of the stage.
         1. Setup the data for training, validation and testing.
@@ -55,20 +48,42 @@ class EdgeClassifierStage(LightningModule):
         """
         Test the data to ensure it is of the right format and loaded correctly.
         """
-        required_features = ["x", "edge_index", "truth_graph"]
+        required_features = ["x", "edge_index", "track_edges"]
         optional_features = ["pid", "n_hits", "primary", "pdg_id", "ghost", "shared", "module_id", "region_id", "hit_id"]
 
         run_data_tests(self.trainset, self.valset, self.testset, required_features, optional_features)
 
-        assert self.trainset[0].x.shape[1] == self.hparams["spatial_channels"], "Input dimension does not match the data"
+    @classmethod
+    def infer(cls, config):
+        """ 
+        The gateway for the inference stage. This class method is scalled from the infer_stage.py script.
+        """
+        if isinstance(cls, LightningModule):
+            edge_classifier = cls.load_from_checkpoint(os.path.join(config["input_dir"], "checkpoints", "last.ckpt")).to(device)
+            edge_classifier.hparams.update(config) # Update the configs used in training with those to be used in inference
+        else:
+            edge_classifier = cls(config)
 
-    def build_infer_data(self):
+        edge_classifier.setup(stage="predict")
 
-        pass
+        for data_name in ["trainset", "valset", "testset"]:
+            if hasattr(edge_classifier, data_name):
+                edge_classifier.score_edges(dataset = getattr(edge_classifier, data_name), data_name = data_name)
 
-    def produce_plots(self):
+    def score_edges(self, dataset, data_name):
+        """
+        Score the edges in the graph using the a model. Can be overwritten by the child class.
+        """
+        for batch in dataset:
+            batch = batch.to(device)
+            output = self(batch)
+            batch, output = batch.cpu(), output.cpu()
+            self.save_edge_scores(batch, output, data_name)
 
-        pass
+    def save_edge_scores(self, graph, scores, data_name):
+
+        graph.scores = scores
+        torch.save(graph, os.path.join(self.hparams["stage_dir"], data_name, f"event{graph.event_id}.pyg"))
 
     def train_dataloader(self):
         if self.trainset is not None:
@@ -140,7 +155,13 @@ class EdgeClassifierStage(LightningModule):
         """
         TODO
         """
-        pass
+        return None
+
+    def loss_function(self, output, batch, weights):
+        """
+        Handles the weights, which is ToBeImplemented
+        """
+        return F.binary_cross_entropy(output, batch.y)
 
     def log_metrics(self, output, sample_indices, batch, loss, log):
 
@@ -243,9 +264,7 @@ class EdgeClassifierStage(LightningModule):
 
     def test_step(self, batch, batch_idx):
 
-        outputs = self.shared_evaluation(batch, batch_idx, log=False)
-
-        return outputs
+        return self.shared_evaluation(batch, batch_idx, log=False)
 
 class LargeGraphDataset(Dataset):
     """

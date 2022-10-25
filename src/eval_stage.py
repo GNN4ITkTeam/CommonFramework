@@ -12,6 +12,7 @@ import os
 
 import yaml
 import click
+import logging
 
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -19,29 +20,32 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from .utils import str_to_class
 
 @click.command()
-@click.option("--config_file", "-c", default="config.yaml", help="Path to the training config file")
+@click.argument("config_file")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose mode")
 
-def main(config_file):
+def main(config_file, verbose):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.
     """
-    infer(config_file)
+    # set up logging
+    if verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
-def infer(config_file):
+    evaluate(config_file)
+
+
+def evaluate(config_file):
+
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     # load stage
     stage = config["stage"]
-
-    #  infer stage
-    stage_module = str_to_class(f"{stage}Stage").load_from_checkpoint(
-        os.path.join(config["input_dir"], "checkpoints", "last.ckpt")
-    )
-
-    stage_module.setup(stage="infer")
-    stage_module.build_infer_data()
+    model = config["model"]
+    stage_module = str_to_class(stage, model).evaluate(config)
 
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ class InteractionGNN(EdgeClassifierStage):
         """
 
         # Define the dataset to be used, if not using the default
+        self.save_hyperparameters(hparams)
         self.hparams = hparams
 
         concatenation_factor = (

@@ -49,7 +49,38 @@ class EventReader:
         return reader
 
     def convert_to_csv(self):
+        """
+        Convert the full set of Athena events to CSV. This produces files in /trainset, /valset and /testset to ensure no overlaps.
+        """
+
+        for dataset, dataset_name in zip([self.trainset, self.valset, self.testset], ["trainset", "valset", "testset"]):
+            if dataset is not None:
+                self._build_all_csv(dataset, dataset_name)
+
+    def _build_all_csv(self, dataset, dataset_name):
+
+        output_dir = os.path.join(self.config["stage_dir"], dataset_name)
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Build CSV files, optionally with multiprocessing
+        max_workers = self.config["max_workers"] if "max_workers" in self.config else None
+        if max_workers != 1:
+            process_map(
+                partial(self._build_single_csv, output_dir=output_dir), 
+                dataset, max_workers=max_workers, 
+                chunksize=1, 
+                desc=f"Building {dataset_name} CSV files"
+            )
+        else:
+            for event in tqdm(dataset, desc=f"Building {dataset_name} CSV files"):
+                self._build_single_csv(event, output_dir=output_dir)
+
+    def _build_single_csv(self, event, output_dir=None):
+        """
+        This is the user's responsibility. It should take a single event and convert it to CSV.
+        """
         raise NotImplementedError
+
 
     def _test_pyg_conversion(self):
         """
@@ -61,7 +92,7 @@ class EventReader:
     def _convert_to_pyg(self):
 
         for dataset_name in ["trainset", "valset", "testset"]:
-            self.build_pyg_dataset(dataset_name)
+            self._build_all_pyg(dataset_name)
 
     def _build_single_pyg_event(self, event, output_dir=None):
 
@@ -78,12 +109,13 @@ class EventReader:
 
         tracks, track_features, hits = self._build_true_tracks(hits, particles)
         hits, particles, tracks = self._custom_processing(hits, particles, tracks)
-        graph = self._build_graph(hits, tracks, track_features)
+        graph = self._build_graph(hits, tracks, track_features, event_id)
         self._save_pyg_data(graph, output_dir, event_id)
 
-    def build_pyg_dataset(self, dataset_name):
+    def _build_all_pyg(self, dataset_name):
         stage_dir = os.path.join(self.config["stage_dir"], dataset_name)
         csv_events = self.get_file_names(stage_dir, filename_terms = ["particles", "truth"])
+        assert len(csv_events) > 0, "No CSV files found!"
         max_workers = self.config["max_workers"] if "max_workers" in self.config else None
         if max_workers != 1:
             process_map(
@@ -96,7 +128,7 @@ class EventReader:
             for event in tqdm(csv_events, desc=f"Building {dataset_name} graphs"):
                 self._build_single_pyg_event(event, output_dir=stage_dir)
 
-    def _build_graph(self, hits, tracks, track_features):
+    def _build_graph(self, hits, tracks, track_features, event_id):
         """
         Builds a PyG data object from the hits, particles and tracks.
         """
@@ -109,9 +141,9 @@ class EventReader:
         for feature in self.config["feature_sets"]["track_features"]:
             graph[feature] = torch.from_numpy(track_features[feature])
 
-        # TODO:
-        # Add config dictionary to the graph object
+        # Add config dictionary to the graph object, so every data has a record of how it was built
         graph.config = [self.config]
+        graph.event_id = str(event_id)
 
         return graph
 
@@ -291,9 +323,9 @@ class EventReader:
 
     def _custom_processing(self, hits, particles, tracks):
         """
-        This is called after the base class has finished processing the hits, particles and tracks.
+        This is called after the base class has finished processing the hits, particles and tracks in PyG format
         """
-        pass
+        return hits, particles, tracks
 
     def _test_csv_conversion(self):
         

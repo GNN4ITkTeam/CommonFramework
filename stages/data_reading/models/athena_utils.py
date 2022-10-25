@@ -204,3 +204,30 @@ def get_truth_spacepoints(pixel_spacepoints, strip_spacepoints, clusters, spacep
     truth_spacepoints = truth_spacepoints.astype(spacepoints_datatypes)
 
     return truth_spacepoints
+
+def add_module_id(hits, module_lookup):
+    """
+    Add the module ID to the hits dataframe
+    """
+    if "ID" in hits:
+        return hits
+    cols_to_merge = ['hardware','barrel_endcap','layer_disk','eta_module','phi_module']
+    merged_hits = hits.merge(module_lookup[cols_to_merge + ["ID"]], on=cols_to_merge, how='left')
+
+    assert hits.shape[0] == merged_hits.shape[0], "Merged hits dataframe has different number of rows - possibly missing modules from lookup"
+    assert hits.shape[1] + 1 == merged_hits.shape[1], "Merged hits dataframe has different number of columns"
+
+    return merged_hits
+
+def add_region_labels(hits, region_labels: dict):
+    """
+        Label the 6 detector regions (forward-endcap pixel, forward-endcap strip, etc.)
+        """
+        
+    for region_label, conditions in region_labels.items():
+        condition_mask = np.logical_and.reduce([hits[condition_column] == condition for condition_column, condition in conditions.items()])
+        hits.loc[condition_mask, "region"] = region_label
+
+    assert (hits.region.isna()).sum() == 0, "There are hits that do not belong to any region!"
+
+    return hits

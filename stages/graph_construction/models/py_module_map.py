@@ -9,9 +9,11 @@ try:
     import cudf
 except ImportError:
     logging.warning("cuDF not found, using pandas instead")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Local imports
 from ..graph_construction_stage import GraphConstructionStage
+from . import utils
 
 class PyModuleMap(GraphConstructionStage):
     def __init__(self, hparams):
@@ -22,8 +24,7 @@ class PyModuleMap(GraphConstructionStage):
         self.hparams = hparams
         self.use_pyg = True
         self.use_csv = True
-        self.gpu_available = torch.cuda.is_available()
-        self.load_module_map()
+        self.gpu_available = torch.cuda.is_available()        
 
     def load_module_map(self):
         """
@@ -43,25 +44,30 @@ class PyModuleMap(GraphConstructionStage):
         """
         Build the graphs for the data.
         """
-
+        self.load_module_map()
+        output_dir = os.path.join(self.hparams["stage_dir"], data_name)
+        os.makedirs(output_dir, exist_ok=True)
         logging.info(f"Building graphs for {data_name}")
-        for graph, _, hits in tqdm(dataset):
-            if self.gpu_available:
-                hits = cudf.from_pandas(hits)
+
+        for graph, _, truth in tqdm(dataset):
+            
+            if os.path.exists(os.path.join(output_dir, f"event{graph.event_id}.pyg")):
+                continue
+
+            hits = cudf.from_pandas(truth.copy()) if self.gpu_available else truth.copy()
 
             hits = self.get_hit_features(hits)
-            merged_hits_1 = hits.merge(self.MM_1, how="inner", left_on="mid", right_on="mid_2").drop(columns="mid")
-            merged_hits_2 = hits.merge(self.MM_2, how="inner", left_on="mid", right_on="mid_2").drop(columns="mid")
+            merged_hits_1 = hits.merge(self.MM_1, how="inner", left_on="mid", right_on="mid_2").to_pandas()#.drop(columns="mid")
+            merged_hits_2 = hits.merge(self.MM_2, how="inner", left_on="mid", right_on="mid_2").to_pandas()#.drop(columns="mid")
 
             doublet_edges_1 = self.get_doublet_edges(hits, merged_hits_1, "mid", "mid_1", first_doublet=True)
             doublet_edges_1 = doublet_edges_1[["hid_1", "hid_2", "mid_1", "mid_2", "mid_3", "x_1", "x_2", "y_1", "y_2", "r_1", "r_2", "z_1", "z_2"]]
-
-            doublet_edges_2 = self.get_doublet_edges(hits, merged_hits_2, "mid_3", "mid", first_doublet=False)
+            
+            doublet_edges_2 = self.get_doublet_edges(hits, merged_hits_2, "mid", "mid_3", first_doublet=False)
             doublet_edges_2 = doublet_edges_2[["hid_1", "hid_2", "mid_1", "mid_2", "mid_3", "x_2", "y_2", "r_2", "z_2"]].rename(columns={"hid_1": "hid_2", "hid_2": "hid_3", "x_2": "x_3", "y_2": "y_3", "r_2": "r_3", "z_2": "z_3"})
-
             doublet_edges_2 = doublet_edges_2.merge(self.MM_triplet, how="inner", left_on=["mid_1", "mid_2", "mid_3"], right_on=["mid_1", "mid_2", "mid_3"])
-            triplet_edges = doublet_edges_1.merge(doublet_edges_2, how="inner", on=["hid_1", "hid_2", "mid_3"], suffixes=("_1", "_2"))
-
+            
+            triplet_edges = doublet_edges_1.merge(doublet_edges_2, how="inner", left_on=["mid_1", "hid_2", "mid_3"], right_on=["mid_1", "hid_2", "mid_3"], suffixes=("_1", "_2"))
             triplet_edges = self.apply_triplet_cuts(triplet_edges)
 
             if self.gpu_available:
@@ -72,8 +78,12 @@ class PyModuleMap(GraphConstructionStage):
 
             doublet_edges = doublet_edges.drop_duplicates()
             graph.edge_index = torch.tensor(doublet_edges.values.T, dtype=torch.long)
+            y, truth_map = utils.graph_intersection(graph.edge_index.to(device), graph.track_edges.to(device), return_y_pred=True, return_truth_to_pred=True)
+            graph.y = y.cpu()
+            graph.truth_map = truth_map.cpu()
+
             # TODO: Graph name file??
-            torch.save(graph, os.path.join(self.hparams.stage_dir, data_name, f"{graph.name}.pyg"))
+            torch.save(graph, os.path.join(output_dir, f"event{graph.event_id}.pyg"))
 
     def get_hit_features(self, hits):
         hits = hits.rename(columns={"hit_id": "hid", "ID": "mid"})
@@ -95,19 +105,21 @@ class PyModuleMap(GraphConstructionStage):
         """
         Get the doublet edges for the merged hits.
         """
-
+        suffixes = ("_1", "_2") if first_doublet else ("_2", "_1")
         doublet_edges = []
 
         for batch_idx in np.arange(0, merged_hits.shape[0], self.batch_size):
             start_idx, end_idx = batch_idx, batch_idx + self.batch_size
-            subset_edges = merged_hits.iloc[start_idx:end_idx].merge(hits, how="inner", left_on=left_merge, right_on=right_merge, suffixes=("_1", "_2"))
+            # subset_edges = hits.merge(merged_hits.copy().iloc[start_idx:end_idx], how="inner", left_on=left_merge, right_on=right_merge, suffixes=suffixes)
+            subset_merged = cudf.from_pandas(merged_hits.iloc[start_idx:end_idx])
+            subset_edges = hits.merge(subset_merged, how="inner", left_on=left_merge, right_on=right_merge, suffixes=suffixes)
             subset_edges = self.apply_doublet_cuts(subset_edges, first_doublet)
             doublet_edges.append(subset_edges)
+        
+        # Delete everything
+        del subset_edges
 
-        if isinstance(merged_hits, cudf.DataFrame):
-            doublet_edges = cudf.concat(doublet_edges)
-        else:
-            doublet_edges = pd.concat(doublet_edges)
+        return cudf.concat(doublet_edges) if isinstance(doublet_edges[0], cudf.DataFrame) else pd.concat(doublet_edges)
 
 
     @staticmethod
@@ -220,4 +232,4 @@ class PyModuleMap(GraphConstructionStage):
     @property
     def batch_size(self):
         
-        return self.hparams.batch_size if "batch_size" in self.hparams else int(1e6)
+        return self.hparams["batch_size"] if "batch_size" in self.hparams else int(1e6)

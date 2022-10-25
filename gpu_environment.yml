@@ -10,7 +10,7 @@ channels:
 dependencies:
     - python=3.9
     - pip
-    - numpy
+    - numpy<=1.22
     - pandas
     - scipy
     - matplotlib

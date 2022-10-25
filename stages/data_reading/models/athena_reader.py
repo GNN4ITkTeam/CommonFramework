@@ -4,51 +4,31 @@ from torch.utils.data import random_split
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from functools import partial
+import pandas as pd
 
 from ..data_reading_stage import EventReader
-from .athena_utils import read_particles, read_spacepoints, read_clusters, convert_barcodes, get_truth_spacepoints, get_detectable_particles
-
+from . import athena_utils
 
 class AthenaReader(EventReader):
     def __init__(self, config):
         super().__init__(config)
-        
-    def _custom_processing(self, hits, particles, tracks):
         """
-        This is called after the base class has finished processing the hits, particles and tracks.
-        In Athena, we will use it for some fine-tuning of the final outputs, including adding region labels to the hits (for heteroGNN stage).
+        Here we initialize and load any attributes that are needed for the _build_single_csv function.
         """
-        # Add region labels to hits
-        hits = self._add_region_labels(hits)
-        
-        return hits, particles, tracks
-        
-    def _add_region_labels(self, hits):
-        """
-        Label the 6 detector regions (forward-endcap pixel, forward-endcap strip, etc.)
-        """
-        
-        for region_label, conditions in self.config["region_labels"].items():
-            condition_mask = np.logical_and.reduce([hits[condition_column] == condition for condition_column, condition in conditions.items()])
-            hits.loc[condition_mask, "region"] = region_label
 
-        assert (hits.region.isna()).sum() == 0, "There are hits that do not belong to any region!"
-
-        return hits
-
-    def convert_to_csv(self):
-        """
-        Convert the full set of Athena events to CSV. This produces files in /trainset, /valset and /testset to ensure no overlaps.
-        By default, we split 80/10/10 the three datasets.
-        """
-        
         input_dir = self.config["input_dir"]
         self.raw_events = self.get_file_names(input_dir, filename_terms = ["clusters", "particles", "spacepoints"])
+        
+        # Very opinionated: We split the data by 80/10/10: train/val/test
         self.trainset, self.valset, self.testset = random_split(self.raw_events, [int(len(self.raw_events)*0.8), int(len(self.raw_events)*0.1), int(len(self.raw_events)*0.1)])
+        self.module_lookup = self.get_module_lookup()
 
-        for dataset, dataset_name in zip([self.trainset, self.valset, self.testset], ["trainset", "valset", "testset"]):
-            self.build_csv_dataset(dataset, dataset_name)
-            
+    def get_module_lookup(self):
+        # Let's get the module lookup
+        names = ['hardware','barrel_endcap','layer_disk','eta_module','phi_module',"centerMod_z","centerMod_x","centerMod_y","ID","side"]
+        module_lookup = pd.read_csv(self.config["module_lookup_path"],sep = " ",names=names, header=None)
+        module_lookup = module_lookup.drop_duplicates()
+        return module_lookup[module_lookup.side == 0] #.copy() ??
 
     def _build_single_csv(self, event, output_dir=None):
 
@@ -63,40 +43,26 @@ class AthenaReader(EventReader):
             return
 
         # Read particles
-        particles = read_particles(particles_file)
-        particles = convert_barcodes(particles)
+        particles = athena_utils.read_particles(particles_file)
+        particles = athena_utils.convert_barcodes(particles)
         particles = particles.astype(self.config["particles_datatypes"])
 
         # Read spacepoints
-        pixel_spacepoints, strip_spacepoints = read_spacepoints(spacepoints_file)
+        pixel_spacepoints, strip_spacepoints = athena_utils.read_spacepoints(spacepoints_file)
 
         # Read clusters
-        clusters = read_clusters(clusters_file, particles, self.config["column_lookup"])
+        clusters = athena_utils.read_clusters(clusters_file, particles, self.config["column_lookup"])
 
         # Get truth spacepoints
-        truth = get_truth_spacepoints(pixel_spacepoints, strip_spacepoints, clusters, self.config["spacepoints_datatypes"])
+        truth = athena_utils.get_truth_spacepoints(pixel_spacepoints, strip_spacepoints, clusters, self.config["spacepoints_datatypes"])
+        truth = athena_utils.add_region_labels(truth, self.config["region_labels"])
+        truth = athena_utils.add_module_id(truth, self.module_lookup)
 
         # Get detectable particles
-        detectable_particles = get_detectable_particles(particles, clusters)
+        detectable_particles = athena_utils.get_detectable_particles(particles, clusters)
 
         # Save to CSV
         truth.to_csv(os.path.join(output_dir, "event{:09}-truth.csv".format(int(event_id))), index=False)
         detectable_particles.to_csv(os.path.join(output_dir, "event{:09}-particles.csv".format(int(event_id))), index=False)
 
-    def build_csv_dataset(self, dataset, data_name):
-
-        output_dir = os.path.join(self.config["stage_dir"], data_name)
-        os.makedirs(output_dir, exist_ok=True)
-
-        # Build CSV files, optionally with multiprocessing
-        max_workers = self.config["max_workers"] if "max_workers" in self.config else None
-        if max_workers != 1:
-            process_map(
-                partial(self._build_single_csv, output_dir=output_dir), 
-                dataset, max_workers=max_workers, 
-                chunksize=1, 
-                desc=f"Building {data_name} CSV files"
-            )
-        else:
-            for event in tqdm(dataset, desc=f"Building {data_name} CSV files"):
-                self._build_single_csv(event, output_dir=output_dir)
+    

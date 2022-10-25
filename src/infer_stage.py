@@ -20,7 +20,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from .utils import str_to_class
 
 @click.command()
-@click.option("--config_file", "-c", default="config.yaml", help="Path to the training config file")
+@click.argument("config_file")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose mode")
 
 def main(config_file, verbose):

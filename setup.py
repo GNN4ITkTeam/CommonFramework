@@ -6,6 +6,8 @@ def read(fname):
 
 dependencies = [
     "tqdm",
+    "ipykernel",
+    "atlasify",
 ]
 
 setup(

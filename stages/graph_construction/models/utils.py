@@ -61,6 +61,38 @@ def build_edges(
         return edge_list
 
 
+def graph_intersection(input_pred_graph, input_truth_graph, return_y_pred=True, return_y_truth=False, return_pred_to_truth=False, return_truth_to_pred=False):
+    """
+    An updated version of the graph intersection function, which is around 25x faster than the
+    Scipy implementation (on GPU). Takes a prediction graph and a truth graph.
+    """
+    
+    unique_edges, inverse = torch.unique(torch.cat([input_pred_graph, input_truth_graph], dim=1), dim=1, sorted=False, return_inverse=True, return_counts=False)
+
+    inverse_pred_map = torch.ones(unique_edges.shape[1], dtype=torch.long) * -1
+    inverse_pred_map[inverse[:input_pred_graph.shape[1]]] = torch.arange(input_pred_graph.shape[1])
+    
+    inverse_truth_map = torch.ones(unique_edges.shape[1], dtype=torch.long) * -1
+    inverse_truth_map[inverse[input_pred_graph.shape[1]:]] = torch.arange(input_truth_graph.shape[1])
+
+    pred_to_truth = inverse_truth_map[inverse][:input_pred_graph.shape[1]]
+    truth_to_pred = inverse_pred_map[inverse][input_pred_graph.shape[1]:]
+
+    return_tensors = []
+
+    if return_y_pred:
+        y_pred = pred_to_truth >= 0
+        return_tensors.append(y_pred)
+    if return_y_truth:
+        y_truth = truth_to_pred >= 0
+        return_tensors.append(y_truth)
+    if return_pred_to_truth:        
+        return_tensors.append(pred_to_truth)
+    if return_truth_to_pred:
+        return_tensors.append(truth_to_pred)
+
+    return return_tensors if len(return_tensors) > 1 else return_tensors[0]
+
 
 # ------------------------- Convenience Utilities ---------------------------
 
