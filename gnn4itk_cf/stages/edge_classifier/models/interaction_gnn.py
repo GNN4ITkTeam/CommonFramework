@@ -2,12 +2,13 @@ import torch.nn as nn
 import torch
 from torch_scatter import scatter_add, scatter_mean, scatter_max
 from torch.utils.checkpoint import checkpoint
+from pytorch_lightning import LightningModule
 from .utils import make_mlp
 
 from ..edge_classifier_stage import EdgeClassifierStage
 
 
-class InteractionGNN(EdgeClassifierStage):
+class InteractionGNN(EdgeClassifierStage, LightningModule):
 
     """
     An interaction network class
@@ -21,7 +22,6 @@ class InteractionGNN(EdgeClassifierStage):
 
         # Define the dataset to be used, if not using the default
         self.save_hyperparameters(hparams)
-        self.hparams = hparams
 
         concatenation_factor = (
             3 if (self.hparams["aggregation"] in ["sum_max", "mean_max", "mean_sum"]) else 2
