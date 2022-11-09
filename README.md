@@ -52,11 +52,26 @@ Given a set of wishes for how to work together, what do we need to produce to ge
 ### Roadmap for Documentation & Tutorials
 - [X] Make password-protected example data available for testing and examples: available at 
 https://portal.nersc.gov/cfs/m3443/dtmurnane/GNN4ITk/ExampleData/athena_100_events.zip and https://cernbox.cern.ch/index.php/s/CTBnzv4DlntgHJ7
-- [ ] Make a tutorial for how to run Example 1: An inference of a pipeline with module map, GNN and connected components
+- [X] Make a tutorial for how to run Example 1: An inference of a pipeline with module map, GNN and connected components
 - [ ] Make a tutorial for how to run Example 2: An inference of a pipeline with metric learning, GNN and walkthrough
 - [ ] Make a tutorial for how to run Example 3: Training a custom pipeline
 
-### Roadmap for Codebase
-- [ ] Training script written and tested
-- [ ] Inference script written and tested
-- [ ] Evaluation script written and tested
+### Roadmap for Core Codebase
+- [X] Training script written and tested
+- [X] Inference script written and tested
+- [X] Evaluation script written and tested
+
+### Roadmap for Stages Codebase
+- [X] Athena DataReader
+- [ ] ACTS DataReader
+- [X] Triplet Module Map 
+- [ ] Homogeneous Metric Learning
+- [ ] Heterogeneous Metric Learning
+- [ ] Homogeneous Filter
+- [ ] Heterogeneous Filter
+- [X] Homogeneous GNN
+- [ ] Heterogeneous GNN
+- [X] Connected Components
+- [ ] Walkthrough
+- [ ] Connected Components + Walkthrough
+- [ ] Connected Components + CFK
