@@ -1,18 +1,28 @@
 # Example 1
 
-## Quickstart
+## Setup
 
-Assuming the CommonFramework repo requirements have been installed, the only other requirements are the data files and model files. An example dataset can be downloaded with (this is around 2.3Gb, so ensure you download to a location with sufficient space):
+Assuming the CommonFramework repo requirements have been installed, the only other requirements are the data files and model files. An example dataset can be downloaded to a data directory `MY_DATA_DIR`. This is around 2.3Gb, so ensure you download to a location with sufficient space. Define this dir with
 ```bash
-wget https://cernbox.cern.ch/index.php/s/CTBnzv4DlntgHJ7/download -O athena_100_events.zip
-unzip athena_100_events.zip
+data_dir=MY_DATA_DIR
+```
+then download the data with
+```bash
+mkdir $data_dir/Example_1
+wget https://cernbox.cern.ch/remote.php/dav/public-files/AREZqMSHGrWMIjc/athena_100_events.zip -O $data_dir/Example_1/athena_100_events.zip
+unzip $data_dir/Example_1/athena_100_events.zip -d $data_dir/Example_1
 ```
 and enter the password provided by the GNN4ITk team. The model files can be downloaded with
 ```bash
-wget https://cernbox.cern.ch/index.php/s/Y72LOTgxUbP9mio/download -O Example_1.zip
-unzip Example_1.zip
+wget https://cernbox.cern.ch/remote.php/dav/public-files/uUCHDnGUiHdhsyl/Example_1.zip -O $data_dir/Example_1/Example_1.zip
+unzip $data_dir/Example_1/Example_1.zip -d $data_dir/Example_1
 ```
-and enter the password provided by the GNN4ITk team. The location of these files should be specified in the `yaml` config files below, before running each step.
+and enter the password provided by the GNN4ITk team. The location of this data, as well as all parameters controlling the GNN4ITk reconstruction chain, is specified in `yaml` config files. The data directory currently has a placeholder MY_DATA_DIR. Replace this with the actual data directory with
+```bash
+sed -i "s/MY_DATA_DIR/$data_dir/g" *.yaml
+```
+
+## Running the Example
 
 The following commands will run the Example 1 pipeline. In general, they follow the pattern
 ```
@@ -47,10 +57,13 @@ g4i-infer gnn_infer.yaml
 
 **5.** Finally, we produce track candidates from the scored graphs:
 ```bash
-g4i-infer track_cand.yaml
+g4i-infer track_building_infer.yaml
 ```
 
 **6.** And plot the performance
 ```bash
-g4i-eval track_cand.yaml
+g4i-eval track_building_eval.yaml
 ```
+
+## Understanding the Example
+

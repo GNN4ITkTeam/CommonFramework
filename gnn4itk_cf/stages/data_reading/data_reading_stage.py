@@ -262,7 +262,7 @@ class EventReader:
         track_features = self._get_track_features(hits, track_index_edges)
 
         # Remap
-        track_edges, hits = self.remap_edges(track_edges, track_features, hits)
+        track_edges, track_features, hits = self.remap_edges(track_edges, track_features, hits)
 
         return track_edges, track_features, hits
 
@@ -276,6 +276,12 @@ class EventReader:
 
     @staticmethod
     def remap_edges(track_edges, track_features, hits):
+        """
+        Here we do two things:
+        1. Remove duplicate hits from the hit list (since a hit is a node and therefore only exists once), and remap the corresponding truth track edge indices
+        2. Remove duplicate truth track edges. This is a SMALL simplification for conceptual simplicity, 
+        but we apply a test to ensure the simplification does not throw away too many duplicate edges.
+        """
 
         unique_hid = np.unique(hits.hit_id)
         hid_mapping = np.zeros(unique_hid.max() + 1).astype(int)
@@ -289,7 +295,11 @@ class EventReader:
         # This test imposes a limit to how we simplify the graph: We don't allow shared EDGES (i.e. two different particles can share a hit, but not an edge between the same two hits). We want to ensure these are in a tiny minority
         assert ((hits.particle_id.values[track_edges[0]] != track_features["particle_id"]) & (hits.particle_id.values[track_edges[1]] != track_features["particle_id"])).sum() < 50, "The number of shared EDGES is unusually high!"
 
-        return track_edges, hits
+        # Remove duplicate edges
+        track_edges, unique_track_edge_indices = np.unique(track_edges, axis=1, return_index=True)
+        track_features = {k: v[unique_track_edge_indices] for k, v in track_features.items()}
+
+        return track_edges, track_features, hits
 
     def get_file_names(self, inputdir, filename_terms : Union[str, list] = None):
         """

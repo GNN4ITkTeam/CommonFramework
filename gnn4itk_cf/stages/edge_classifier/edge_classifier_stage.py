@@ -1,28 +1,35 @@
-import sys
-sys.path.append("../")
 import os
-import warnings
-
 from pytorch_lightning import LightningModule
 import torch.nn.functional as F
-from torch_geometric.data import DataLoader, Dataset
+from torch_geometric.data import Dataset
+from torch_geometric.loader import DataLoader
+
+# import roc auc
+from sklearn.metrics import roc_auc_score
 import torch
+import numpy as np
+from tqdm import tqdm
+from atlasify import atlasify
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-from ..utils import str_to_class, load_datafiles_in_dir, run_data_tests, construct_event_truth
+from gnn4itk_cf.utils import load_datafiles_in_dir, run_data_tests, handle_weighting, handle_hard_cuts, remap_from_mask, get_ratio
 
-class EdgeClassifierStage:
+class EdgeClassifierStage(LightningModule):
     def __init__(self, hparams):
         super().__init__()
         """
         Initialise the Lightning Module that can scan over different GNN training regimes
         """
 
+        self.save_hyperparameters(hparams)
+
         # Assign hyperparameters
         self.trainset, self.valset, self.testset = None, None, None
-        self.dataset_class = LargeGraphDataset
-
+        self.dataset_class = GraphDataset
+        
     def setup(self, stage="fit"):
         """
         The setup logic of the stage.
@@ -31,64 +38,36 @@ class EdgeClassifierStage:
         3. Construct the truth and weighting labels for the model training
         """
 
-        self.load_data()
-        self.test_data()
-
-    def load_data(self):
+        if stage in ["fit", "predict"]:
+            self.load_data(stage, self.hparams["input_dir"])
+            self.test_data(stage)
+        elif stage == "test":
+            self.load_data(stage, self.hparams["stage_dir"])
+            
+    def load_data(self, stage, input_dir):
         """
         Load in the data for training, validation and testing.
         """
 
+        # if stage == "fit":
         for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
             if data_num > 0:
-                dataset = self.dataset_class(self.hparams["input_dir"], data_name, data_num, self.hparams)
+                dataset = self.dataset_class(input_dir, data_name, data_num, stage, self.hparams)
                 setattr(self, data_name, dataset)
 
-    def test_data(self):
+    def test_data(self, stage):
         """
         Test the data to ensure it is of the right format and loaded correctly.
         """
-        required_features = ["x", "edge_index", "track_edges"]
-        optional_features = ["pid", "n_hits", "primary", "pdg_id", "ghost", "shared", "module_id", "region_id", "hit_id"]
+        required_features = ["x", "edge_index", "track_edges", "truth_map", "y"]
+        optional_features = ["particle_id", "nhits", "primary", "pdgId", "ghost", "shared", "module_id", "region", "hit_id", "pt"]
 
-        run_data_tests(self.trainset, self.valset, self.testset, required_features, optional_features)
-
-    @classmethod
-    def infer(cls, config):
-        """ 
-        The gateway for the inference stage. This class method is scalled from the infer_stage.py script.
-        """
-        if isinstance(cls, LightningModule):
-            edge_classifier = cls.load_from_checkpoint(os.path.join(config["input_dir"], "checkpoints", "last.ckpt")).to(device)
-            edge_classifier.hparams.update(config) # Update the configs used in training with those to be used in inference
-        else:
-            edge_classifier = cls(config)
-
-        edge_classifier.setup(stage="predict")
-
-        for data_name in ["trainset", "valset", "testset"]:
-            if hasattr(edge_classifier, data_name):
-                edge_classifier.score_edges(dataset = getattr(edge_classifier, data_name), data_name = data_name)
-
-    def score_edges(self, dataset, data_name):
-        """
-        Score the edges in the graph using the a model. Can be overwritten by the child class.
-        """
-        for batch in dataset:
-            batch = batch.to(device)
-            output = self(batch)
-            batch, output = batch.cpu(), output.cpu()
-            self.save_edge_scores(batch, output, data_name)
-
-    def save_edge_scores(self, graph, scores, data_name):
-
-        graph.scores = scores
-        torch.save(graph, os.path.join(self.hparams["stage_dir"], data_name, f"event{graph.event_id}.pyg"))
+        run_data_tests([self.trainset, self.valset, self.testset], required_features, optional_features)
 
     def train_dataloader(self):
         if self.trainset is not None:
             return DataLoader(
-                self.trainset, batch_size=1, num_workers=4
+                self.trainset, batch_size=1, num_workers=16
             )  
         else:
             return None
@@ -108,6 +87,15 @@ class EdgeClassifierStage:
             )  
         else:
             return None
+
+    def predict_dataloader(self):
+
+        datasets = []
+        for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
+            if data_num > 0:
+                dataset = self.dataset_class(self.hparams["input_dir"], data_name, data_num, "predict", self.hparams)
+                datasets.append(dataset) 
+        return datasets
 
     def configure_optimizers(self):
         optimizer = [
@@ -134,36 +122,63 @@ class EdgeClassifierStage:
 
     def training_step(self, batch, batch_idx):
         
-        self.process_edges(batch)  
-
         output = self(batch)
-
-        weights = self.process_weights(batch, output)
-        loss = self.loss_function(output, batch, weights)     
+        loss = self.loss_function(output, batch)     
 
         self.log("train_loss", loss, on_step=False, on_epoch=True)
 
         return loss
 
-    def process_edges(self, batch):
+    def loss_function(self, output, batch):
         """
-        TODO
-        """    
-        pass
+        Applies the loss function to the output of the model and the truth labels.
+        To balance the positive and negative contribution, simply take the means of each separately.
+        Any further fine tuning to the balance of true target, true background and fake can be handled 
+        with the `weighting` config option.
+        """
 
-    def process_weights(self, batch, output):
-        """
-        TODO
-        """
-        return None
+        assert hasattr(batch, "y"), "The batch does not have a truth label. Please ensure the batch has a `y` attribute."
+        assert hasattr(batch, "weights"), "The batch does not have a weighting label. Please ensure the batch weighting is handled in preprocessing."
 
-    def loss_function(self, output, batch, weights):
-        """
-        Handles the weights, which is ToBeImplemented
-        """
-        return F.binary_cross_entropy(output, batch.y)
+        positive_loss = F.binary_cross_entropy_with_logits(
+            output[batch.y == 1], batch.y[batch.y == 1].float(), weight=batch.weights[batch.y == 1] 
+        )
 
-    def log_metrics(self, output, sample_indices, batch, loss, log):
+        negative_loss = F.binary_cross_entropy_with_logits(
+            output[batch.y == 0], batch.y[batch.y == 0].float(), weight=batch.weights[batch.y == 0]
+        )
+
+        return positive_loss + negative_loss
+
+    def shared_evaluation(self, batch, batch_idx):
+        
+        output = self(batch)
+        loss = self.loss_function(output, batch)   
+
+        all_truth = batch.y.bool()
+        target_truth = batch.weights.bool() & all_truth
+        
+        return {"loss": loss, "all_truth": target_truth, "target_truth": target_truth, "output": output}
+
+    def validation_step(self, batch, batch_idx):
+
+        return self.shared_evaluation(batch, batch_idx)
+
+    def test_step(self, batch, batch_idx):
+
+        return self.shared_evaluation(batch, batch_idx)
+
+    def validation_epoch_end(self, outputs):
+
+        if len(outputs) > 0:
+            loss = torch.stack([x["loss"] for x in outputs]).mean()
+            output = torch.cat([x["output"] for x in outputs])
+            all_truth = torch.cat([x["all_truth"] for x in outputs])
+            target_truth = torch.cat([x["target_truth"] for x in outputs])
+
+            self.log_metrics(output, all_truth, target_truth, loss)
+
+    def log_metrics(self, output, all_truth, target_truth, loss):
 
         preds = torch.sigmoid(output) > self.hparams["edge_cut"]
 
@@ -171,129 +186,251 @@ class EdgeClassifierStage:
         edge_positive = preds.sum().float()
 
         # Signal true & signal tp
-        sig_truth = batch[self.hparams["truth_key"]][sample_indices]
-        sig_true = sig_truth.sum().float()
-        sig_true_positive = (sig_truth.bool() & preds).sum().float()
+        sig_true = target_truth.sum().float()
+        sig_true_positive = (target_truth.bool() & preds).sum().float()
+        background_true_positive = (all_truth.bool() & preds).sum().float()
         sig_auc = roc_auc_score(
-            sig_truth.bool().cpu().detach(), torch.sigmoid(output).cpu().detach()
-        )
-
-        # Total true & total tp
-        tot_truth = (batch.y_pid.bool() | batch.y.bool())[sample_indices]
-        tot_true = tot_truth.sum().float()
-        tot_true_positive = (tot_truth.bool() & preds).sum().float()
-        tot_auc = roc_auc_score(
-            tot_truth.bool().cpu().detach(), torch.sigmoid(output).cpu().detach()
+            target_truth.bool().cpu().detach(), torch.sigmoid(output).cpu().detach()
         )
 
         # Eff, pur, auc
         sig_eff = sig_true_positive / sig_true
         sig_pur = sig_true_positive / edge_positive
-        tot_eff = tot_true_positive / tot_true
-        tot_pur = tot_true_positive / edge_positive
+        background_pur = background_true_positive / edge_positive
+        current_lr = self.optimizers().param_groups[0]["lr"]
 
-        # Combined metrics
-        double_auc = sig_auc * tot_auc
-        custom_f1 = 2 * sig_eff * tot_pur / (sig_eff + tot_pur)
-        sig_fake_ratio = sig_true_positive / (edge_positive - tot_true_positive)
-
-        if log:
-            current_lr = self.optimizers().param_groups[0]["lr"]
-            self.log_dict(
-                {
-                    "val_loss": loss,
-                    "current_lr": current_lr,
-                    "sig_eff": sig_eff,
-                    "sig_pur": sig_pur,
-                    "sig_auc": sig_auc,
-                    "tot_eff": tot_eff,
-                    "tot_pur": tot_pur,
-                    "tot_auc": tot_auc,
-                    "double_auc": double_auc,
-                    "custom_f1": custom_f1,
-                    "sig_fake_ratio": sig_fake_ratio,
-                },
-                sync_dist=True,
-            )
+        self.log_dict(
+            {
+                "val_loss": loss,
+                "current_lr": current_lr,
+                "eff": sig_eff,
+                "target_pur": sig_pur,
+                "background_pur": background_pur,
+                "auc": sig_auc,
+            },  # type: ignore
+            sync_dist=True,
+        )
 
         return preds
 
-    def shared_evaluation(self, batch, batch_idx, log=True):
-
-        truth = batch[self.hparams["truth_key"]]
-        
-        if ("train_purity" in self.hparams.keys()) and (
-            self.hparams["train_purity"] > 0
-        ):
-            edge_sample, truth_sample, sample_indices = purity_sample(
-                truth, batch.edge_index, self.hparams["train_purity"]
-            )
-        else:
-            edge_sample, truth_sample, sample_indices = batch.edge_index, truth, torch.arange(batch.edge_index.shape[1])
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        """
+        This function handles the prediction of each graph. It is called in the `infer.py` script.
+        It can be overwritted in your custom stage, but it should implement three simple steps:
+        1. Run an edge-scoring model on the input graph
+        2. Add the scored edges to the graph, as `scores` attribute
+        3. Append the stage config to the `config` attribute of the graph
+        """
             
-        edge_sample, truth_sample, sample_indices = self.handle_directed(batch, edge_sample, truth_sample, sample_indices)
+        output = self(batch)
+        datatype = self.predict_dataloader()[dataloader_idx].data_name
+        self.save_edge_scores(batch, output, datatype)
 
-        weight = (
-            torch.tensor(self.hparams["weight"])
-            if ("weight" in self.hparams)
-            else torch.tensor((~truth_sample.bool()).sum() / truth_sample.sum())
-        )
+    def save_edge_scores(self, event, output, datatype):
+
+        event.scores = torch.sigmoid(output)
+        event.config.append(self.hparams)
+    
+        os.makedirs(os.path.join(self.hparams["stage_dir"], datatype), exist_ok=True)
+        torch.save(event.cpu(), os.path.join(self.hparams["stage_dir"], datatype, f"event{event.event_id}.pyg"))
+
+
+    @classmethod
+    def evaluate(cls, config):
+        """ 
+        The gateway for the evaluation stage. This class method is called from the eval_stage.py script.
+        """
+
+        # Load data from testset directory
+        graph_constructor = cls(config)
+        graph_constructor.setup(stage="test")
+
+        all_plots = config["plots"]
         
-        input_data = self.get_input_data(batch)
-        output = self(input_data, edge_sample).squeeze()
+        # TODO: Handle the list of plots properly
+        for plot_function, plot_config in all_plots.items():
+            if hasattr(graph_constructor, plot_function):
+                getattr(graph_constructor, plot_function)(plot_config, config)
+            else:
+                print(f"Plot {plot_function} not implemented")
 
-        positive_loss = F.binary_cross_entropy_with_logits(
-            output[truth_sample], torch.ones(truth_sample.sum()).to(self.device)
-        )
+    def graph_scoring_efficiency(self, plot_config, config):
+        """
+        Plot the graph construction efficiency vs. pT of the edge.
+        """
+        all_y_truth, all_pt  = [], []
 
-        negative_loss = F.binary_cross_entropy_with_logits(
-            output[~truth_sample], torch.zeros((~truth_sample).sum()).to(self.device)
-        )
+        for event in tqdm(self.testset):
 
-        loss = positive_loss*weight + negative_loss
+            # Need to apply score cut and remap the truth_map 
+            if "score_cut" in config:
+                self.apply_score_cut(event, config["score_cut"])
+            if "target_tracks" in config:
+                self.apply_target_conditions(event, config["target_tracks"])
+            else:
+                event.target_mask = torch.ones(event.truth_map.shape[0], dtype = torch.bool)
+            all_y_truth.append(event.truth_map[event.target_mask] >= 0)
+            all_pt.append(event.pt[event.target_mask])
 
-        preds = self.log_metrics(output, sample_indices, batch, loss, log)
+        all_pt = torch.cat(all_pt).cpu().numpy() / 1000
+        all_y_truth = torch.cat(all_y_truth).cpu().numpy()
 
-        return {"loss": loss, "preds": preds, "score": torch.sigmoid(output)}
+        # Get the edgewise efficiency
+        # Build a histogram of true pTs, and a histogram of true-positive pTs
+        pt_bins = np.logspace(np.log10(1), np.log10(50), 10)
 
-    def validation_step(self, batch, batch_idx):
+        true_pt_hist, true_bins = np.histogram(all_pt, bins = pt_bins)
+        true_pos_pt_hist, _ = np.histogram(all_pt[all_y_truth], bins = pt_bins)
 
-        outputs = self.shared_evaluation(batch, batch_idx)
+        # Divide the two histograms to get the edgewise efficiency
+        eff, err = get_ratio(true_pos_pt_hist,  true_pt_hist)
+        xvals = (true_bins[1:] + true_bins[:-1]) / 2
+        xerrs = (true_bins[1:] - true_bins[:-1]) / 2
 
-        return outputs["loss"]
+        # Plot the edgewise efficiency
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.errorbar(xvals, eff, xerr=xerrs, yerr=err, fmt='o', color='black', label='Efficiency')
+        ax.set_xlabel('$p_T [GeV]$', ha='right', x=0.95, fontsize=14)
+        ax.set_ylabel(plot_config["title"], ha='right', y=0.95, fontsize=14)
+        ax.set_xscale('log')
 
-    def test_step(self, batch, batch_idx):
+        # Save the plot
+        atlasify("Internal", 
+         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
+         r"$p_T > 1$GeV, $|\eta < 4$")
+        fig.savefig(os.path.join(config["stage_dir"], "edgewise_efficiency.png"))
 
-        return self.shared_evaluation(batch, batch_idx, log=False)
+    def graph_roc_curve(self, plot_config, config):
+        """
+        Plot the ROC curve for the graph construction efficiency.
+        """
+        all_y_truth, all_scores  = [], []
 
-class LargeGraphDataset(Dataset):
+        for event in tqdm(self.testset):
+                
+            # Need to apply score cut and remap the truth_map 
+            if "weights" in event.keys:
+                target_y = event.weights.bool() & event.y.bool()
+            else:
+                target_y = event.y.bool()
+
+            all_y_truth.append(target_y)
+            all_scores.append(event.scores)
+
+        all_scores = torch.cat(all_scores).cpu().numpy()
+        all_y_truth = torch.cat(all_y_truth).cpu().numpy()
+
+        # Get the ROC curve
+        fpr, tpr, _ = roc_curve(all_y_truth, all_scores)
+        auc_score = auc(fpr, tpr)
+
+        # Plot the ROC curve
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(fpr, tpr, color='black', label='ROC curve')
+        ax.plot([0, 1], [0, 1], color='black', linestyle='--', label='Random classifier')
+        ax.set_xlabel('False Positive Rate', ha='right', x=0.95, fontsize=14)
+        ax.set_ylabel('True Positive Rate', ha='right', y=0.95, fontsize=14)
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.legend(loc='lower right', fontsize=14)
+        ax.text(0.95, 0.20, f"AUC: {auc_score:.3f}", ha='right', va='bottom', transform=ax.transAxes, fontsize=14)
+
+
+        
+
+        # Save the plot
+        atlasify("Internal", 
+         f"{plot_config['title']} \n"
+         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
+         r"$p_T > 1$GeV, $|\eta < 4$")
+        fig.savefig(os.path.join(config["stage_dir"], "roc_curve.png"))
+
+    def apply_score_cut(self, event, score_cut):
+        """
+        Apply a score cut to the event. This is used for the evaluation stage.
+        """
+        passing_edges_mask = event.scores >= score_cut
+        remap_from_mask(event, passing_edges_mask)
+
+    def apply_target_conditions(self, event, target_tracks):
+        """
+        Apply the target conditions to the event. This is used for the evaluation stage.
+        Target_tracks is a list of dictionaries, each of which contains the conditions to be applied to the event.
+        """
+        passing_tracks = torch.ones(event.truth_map.shape[0], dtype = torch.bool)
+
+        for key, values in target_tracks.items():
+            if isinstance(values, list):
+                passing_tracks = passing_tracks * (values[0] <= event[key].float()) * (event[key].float() <= values[1])
+            else:
+                passing_tracks = passing_tracks * (event[key] == values)
+
+        event.target_mask = passing_tracks
+
+class GraphDataset(Dataset):
     """
     The custom default GNN dataset to load graphs off the disk
     """
 
-    def __init__(self, input_dir, data_name, num_events, hparams=None, transform=None, pre_transform=None, pre_filter=None):
+    def __init__(self, input_dir, data_name = None, num_events = None, stage="fit", hparams=None, transform=None, pre_transform=None, pre_filter=None):
         super().__init__(input_dir, transform, pre_transform, pre_filter)
         
         self.input_dir = input_dir
         self.data_name = data_name
         self.hparams = hparams
         self.num_events = num_events
+        self.stage = stage
         
         self.input_paths = load_datafiles_in_dir(self.input_dir, self.data_name, self.num_events)
+        self.input_paths.sort() # We sort here for reproducibility
         
     def len(self):
         return len(self.input_paths)
 
     def get(self, idx):
 
-        event = torch.load(self.input_paths[idx], map_location=torch.device("cpu"))
-        event = self.construct_truth(event)
-                
+        event_path = self.input_paths[idx]
+        event = torch.load(event_path, map_location=torch.device("cpu"))
+        self.preprocess_event(event)
+
+        # return (event, event_path) if self.stage == "predict" else event
         return event
 
-    def construct_truth(self, event):
+    def preprocess_event(self, event):
         """
-        Construct the truth and weighting labels for the model training.
+        Process event before it is used in training and validation loops
         """
         
-        return construct_event_truth(event, self.hparams)
+        self.apply_hard_cuts(event)
+        self.construct_weighting(event)
+        self.handle_edge_list(event)
+        
+    def apply_hard_cuts(self, event):
+        """
+        Apply hard cuts to the event. This is implemented by 
+        1. Finding which true edges are from tracks that pass the hard cut.
+        2. Pruning the input graph to only include nodes that are connected to these edges.
+        """
+        
+        if self.hparams is not None and "hard_cuts" in self.hparams.keys() and self.hparams["hard_cuts"]:
+            assert isinstance(self.hparams["hard_cuts"], dict), "Hard cuts must be a dictionary"
+            handle_hard_cuts(event, self.hparams["hard_cuts"])
+
+    def construct_weighting(self, event):
+        """
+        Construct the weighting for the event
+        """
+        
+        assert event.y.shape[0] == event.edge_index.shape[1], f"Input graph has {event.edge_index.shape[1]} edges, but {event.y.shape[0]} truth labels"
+
+        if self.hparams is not None and "weighting" in self.hparams.keys():
+            assert isinstance(self.hparams["weighting"], list) & isinstance(self.hparams["weighting"][0], dict), "Weighting must be a list of dictionaries"
+            handle_weighting(event, self.hparams["weighting"])
+        else:
+            event.weights = torch.ones_like(event.y, dtype=torch.float32)
+            
+    def handle_edge_list(self, event):
+        """
+        TODO 
+        """ 
+        pass

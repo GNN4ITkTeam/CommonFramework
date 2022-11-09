@@ -5,5 +5,5 @@ def str_to_class(stage, model):
     """
     Convert a string to a class in the stages directory
     """
-
+    
     return getattr(getattr(stages, stage), model)

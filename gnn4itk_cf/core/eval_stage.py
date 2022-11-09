@@ -9,6 +9,7 @@ This script:
 
 import sys
 import os
+from pathlib import Path
 
 import yaml
 import click
@@ -16,8 +17,10 @@ import logging
 
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning import LightningModule
+import torch
 
-from .utils import str_to_class
+from gnn4itk_cf.utils import str_to_class
 
 @click.command()
 @click.argument("config_file")
@@ -35,7 +38,6 @@ def main(config_file, verbose):
 
     evaluate(config_file)
 
-
 def evaluate(config_file):
 
     # load config
@@ -45,8 +47,15 @@ def evaluate(config_file):
     # load stage
     stage = config["stage"]
     model = config["model"]
-    stage_module = str_to_class(stage, model).evaluate(config)
+    stage_module = str_to_class(stage, model)
 
+    if issubclass(stage_module, LightningModule):
+        checkpoint_path = max((str(path) for path in Path(config["stage_dir"]).rglob("*.ckpt")), key=os.path.getctime)
+        print(f"Loading checkpoint: {checkpoint_path}")
+        checkpoint_config = torch.load(checkpoint_path)["hyper_parameters"]
+        config = checkpoint_config | config
+
+    stage_module.evaluate(config)
 
 if __name__ == "__main__":
     main()

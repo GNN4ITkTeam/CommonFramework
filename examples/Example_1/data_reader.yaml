@@ -1,9 +1,9 @@
 # CommonFramework configuration
 stage: data_reading
 model: AthenaReader
-input_dir: /.../Example_1_Dev/athena_100_events
-stage_dir: /.../Example_1_Dev/feature_store/
-module_lookup_path: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_1_Dev/Modules_geo_10events.txt
+input_dir: MY_DATA_DIR/Example_1_Dev/athena_100_events
+stage_dir: MY_DATA_DIR/Example_1_Dev/feature_store/
+module_lookup_path: MY_DATA_DIR/Example_1_Dev/Modules_geo_10events.txt
 
 # Feature Configurations
 feature_sets:

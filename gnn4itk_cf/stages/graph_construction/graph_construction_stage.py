@@ -25,8 +25,7 @@ from atlasify import atlasify
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from ..utils import load_datafiles_in_dir, run_data_tests, construct_event_truth
-from . import plotting_utils
+from gnn4itk_cf.utils import run_data_tests, get_ratio
 
 class GraphConstructionStage:
     def __init__(self, hparams):
@@ -160,7 +159,7 @@ class GraphConstructionStage:
         true_pos_pt_hist, true_pos_bins = np.histogram(all_pt[all_y_truth], bins = pt_bins)
 
         # Divide the two histograms to get the edgewise efficiency
-        eff, err = plotting_utils.get_ratio(true_pos_pt_hist,  true_pt_hist)
+        eff, err = get_ratio(true_pos_pt_hist,  true_pt_hist)
         xvals = (true_bins[1:] + true_bins[:-1]) / 2
         xerrs = (true_bins[1:] - true_bins[:-1]) / 2
 

@@ -1,14 +1,13 @@
-import torch.nn as nn
+import warnings
 import torch
-from torch_scatter import scatter_add, scatter_mean, scatter_max
 from torch.utils.checkpoint import checkpoint
-from pytorch_lightning import LightningModule
-from .utils import make_mlp
+from torch_scatter import scatter_add, scatter_mean, scatter_max
 
+from gnn4itk_cf.utils import make_mlp
 from ..edge_classifier_stage import EdgeClassifierStage
 
 
-class InteractionGNN(EdgeClassifierStage, LightningModule):
+class InteractionGNN(EdgeClassifierStage):
 
     """
     An interaction network class
@@ -23,9 +22,7 @@ class InteractionGNN(EdgeClassifierStage, LightningModule):
         # Define the dataset to be used, if not using the default
         self.save_hyperparameters(hparams)
 
-        concatenation_factor = (
-            3 if (self.hparams["aggregation"] in ["sum_max", "mean_max", "mean_sum"]) else 2
-        )
+        self.setup_layer_sizes()
 
         hparams["batchnorm"] = (
             False if "batchnorm" not in hparams else hparams["batchnorm"]
@@ -36,7 +33,7 @@ class InteractionGNN(EdgeClassifierStage, LightningModule):
 
         # Setup input network
         self.node_encoder = make_mlp(
-            hparams["spatial_channels"] + hparams["cell_channels"],
+            len(hparams["node_features"]),
             [hparams["hidden"]] * hparams["nb_node_layer"],
             output_activation=hparams["output_activation"],
             hidden_activation=hparams["hidden_activation"],
@@ -66,7 +63,7 @@ class InteractionGNN(EdgeClassifierStage, LightningModule):
 
         # The node network computes new node features
         self.node_network = make_mlp(
-            concatenation_factor * hparams["hidden"],
+            self.concatenation_factor * hparams["hidden"],
             [hparams["hidden"]] * hparams["nb_node_layer"],
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
@@ -84,55 +81,63 @@ class InteractionGNN(EdgeClassifierStage, LightningModule):
             hidden_activation=hparams["hidden_activation"],
         )
 
+        try:
+            print("Defining figures of merit")
+            self.logger.experiment.define_metric("val_loss" , summary="min")
+            self.logger.experiment.define_metric("auc" , summary="max")
+        except Exception:
+            warnings.warn("Failed to define figures of merit, due to logger unavailable")
+
+    def aggregation_step(self, num_nodes):
+
+        aggregation_dict = {
+            "sum_max": lambda x, y, **kwargs: torch.cat(
+                [
+                    scatter_max(x, y, dim=0, dim_size=num_nodes)[0],
+                    scatter_add(x, y, dim=0, dim_size=num_nodes),
+                ],
+                dim=-1,
+            ),
+            "mean_max": lambda x, y, **kwargs: torch.cat(
+                [
+                    scatter_max(x, y, dim=0, dim_size=num_nodes)[0],
+                    scatter_mean(x, y, dim=0, dim_size=num_nodes),
+                ],
+                dim=-1,
+            ),
+            "mean_sum": lambda x, y, **kwargs: torch.cat(
+                [
+                    scatter_mean(x, y, dim=0, dim_size=num_nodes),
+                    scatter_add(x, y, dim=0, dim_size=num_nodes),
+                ],
+                dim=-1,
+            ),
+            "sum": lambda x, y, **kwargs: scatter_add(x, y, dim=0, dim_size=num_nodes),
+            "mean": lambda x, y, **kwargs: scatter_mean(x, y, dim=0, dim_size=num_nodes),
+            "max": lambda x, y, **kwargs: scatter_max(x, y, dim=0, dim_size=num_nodes)[0],
+        }
+
+        return aggregation_dict[self.hparams["aggregation"]]
 
     def message_step(self, x, start, end, e):
 
         # Compute new node features
-        if self.hparams["aggregation"] == "sum":
-            edge_messages = scatter_add(e, end, dim=0, dim_size=x.shape[0])
+        # edge_messages = self.aggregation_step(x.shape[0])(e, end)
+        edge_messages = torch.cat(
+            [
+                self.aggregation_step(x.shape[0])(e, end),
+                self.aggregation_step(x.shape[0])(e, start)
+            ],
+            dim=-1,
+        )
 
-        elif self.hparams["aggregation"] == "mean":
-            edge_messages = scatter_mean(e, end, dim=0, dim_size=x.shape[0])
-            
-        elif self.hparams["aggregation"] == "max":
-            edge_messages = scatter_max(e, end, dim=0, dim_size=x.shape[0])[0]
-
-        elif self.hparams["aggregation"] == "sum_max":
-            edge_messages = torch.cat(
-                [
-                    scatter_max(e, end, dim=0, dim_size=x.shape[0])[0],
-                    scatter_add(e, end, dim=0, dim_size=x.shape[0]),
-                ],
-                dim=-1,
-            )        
-        elif self.hparams["aggregation"] == "mean_sum":
-            edge_messages = torch.cat(
-                [
-                    scatter_mean(e, end, dim=0, dim_size=x.shape[0]),
-                    scatter_add(e, end, dim=0, dim_size=x.shape[0]),
-                ],
-                dim=-1,
-            )            
-        elif self.hparams["aggregation"] == "mean_max":
-            edge_messages = torch.cat(
-                [
-                    scatter_max(e, end, dim=0, dim_size=x.shape[0])[0],
-                    scatter_mean(e, end, dim=0, dim_size=x.shape[0]),
-                ],
-                dim=-1,
-            )
-            
         node_inputs = torch.cat([x, edge_messages], dim=-1)
 
         x_out = self.node_network(node_inputs)
 
-        x_out += x
-
         # Compute new edge features
         edge_inputs = torch.cat([x_out[start], x_out[end], e], dim=-1)
         e_out = self.edge_network(edge_inputs)
-
-        e_out += e
 
         return x_out, e_out
 
@@ -142,9 +147,10 @@ class InteractionGNN(EdgeClassifierStage, LightningModule):
 
         return self.output_edge_classifier(classifier_inputs).squeeze(-1)
 
-    def forward(self, x, edge_index):
+    def forward(self, batch):
 
-        start, end = edge_index
+        x = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()
+        start, end = batch.edge_index
 
         # Encode the graph features into the hidden space
         x.requires_grad = True
@@ -153,8 +159,17 @@ class InteractionGNN(EdgeClassifierStage, LightningModule):
 
         # Loop over iterations of edge and node networks
         for _ in range(self.hparams["n_graph_iters"]):
-
             x, e = checkpoint(self.message_step, x, start, end, e)
 
         return self.output_step(x, start, end, e)
 
+    def setup_layer_sizes(self):
+
+        if self.hparams["aggregation"] == "sum_mean_max":
+            self.concatenation_factor = 7
+        elif self.hparams["aggregation"] in ["sum_max", "mean_max", "mean_sum"]:
+            self.concatenation_factor = 5
+        elif self.hparams["aggregation"] in ["sum", "mean", "max"]:
+            self.concatenation_factor = 3
+        else:
+            raise ValueError("Aggregation type not recognised")
