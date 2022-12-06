@@ -1,0 +1,37 @@
+stage: GNN
+input_dir: test_construction_project # Should contain the files used in training and inference
+stage_dir: test_gnn_project # A directory to be created that will store logs, artifacts, and output data
+project: ITk_1GeVSignal_GNN # Used in logging
+model_name: InteractionGNN # The model class to be loaded
+gpus: 0
+nodes: 1
+
+# Dataset parameters
+data_split: [1, 1, 1] # Number of [training, validation, testing] examples
+
+# Truth and weighting parameters
+
+
+# Model parameters
+edge_cut: 0.5
+spatial_channels: 3
+cell_channels: 0
+hidden: 128
+n_graph_iters: 8
+nb_node_layer: 2
+nb_edge_layer: 2
+emb_channels: 0
+layernorm: True
+batchnorm: False
+aggregation: sum
+hidden_activation: SiLU
+output_activation: Tanh
+weight: 10
+warmup: 5
+lr: 0.001
+factor: 0.9
+train_purity: 0
+patience: 15
+truth_key: pid_signal
+mask_background: True
+max_epochs: 200

@@ -1,5 +1,34 @@
 # Common Framework for GNN4ITk Project
 
+**This repository is still under development and may be subject to breaking changes.**
+
+## Install
+
+To install the GNN4ITK common framework, assuming GPU capability, run
+
+```
+conda env create -f gpu_environment.yml
+conda activate gnn4itk
+pip install -e .
+```
+
+otherwise use the `cpu_environment.yml` file.
+
+## First Example: Inference of Pipeline with Module Map, GNN and Connected Components
+
+This example is now available in the `examples/Example_1` directory. The example is a simple pipeline that takes raw Athena events as input, and produces a set of track candidates as output. The pipeline consists of three steps:
+
+1. **Module Map** - a python implementation of the Module Map algorithm, which produces a set of graphs from the raw events
+2. **GNN** - a graph neural network that scores the edges of the graphs produced by the Module Map
+3. **Connected Components** - a simple algorithm that applies a threshold to the scores of the edges, and produces a set of track candidates from the resulting graph
+
+## Second Example: Inference of Pipeline with Metric Learning, GNN and Walkthrough
+
+TODO
+
+## Third Example: Reproducing the Results of the GNN4ITk V1 CTD Proceedings (ATL-ITK-PROC-2022-006)
+
+TODO
 
 ## Planning Doc
 
@@ -19,3 +48,30 @@ Given a set of wishes for how to work together, what do we need to produce to ge
 - [ ] Be well-documented
 - [ ] Private for the use of the GNN4ITk group but can freeze certain examples and configurations for public release (using a technique like this one: a public release mirror that can be cited)
 - [ ] Be clean - keep messy development and random ideas out of the repository. Can include several different models and configurations, but these should have been tested already elsewhere
+
+### Roadmap for Documentation & Tutorials
+- [X] Make password-protected example data available for testing and examples: available at 
+https://portal.nersc.gov/cfs/m3443/dtmurnane/GNN4ITk/ExampleData/athena_100_events.zip and https://cernbox.cern.ch/index.php/s/CTBnzv4DlntgHJ7
+- [X] Make a tutorial for how to run Example 1: An inference of a pipeline with module map, GNN and connected components
+- [ ] Make a tutorial for how to run Example 2: An inference of a pipeline with metric learning, GNN and walkthrough
+- [ ] Make a tutorial for how to run Example 3: Training a custom pipeline
+
+### Roadmap for Core Codebase
+- [X] Training script written and tested
+- [X] Inference script written and tested
+- [X] Evaluation script written and tested
+
+### Roadmap for Stages Codebase
+- [X] Athena DataReader
+- [ ] ACTS DataReader
+- [X] Triplet Module Map 
+- [ ] Homogeneous Metric Learning
+- [ ] Heterogeneous Metric Learning
+- [ ] Homogeneous Filter
+- [ ] Heterogeneous Filter
+- [X] Homogeneous GNN
+- [ ] Heterogeneous GNN
+- [X] Connected Components
+- [ ] Walkthrough
+- [ ] Connected Components + Walkthrough
+- [ ] Connected Components + CFK

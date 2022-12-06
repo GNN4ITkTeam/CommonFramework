@@ -1,0 +1,12 @@
+*.csv*
+*.txt*
+*.pt*
+*.pyg*
+*wandb*
+*logs*
+*.ckpt*
+*_dev
+**_dev
+*.egg-info*
+*~*
+*__pycache__*
