@@ -11,7 +11,6 @@ def load_datafiles_in_dir(input_dir, data_name = None, data_num = None):
         input_dir = os.path.join(input_dir, data_name)
 
     data_files = [str(path) for path in Path(input_dir).rglob("*.pyg")][:data_num]
-
     assert len(data_files) > 0, f"No data files found in {input_dir}"
     if data_num is not None:
         assert len(data_files) == data_num, f"Number of data files found ({len(data_files)}) is less than the number requested ({data_num})"
@@ -54,7 +53,6 @@ def convert_to_latest_pyg_format(event):
     """
     return Data.from_dict(event.__dict__)
 
-
 def handle_weighting(event, weighting_config):
     """
     Take the specification of the weighting and convert this into float values. The default is:
@@ -72,10 +70,6 @@ def handle_weighting(event, weighting_config):
     - primary == False
     - pt < 1 GeV
     - etc. As desired.
-    """
-
-    """
-    TODO: This now needs to handle the new edge feature system
     """
 
     # Set the default values, which will be overwritten if specified in the config

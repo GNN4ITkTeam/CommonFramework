@@ -28,7 +28,7 @@ from tqdm import tqdm
 from gnn4itk_cf.utils import run_data_tests, get_ratio
 
 class GraphConstructionStage:
-    def __init__(self, hparams):
+    def __init__(self):
         super().__init__()
         """
         Initialise the Lightning Module that can scan over different GNN training regimes
@@ -57,15 +57,13 @@ class GraphConstructionStage:
             self.load_data(self.hparams["stage_dir"])
 
         
-    
-
     def load_data(self, input_dir):
         """
         Load in the data for training, validation and testing.
         """
 
         for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
-            dataset = self.dataset_class(input_dir, data_name, data_num, use_pyg = self.use_pyg, use_csv = self.use_csv)
+            dataset = self.dataset_class(input_dir, data_name, data_num, use_pyg = self.use_pyg, use_csv = self.use_csv, hparams = self.hparams)
             setattr(self, data_name, dataset)
 
     def test_data(self):

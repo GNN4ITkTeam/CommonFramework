@@ -1,32 +1,38 @@
-import os, sys
 import logging
-import random
+from typing import Optional, Tuple, Union
+
 
 import torch.nn as nn
 import torch
-import pandas as pd
-import numpy as np
-try:
-    import cupy as cp
-except:
-    pass
-
-from tqdm import tqdm
-
-from torch_geometric.data import Dataset
 from torch_geometric.nn import radius
 
-# ---------------------------- Dataset Processing -------------------------
+try:
+    import frnn
+    FRNN_AVAILABLE = True
+except ImportError:
+    FRNN_AVAILABLE = False
+if not torch.cuda.is_available():
+    FRNN_AVAILABLE = False
 
+
+# ---------------------------- Dataset Processing -------------------------
 
 # ---------------------------- Edge Building ------------------------------
 
 def build_edges(
-    query, database, indices=None, r_max=1.0, k_max=10, return_indices=False, backend="FRNN"
-):
+    query: torch.Tensor,
+    database: torch.Tensor, 
+    indices: Optional[torch.Tensor] = None, 
+    r_max: float = 1.0, 
+    k_max: int = 10, 
+    return_indices: bool = False, 
+    backend: str = "FRNN"
+) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
 
-    if backend == "FRNN":
-        dists, idxs, nn, grid = frnn.frnn_grid_points(
+    # Type hint
+    if backend == "FRNN" and FRNN_AVAILABLE:    
+        # Compute edges
+        dists, idxs, _, _ = frnn.frnn_grid_points(
             points1=query.unsqueeze(0),
             points2=database.unsqueeze(0),
             lengths1=None,
@@ -37,17 +43,14 @@ def build_edges(
             return_nn=False,
             return_sorted=True,
         )      
-        
-        idxs = idxs.squeeze().int()
-        ind = torch.Tensor.repeat(
-        torch.arange(idxs.shape[0], device=device), (idxs.shape[1], 1), 1
-        ).T.int()
+
+        idxs: torch.Tensor = idxs.squeeze().int()
+        ind = torch.arange(idxs.shape[0], device=query.device).repeat(idxs.shape[1], 1).T.int()
         positive_idxs = idxs >= 0
         edge_list = torch.stack([ind[positive_idxs], idxs[positive_idxs]]).long()
-
-    elif backend == "PYG":
+    else:
         edge_list = radius(database, query, r=r_max, max_num_neighbors=k_max)
-        
+
     # Reset indices subset to correct global index
     if indices is not None:
         edge_list[0] = indices[edge_list[0]]
@@ -55,10 +58,7 @@ def build_edges(
     # Remove self-loops
     edge_list = edge_list[:, edge_list[0] != edge_list[1]]
 
-    if return_indices:
-        return edge_list, dists, idxs, ind
-    else:
-        return edge_list
+    return (edge_list, dists, idxs, ind) if (return_indices and backend=="FRNN") else edge_list
 
 
 def graph_intersection(input_pred_graph, input_truth_graph, return_y_pred=True, return_y_truth=False, return_pred_to_truth=False, return_truth_to_pred=False):
@@ -101,7 +101,7 @@ def make_mlp(
     input_size,
     sizes,
     hidden_activation="ReLU",
-    output_activation="ReLU",
+    output_activation=None,
     layer_norm=False,
     batch_norm=False,
 ):

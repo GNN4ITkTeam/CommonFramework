@@ -1,4 +1,4 @@
-name: gnn4itk
+name: gnn4itk-cori
 
 channels:
     - rapidsai
