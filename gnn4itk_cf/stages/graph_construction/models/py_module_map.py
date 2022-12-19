@@ -17,14 +17,14 @@ from . import utils
 
 class PyModuleMap(GraphConstructionStage):
     def __init__(self, hparams):
-        super().__init__(hparams)
+        super().__init__()
         """
         Initialise the PyModuleMap - a python implementation of the Triplet Module Map.
         """
         self.hparams = hparams
         self.use_pyg = True
         self.use_csv = True
-        self.gpu_available = torch.cuda.is_available()        
+        self.gpu_available = torch.cuda.is_available()
 
     def load_module_map(self):
         """

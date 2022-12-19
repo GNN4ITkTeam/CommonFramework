@@ -65,6 +65,8 @@ class GraphConstructionStage:
         for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
             dataset = self.dataset_class(input_dir, data_name, data_num, use_pyg = self.use_pyg, use_csv = self.use_csv, hparams = self.hparams)
             setattr(self, data_name, dataset)
+        
+        print(f"Loaded {len(self.trainset)} training events, {len(self.valset)} validation events and {len(self.testset)} testing events")
 
     def test_data(self):
         """
@@ -97,7 +99,6 @@ class GraphConstructionStage:
             if hasattr(graph_constructor, data_name):
                 graph_constructor.build_graphs(dataset = getattr(graph_constructor, data_name), data_name = data_name)
 
-
     def build_graphs(self, dataset, data_name):
         """
         Build the graphs using the trained model. This is the only function that needs to be overwritten by the child class.
@@ -110,20 +111,12 @@ class GraphConstructionStage:
         The gateway for the evaluation stage. This class method is called from the eval_stage.py script.
         """
         
-        # Need to load the data in the testset directory
-        # Concatenate all edge indices
-        # Concatenate all truth labels
-        # Concatenate all true track edges
-        # Concatenate all edge pts
-        # Get edgewise efficiency vs. pT of edge
-
         # Load data from testset directory
         graph_constructor = cls(config)
         graph_constructor.use_csv = False
         graph_constructor.setup(stage="test")
 
         all_plots = config["plots"]
-        
 
         # TODO: Handle the list of plots properly
         for plot_function, plot_config in all_plots.items():
@@ -143,6 +136,7 @@ class GraphConstructionStage:
                 self.apply_target_conditions(event, config["target_tracks"])
             else:
                 event.target_mask = torch.ones(event.truth_map.shape[0], dtype = torch.bool)
+
             all_y_truth.append(event.truth_map[event.target_mask] >= 0)
             all_pt.append(event.pt[event.target_mask])
 
@@ -174,7 +168,6 @@ class GraphConstructionStage:
          r"$p_T > 1$GeV, $|\eta < 4$")
         fig.savefig(os.path.join(config["stage_dir"], "edgewise_efficiency.png"))
 
-
     def apply_target_conditions(self, event, target_tracks):
         """
         Apply the target conditions to the event. This is used for the evaluation stage.
@@ -184,13 +177,11 @@ class GraphConstructionStage:
 
         for key, values in target_tracks.items():
             if isinstance(values, list):
-                # passing_tracks = passing_tracks & (values[0] <= event[key]).bool() & (event[key] <= values[1]).bool()
                 passing_tracks = passing_tracks * (values[0] <= event[key].float()) * (event[key].float() <= values[1])
             else:
                 passing_tracks = passing_tracks * (event[key] == values)
 
         event.target_mask = passing_tracks
-
 
 class EventDataset(Dataset):
     """

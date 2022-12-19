@@ -8,9 +8,11 @@ This script:
 """
 
 import logging
+import os
 
 import yaml
 import click
+import torch
 
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -52,31 +54,44 @@ def train(config_file):
 
     # run training, depending on whether we are using a Lightning trainable model or not
     if isinstance(stage_module, LightningModule):
-        
-        # setup logger
-        if wandb is not None:
-            logger = WandbLogger(save_dir=config["stage_dir"], project=config["project"])
-        else:
-            logger = CSVLogger(save_dir=config["stage_dir"])
-
-        metric_to_monitor = config["metric_to_monitor"] if "metric_to_monitor" in config else "val_loss"
-        checkpoint_callback = ModelCheckpoint(
-            monitor=metric_to_monitor, mode="min", save_top_k=1, save_last=True
-        )
-
-        # train stage
-        trainer = Trainer(
-            gpus=config["gpus"],
-            num_nodes=config["nodes"],
-            max_epochs=config["max_epochs"],
-            callbacks=[checkpoint_callback],
-            logger=logger,
-        )
-
-        trainer.fit(stage_module)
-
+        lightning_train(config, stage_module)
     else:
         stage_module.train()
+
+
+def lightning_train(config, stage_module):
+        # setup logger
+    logger = (
+        WandbLogger(save_dir=config["stage_dir"], project=config["project"])
+        if wandb is not None
+        else CSVLogger(save_dir=config["stage_dir"])
+    )
+    metric_to_monitor = config["metric_to_monitor"] if "metric_to_monitor" in config else "val_loss"
+    metric_mode = config["metric_mode"] if "metric_mode" in config else "min"
+
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=os.path.join(config["stage_dir"], "artifacts"),
+        filename='best',
+        monitor=metric_to_monitor, 
+        mode=metric_mode, 
+        save_top_k=1, 
+        save_last=True
+    )
+
+    accelerator = "gpu" if torch.cuda.is_available() else None
+    devices = config["gpus"] if "gpus" in config else 1
+
+    # train stage
+    trainer = Trainer(
+        accelerator=accelerator,
+        devices=devices,
+        num_nodes=config["nodes"],
+        max_epochs=config["max_epochs"],
+        callbacks=[checkpoint_callback],
+        logger=logger,
+    )
+
+    trainer.fit(stage_module)
 
 
 if __name__ == "__main__":

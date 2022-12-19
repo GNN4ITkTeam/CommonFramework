@@ -50,7 +50,13 @@ def evaluate(config_file):
     stage_module = str_to_class(stage, model)
 
     if issubclass(stage_module, LightningModule):
-        checkpoint_path = max((str(path) for path in Path(config["stage_dir"]).rglob("*.ckpt")), key=os.path.getctime)
+        checkpoint_paths = [
+            str(path) for path in Path(config["stage_dir"]).rglob("best*.ckpt")
+        ] or [str(path) for path in Path(config["stage_dir"]).rglob("*.ckpt")]
+        if not checkpoint_paths:
+            print("No checkpoint found")
+            sys.exit(1)
+        checkpoint_path = max(checkpoint_paths, key=os.path.getctime)
         print(f"Loading checkpoint: {checkpoint_path}")
         checkpoint_config = torch.load(checkpoint_path)["hyper_parameters"]
         config = checkpoint_config | config

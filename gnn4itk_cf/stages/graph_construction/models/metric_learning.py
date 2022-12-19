@@ -1,3 +1,5 @@
+import os
+
 # 3rd party imports
 from ..graph_construction_stage import GraphConstructionStage
 import torch.nn.functional as F
@@ -65,6 +67,15 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         else:
             return None
 
+    def predict_dataloader(self):
+
+        datasets = []
+        for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
+            if data_num > 0:
+                dataset = self.dataset_class(self.hparams["input_dir"], data_name, data_num, "predict", self.hparams)
+                datasets.append(dataset) 
+        return datasets
+
     def configure_optimizers(self):
         optimizer = [
             torch.optim.AdamW(
@@ -90,7 +101,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
     def get_input_data(self, batch):
 
-        input_data = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()
+        input_data = torch.stack([batch["x_" + feature] for feature in self.hparams["node_features"]], dim=-1).float()
         input_data[input_data != input_data] = 0 # Replace NaNs with 0s
 
         return input_data
@@ -111,7 +122,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         if knn is None:
             knn = self.hparams["knn"]
         
-        knn_edges: torch.Tensor = build_edges(
+        knn_edges = build_edges(
             query=query,
             database=spatial,
             indices=query_indices,
@@ -139,13 +150,37 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         )
         return e_spatial
 
-    def get_hinge_distance(self, spatial, e_spatial, y_cluster, weights=None):
+    def append_signal_edges(self, batch, edges):
 
-        hinge = y_cluster.float().to(self.device)
-        hinge[hinge == 0] = -1
+        # Instantiate bidirectional truth (since KNN prediction will be bidirectional)
+        if "undirected" in self.hparams and self.hparams["undirected"]:
+            true_edges = torch.cat(
+                [batch.track_edges, batch.track_edges.flip(0)], dim=-1
+            )
+        else:
+            true_edges = batch.track_edges
 
-        reference = spatial[e_spatial[1]]
-        neighbors = spatial[e_spatial[0]]
+        # Append the signal edges
+        signal_true_edges = build_signal_edges(
+            batch,
+            self.hparams["weighting"],
+            true_edges
+        )
+
+        # print("Adding signal edges:", signal_true_edges.shape[1], "from true edges:", true_edges.shape[1])
+
+        edges = torch.cat(
+            [edges, signal_true_edges], dim=-1,
+        )
+
+        # print("weighting:", self.hparams["weighting"])
+
+        return edges
+
+    def get_distances(self, embedding, pred_edges):
+
+        reference = embedding[pred_edges[1]]
+        neighbors = embedding[pred_edges[0]]
 
         try: # This can be resource intensive, so we chunk it if it fails
             d = torch.sum((reference - neighbors) ** 2, dim=-1)
@@ -153,10 +188,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             d = [torch.sum((ref - nei) ** 2, dim=-1) for ref, nei in zip(reference.chunk(10), neighbors.chunk(10))]
             d = torch.cat(d)
         
-        if weights is not None:
-            d = d * weights
-
-        return hinge, d
+        return d
 
     def training_step(self, batch, batch_idx):
 
@@ -169,15 +201,15 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             ``torch.tensor`` The loss function as a tensor
         """
 
-        training_edges, embedding = self.get_training_edges(batch)
-        self.apply_embedding(batch, embedding, training_edges)
+        batch.edge_index, embedding = self.get_training_edges(batch)
+        self.apply_embedding(batch, embedding, batch.edge_index)
 
-        training_edges, truth, truth_map, true_edges = self.get_truth(batch, training_edges)
-        weights = self.get_training_weights(batch, training_edges, truth, true_edges, truth_map)
+        batch.edge_index, batch.y, truth_map, true_edges = self.get_truth(batch, batch.edge_index)
+        weights = self.get_weights(batch, true_edges, truth_map)
 
-        loss = self.loss_function(embedding, training_edges, truth, weights)
+        loss = self.loss_function(batch, embedding, weights)
 
-        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("train_loss", loss, batch_size=1)
 
         return loss
 
@@ -187,10 +219,8 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         training_edges = torch.empty([2, 0], dtype=torch.int64, device=self.device)
 
         # Forward pass of model, handling whether Cell Information (ci) is included
-        input_data = self.get_input_data(batch)
-
         with torch.no_grad():
-            embedding = self(input_data)
+            embedding = self.apply_embedding(batch)
 
         query_indices, query = self.get_query_points(batch, embedding)
         
@@ -200,16 +230,8 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         # Append random edges pairs (rp) for stability
         training_edges = self.append_random_pairs(training_edges, query_indices, embedding)
 
-        # Instantiate bidirectional truth (since KNN prediction will be bidirectional)
-        if "undirected" in self.hparams and self.hparams["undirected"]:
-            true_edges = torch.cat(
-                [batch.track_edges, batch.track_edges.flip(0)], dim=-1
-            )
-        else:
-            true_edges = batch.track_edges
-        training_edges = torch.cat(
-            [training_edges, true_edges], dim=-1,
-        )
+        # Append true signal edges
+        training_edges = self.append_signal_edges(batch, training_edges)
 
         return training_edges, embedding
 
@@ -223,13 +245,13 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         else:
             true_edges = batch.track_edges
 
-        truth, truth_map = graph_intersection(pred_edges, true_edges, return_y_pred=True, return_truth_to_pred=True)
+        pred_edges, truth, truth_map = graph_intersection(pred_edges, true_edges, return_y_pred=True, return_truth_to_pred=True, unique_pred=False)
 
         return pred_edges, truth, truth_map, true_edges
 
-    def get_training_weights(self, batch, training_edges, truth, true_edges, truth_map):
+    def get_weights(self, batch, true_edges, truth_map):
 
-        return handle_weighting(batch, training_edges, truth, self.hparams["weighting"], true_edges, truth_map)
+        return handle_weighting(batch, self.hparams["weighting"], true_edges=true_edges, truth_map=truth_map)
 
     def apply_embedding(self, batch, embedding_inplace=None, training_edges=None):
 
@@ -239,75 +261,118 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             return self(input_data)
 
         included_hits = training_edges.unique().long()
-        print(embedding_inplace.shape)
-        print(input_data.shape)
         embedding_inplace[included_hits] = self(input_data[included_hits])
 
-    def loss_function(self, embedding, pred_edges, truth, weights=None):
-        hinge, d = self.get_hinge_distance(embedding, pred_edges, truth, weights)
+    def loss_function(self, batch, embedding, weights=None, pred_edges=None, truth=None):
+        
+        if pred_edges is None:
+            assert "edge_index" in batch.keys, "Must provide pred_edges if not in batch"
+            pred_edges = batch.edge_index
 
+        if truth is None:
+            assert "y" in batch.keys, "Must provide truth if not in batch"
+            truth = batch.y
+
+        if weights is None:
+            weights = torch.ones_like(truth)
+
+        d = self.get_distances(embedding, pred_edges)
+
+        return self.weighted_hinge_loss(truth, d, weights)
+
+    def weighted_hinge_loss(self, truth, d, weights):
+        """
+        Calculates the weighted hinge loss
+
+        Given a set of edges, we partition into signal true (truth=1, weight>0), background true (truth=1, weight=0 or weight<0) and false (truth=0). 
+        The choice of weights for each set (as specified in the weighting config) defines how these are treated. Weights of 0 are simply masked from the loss function.
+        Weights below 0 are treated as false, such that background true edges can be treated as false edges. The same behavior is used in calculating metrics.
+
+        Args:
+            truth (``torch.tensor``, required): The truth tensor of composed of 0s and 1s, of shape (E,)
+            d (``torch.tensor``, required): The distance tensor between nodes at edges[0] and edges[1] of shape (E,)
+            weights (``torch.tensor``, required): The weight tensor of shape (E,)
+        Returns:
+            ``torch.tensor`` The weighted hinge loss mean as a tensor
+        """
+        
+        negative_mask = ((truth == 0) & (weights != 0)) | (weights < 0) 
+        # print("Negatives:", negative_mask.shape, (truth==0).sum(), (weights <0).sum(), (weights != 0).sum())
+
+        # Handle negative loss, but don't reduce vector
         negative_loss = torch.nn.functional.hinge_embedding_loss(
-            d[hinge == -1],
-            hinge[hinge == -1],
+            d[negative_mask],
+            torch.ones_like(d[negative_mask])*-1,
             margin=self.hparams["margin"]**2,
-            reduction="mean",
+            reduction= "none",
         )
 
+        # Now reduce the vector with non-zero weights
+        negative_loss = torch.mean(negative_loss * weights[negative_mask].abs())
+
+        positive_mask = (truth == 1) & (weights > 0)
+        # print("Positives:", positive_mask.shape, (truth==1).sum(), (weights > 0).sum())
+
+        # Handle positive loss, but don't reduce vector
         positive_loss = torch.nn.functional.hinge_embedding_loss(
-            d[hinge == 1],
-            hinge[hinge == 1],
+            d[positive_mask],
+            torch.ones_like(d[positive_mask]),
             margin=self.hparams["margin"]**2,
-            reduction="mean",
+            reduction= "none",
         )
 
-        loss = negative_loss + self.hparams["weight"] * positive_loss
+        # Now reduce the vector with non-zero weights
+        positive_loss = torch.mean(positive_loss * weights[positive_mask].abs())
 
-        self.log("train_loss", loss)
+        return negative_loss + positive_loss
 
-        return loss
-
-    def shared_evaluation(self, batch, batch_idx, knn_radius, knn_num):
+    def shared_evaluation(self, batch, knn_radius, knn_num):
 
         embedding = self.apply_embedding(batch)
 
         # Build whole KNN graph
-        pred_edges = build_edges(
-            embedding, embedding, indices=None, r_max=knn_radius, k_max=knn_num
+        batch.edge_index = build_edges(
+            query=embedding, database=embedding, indices=None, r_max=knn_radius, k_max=knn_num, backend="FRNN"
         )
 
         # Calculate truth from intersection between Prediction graph and Truth graph
-        pred_edges, truth, truth_map, true_edges = self.get_truth(batch, pred_edges)
+        batch.edge_index, batch.y, batch.truth_map, true_edges = self.get_truth(batch, batch.edge_index)
 
-        hinge, d = self.get_hinge_distance(
-            embedding, pred_edges.to(self.device), truth
+        weights = self.get_weights(batch, true_edges, batch.truth_map)
+
+        d = self.get_distances(
+            embedding, batch.edge_index
         )
 
-        loss = torch.nn.functional.hinge_embedding_loss(
-            d, hinge, margin=self.hparams["margin"]**2, reduction="mean"
-        )
+        loss = self.weighted_hinge_loss(batch.y, d, weights)
 
-        cluster_true = true_edges.shape[1]
-        cluster_true_positive = truth.sum()
-        cluster_positive = pred_edges.shape[1]
-
-        eff = cluster_true_positive / cluster_true
-        pur = cluster_true_positive / cluster_positive
-
-        current_lr = self.optimizers().param_groups[0]["lr"]
-        self.log_dict(
-            {"val_loss": loss, "eff": eff, "pur": pur, "current_lr": current_lr}
-        )
-        logging.info(f"Efficiency: {eff}")
-        logging.info(f"Purity: {pur}")
-        logging.info(batch.event_id)
+        if hasattr(self, "trainer") and self.trainer.state.stage in ["train", "validate"]:
+            self.log_metrics(batch, loss, batch.edge_index, true_edges, batch.y, weights)
 
         return {
             "loss": loss,
             "distances": d,
             "preds": embedding,
-            "truth": truth,
             "truth_graph": true_edges,
         }
+
+    def log_metrics(self, batch, loss, pred_edges, true_edges, truth, weights):
+
+        signal_true_edges = build_signal_edges(batch, self.hparams["weighting"], true_edges)
+        true_pred_edges = pred_edges[:, truth == 1]
+        signal_true_pred_edges = pred_edges[:, (truth == 1) & (weights > 0)]
+
+        total_eff = true_pred_edges.shape[1] / true_edges.shape[1]
+        signal_eff = signal_true_pred_edges.shape[1] / signal_true_edges.shape[1]
+        total_pur = true_pred_edges.shape[1] / pred_edges.shape[1]
+        signal_pur = signal_true_pred_edges.shape[1] / pred_edges.shape[1]
+        f1 = 2 * (signal_eff * signal_pur) / (signal_eff + signal_pur)
+
+        current_lr = self.optimizers().param_groups[0]["lr"]
+        self.log_dict(
+            {"val_loss": loss, "lr": current_lr, "total_eff": total_eff, "total_pur": total_pur, "signal_eff": signal_eff, "signal_pur": signal_pur, "f1": f1},
+            batch_size=1
+        )
 
     def validation_step(self, batch, batch_idx):
         """
@@ -315,7 +380,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         """
         knn_val = 500 if "knn_val" not in self.hparams else self.hparams["knn_val"]
         outputs = self.shared_evaluation(
-            batch, batch_idx, self.hparams["r_train"], knn_val
+            batch, self.hparams["r_train"], knn_val
         )
 
         return outputs["loss"]
@@ -324,7 +389,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         """
         Step to evaluate the model's performance
         """
-        return self.shared_evaluation(batch, batch_idx, self.hparams["r_train"], 1000)
+        return self.shared_evaluation(batch, self.hparams["r_train"], 1000)
 
     def optimizer_step(
         self,
@@ -357,6 +422,47 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         logging.info(f"Optimizer step done for batch {batch_idx}")
 
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        """
+        This function handles the prediction of each graph. It is called in the `infer.py` script.
+        It can be overwritted in your custom stage, but it should implement three simple steps:
+        1. Run an embedding model on the input graph
+        2. Build graph and save as batch.edge_index
+        3. Run the truth calculation and save as batch.y and batch.truth_map
+        """
+            
+        knn_infer = 500 if "knn_infer" not in self.hparams else self.hparams["knn_infer"]
+        self.shared_evaluation(batch, self.hparams["r_infer"], knn_infer)
+        
+        if self.hparams["undirected"]:
+            self.remove_duplicate_edges(batch)
+
+        datatype = self.predict_dataloader()[dataloader_idx].data_name
+
+        self.build_graphs(batch, datatype)
+
+    def build_graphs(self, event, datatype):
+
+        event.config.append(self.hparams)
+        os.makedirs(os.path.join(self.hparams["stage_dir"], datatype), exist_ok=True)
+        torch.save(event.cpu(), os.path.join(self.hparams["stage_dir"], datatype, f"event{event.event_id}.pyg"))
+
+    def remove_duplicate_edges(self, event):
+        """
+        Remove duplicate edges, since we only need an undirected graph. Randomly flip the remaining edges to remove
+        any training biases downstream
+        """
+
+        event.edge_index[:, event.edge_index[0] > event.edge_index[1]] = event.edge_index[:, event.edge_index[0] > event.edge_index[1]].flip(0)
+        event.edge_index, edge_inverse = event.edge_index.unique(return_inverse=True, dim=-1)
+        event.y = torch.zeros_like(event.edge_index[0], dtype=event.y.dtype).scatter(0, edge_inverse, event.y)
+        event.truth_map[event.truth_map >= 0] = edge_inverse[event.truth_map[event.truth_map >= 0]]
+        event.truth_map = event.truth_map[:event.track_edges.shape[1]]
+
+        random_flip = torch.randint(2, (event.edge_index.shape[1],), dtype=torch.bool)
+        event.edge_index[:, random_flip] = event.edge_index[:, random_flip].flip(0)
+
+
 class GraphDataset(Dataset):
     """
     The custom default GNN dataset to load graphs off the disk
@@ -381,10 +487,8 @@ class GraphDataset(Dataset):
 
         event_path = self.input_paths[idx]
         event = torch.load(event_path, map_location=torch.device("cpu"))
-        # print(event)
         self.preprocess_event(event)
 
-        # return (event, event_path) if self.stage == "predict" else event
         return event
 
     def preprocess_event(self, event):
@@ -392,10 +496,8 @@ class GraphDataset(Dataset):
         Process event before it is used in training and validation loops
         """
         
+        self.clean_node_features(event)
         self.apply_hard_cuts(event)
-        # print(event)
-        self.build_signal_edges(event)
-        # print(event)
         
     def apply_hard_cuts(self, event):
         """
@@ -416,6 +518,19 @@ class GraphDataset(Dataset):
         if self.hparams is not None and "weighting" in self.hparams.keys() and self.hparams["weighting"]:
             build_signal_edges(event, self.hparams["weighting"])
             
+    def clean_node_features(self, event):
+        """
+        Ensure that node features abide by the correct convention. That is, they begin with "x_".
+        """
+
+        if "x" in event.keys:
+            event.num_nodes = event.x.shape[0]
+
+        for feature in event.keys:
+            if event.is_node_attr(feature) and not feature.startswith("x_"):
+                event[f"x_{feature}"] = event[feature]
+                event[feature] = None
+
     def handle_edge_list(self, event):
         """
         TODO 

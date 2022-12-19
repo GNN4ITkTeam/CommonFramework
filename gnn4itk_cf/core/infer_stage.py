@@ -37,7 +37,6 @@ def main(config_file, verbose):
 
     infer(config_file)
 
-
 def infer(config_file):
 
     # load config
@@ -51,29 +50,32 @@ def infer(config_file):
     stage_module = str_to_class(stage, model)
 
     if issubclass(stage_module, LightningModule):
-        checkpoint_paths = [str(path) for path in Path(config["stage_dir"]).rglob("epoch*.ckpt")]
-        if not checkpoint_paths:
-            checkpoint_paths = [str(path) for path in Path(config["stage_dir"]).rglob("*.ckpt")]
-        if not checkpoint_paths:
-            print("No checkpoint found")
-            sys.exit(1)
-        checkpoint_path = max(checkpoint_paths, key=os.path.getctime)
-        print(f"Loading checkpoint: {checkpoint_path}")
-
-        stage_module = stage_module.load_from_checkpoint(checkpoint_path)
-
-        # setup stage
-        stage_module.setup(stage="predict")
-
-        trainer = Trainer(
-            gpus=config["gpus"],
-            num_nodes=config["nodes"],
-        )
-
-        trainer.predict(stage_module)
-
+        lightning_infer(config, stage_module)
     else:
         stage_module.infer(config)
+
+def lightning_infer(config, stage_module):
+    checkpoint_paths = [
+        str(path) for path in Path(config["stage_dir"]).rglob("best*.ckpt")
+    ] or [str(path) for path in Path(config["stage_dir"]).rglob("*.ckpt")]
+    if not checkpoint_paths:
+        print("No checkpoint found")
+        sys.exit(1)
+    checkpoint_path = max(checkpoint_paths, key=os.path.getctime)
+    print(f"Loading checkpoint: {checkpoint_path}")
+
+    stage_module = stage_module.load_from_checkpoint(checkpoint_path)
+    stage_module._hparams = stage_module._hparams | config
+
+    # setup stage
+    stage_module.setup(stage="predict")
+
+    trainer = Trainer(
+        gpus=config["gpus"],
+        num_nodes=config["nodes"],
+    )
+
+    trainer.predict(stage_module)
 
 
 if __name__ == "__main__":

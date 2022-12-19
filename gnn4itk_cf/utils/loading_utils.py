@@ -38,12 +38,11 @@ def run_data_tests(datasets: List, required_features, optional_features):
             if dataset is not None:
                 for i, event in enumerate(dataset):
                     dataset[i] = convert_to_latest_pyg_format(event)
-            
 
         for feature in required_features:
-            assert feature in sample_event, f"Feature [{feature}] not found in data, this is REQUIRED. Features found: {sample_event.keys}"
-        
-        missing_optional_features = [ feature for feature in optional_features if feature not in sample_event ]
+            assert feature in sample_event or f"x_{feature}" in sample_event, f"Feature [{feature}] not found in data, this is REQUIRED. Features found: {sample_event.keys}"
+
+        missing_optional_features = [ feature for feature in optional_features if feature not in sample_event or f"x_{feature}" not in sample_event ]
         for feature in missing_optional_features:
             warnings.warn(f"OPTIONAL feature [{feature}] not found in data")
 
