@@ -16,7 +16,7 @@ otherwise use the `cpu_environment.yml` file.
 
 ## First Example: Inference of Pipeline with Module Map, GNN and Connected Components
 
-This example is now available in the `examples/Example_1` directory. The example is a simple pipeline that takes raw Athena events as input, and produces a set of track candidates as output. The pipeline consists of three steps:
+This example is available in the `examples/Example_1` directory. The example is a simple pipeline that takes raw Athena events as input, and produces a set of track candidates as output. The pipeline consists of three steps:
 
 1. **Module Map** - a python implementation of the Module Map algorithm, which produces a set of graphs from the raw events
 2. **GNN** - a graph neural network that scores the edges of the graphs produced by the Module Map
@@ -64,8 +64,8 @@ https://portal.nersc.gov/cfs/m3443/dtmurnane/GNN4ITk/ExampleData/athena_100_even
 ### Roadmap for Stages Codebase
 - [X] Athena DataReader
 - [ ] ACTS DataReader
-- [X] Triplet Module Map 
-- [ ] Homogeneous Metric Learning
+- [X] Triplet Module Map
+- [X] Homogeneous Metric Learning
 - [ ] Heterogeneous Metric Learning
 - [ ] Homogeneous Filter
 - [ ] Heterogeneous Filter

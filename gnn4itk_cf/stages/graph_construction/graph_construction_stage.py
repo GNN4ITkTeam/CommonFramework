@@ -129,7 +129,7 @@ class GraphConstructionStage:
         """
         Plot the graph construction efficiency vs. pT of the edge.
         """
-        all_y_truth, all_pt  = [], []
+        all_y_truth, all_pt = [], []
 
         for event in tqdm(self.testset):
             if "target_tracks" in config:
@@ -147,13 +147,13 @@ class GraphConstructionStage:
         # Build a histogram of true pTs, and a histogram of true-positive pTs
         pt_bins = np.logspace(np.log10(1), np.log10(50), 10)
 
-        true_pt_hist, true_bins = np.histogram(all_pt, bins = pt_bins)
-        true_pos_pt_hist, true_pos_bins = np.histogram(all_pt[all_y_truth], bins = pt_bins)
+        true_pt_hist, _ = np.histogram(all_pt, bins = pt_bins)
+        true_pos_pt_hist, _ = np.histogram(all_pt[all_y_truth], bins = pt_bins)
 
         # Divide the two histograms to get the edgewise efficiency
         eff, err = get_ratio(true_pos_pt_hist,  true_pt_hist)
-        xvals = (true_bins[1:] + true_bins[:-1]) / 2
-        xerrs = (true_bins[1:] - true_bins[:-1]) / 2
+        xvals = (pt_bins[1:] + pt_bins[:-1]) / 2
+        xerrs = (pt_bins[1:] - pt_bins[:-1]) / 2
 
         # Plot the edgewise efficiency
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -163,9 +163,10 @@ class GraphConstructionStage:
         ax.set_xscale('log')
 
         # Save the plot
-        atlasify("Internal", 
-         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
-         r"$p_T > 1$GeV, $|\eta < 4$")
+        atlasify(atlas="Internal", 
+            subtext=r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
+            r"$p_T > 1$GeV, $|\eta < 4$" + "\n"
+            r"Mean graph size: " + f"{np.mean([event.edge_index.shape[1] for event in self.testset]):.2f}")
         fig.savefig(os.path.join(config["stage_dir"], "edgewise_efficiency.png"))
 
     def apply_target_conditions(self, event, target_tracks):
