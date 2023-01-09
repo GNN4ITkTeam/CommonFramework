@@ -9,12 +9,12 @@ data_dir=MY_DATA_DIR
 then download the data with (assuming you have EOS ATLAS group access)
 ```bash
 mkdir $data_dir/Example_1
-scp /eos/user/d/dmurnane/GNN4ITk/FrameworkExamples/Example_1/Example_1_Data.zip $data_dir/Example_1/
+scp MY_USERNAME@lxplus.cern.ch:/eos/user/d/dmurnane/GNN4ITk/FrameworkExamples/Example_1/Example_1_Data.zip $data_dir/Example_1/
 unzip $data_dir/Example_1/Example_1_Data.zip -d $data_dir/Example_1
 ```
 The model files can be downloaded with
 ```bash
-scp /eos/user/d/dmurnane/GNN4ITk/FrameworkExamples/Example_1/Example_1_Artifacts.zip $data_dir/Example_1/
+scp MY_USERNAME@lxplus.cern.ch:/eos/user/d/dmurnane/GNN4ITk/FrameworkExamples/Example_1/Example_1_Artifacts.zip $data_dir/Example_1/
 unzip $data_dir/Example_1/Example_1_Artifacts.zip -d $data_dir/Example_1
 ```
 The location of this data, as well as all parameters controlling the GNN4ITk reconstruction chain, is specified in `yaml` config files. The data directory currently has a placeholder MY_DATA_DIR. Replace this with the actual data directory with
