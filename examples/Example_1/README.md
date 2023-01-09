@@ -21,7 +21,7 @@ The location of this data, as well as all parameters controlling the GNN4ITk rec
 ```bash
 sed -i "s/MY_DATA_DIR/$data_dir/g" *.yaml
 ```
-
+ 
 ## Running the Example
 
 The following commands will run the Example 1 pipeline. In general, they follow the pattern
