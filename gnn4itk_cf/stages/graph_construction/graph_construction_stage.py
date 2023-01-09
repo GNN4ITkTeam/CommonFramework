@@ -140,7 +140,9 @@ class GraphConstructionStage:
             all_y_truth.append(event.truth_map[event.target_mask] >= 0)
             all_pt.append(event.pt[event.target_mask])
 
-        all_pt = torch.cat(all_pt).cpu().numpy() / 1000
+        #  TODO: Handle different pT units!
+        # all_pt = torch.cat(all_pt).cpu().numpy() / 1000
+        all_pt = torch.cat(all_pt).cpu().numpy()
         all_y_truth = torch.cat(all_y_truth).cpu().numpy()
 
         # Get the edgewise efficiency

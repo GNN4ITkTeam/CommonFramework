@@ -3,7 +3,7 @@ stage: data_reading
 model: AthenaReader
 input_dir: MY_DATA_DIR/Example_1_Dev/athena_100_events
 stage_dir: MY_DATA_DIR/Example_1_Dev/feature_store/
-module_lookup_path: MY_DATA_DIR/Example_1_Dev/Modules_geo_10events.txt
+module_lookup_path: MY_DATA_DIR/Example_1_Dev/example_1_module_ids.txt
 
 # Feature Configurations
 feature_sets:

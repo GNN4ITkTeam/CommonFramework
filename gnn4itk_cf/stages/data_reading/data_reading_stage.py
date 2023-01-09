@@ -9,9 +9,10 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from functools import partial
 import re
-from itertools import chain, product
+from itertools import chain, product, combinations
 from torch_geometric.data import Data
 import torch
+import warnings
 
 class EventReader:
     """ 
@@ -81,7 +82,6 @@ class EventReader:
         """
         raise NotImplementedError
 
-
     def _test_pyg_conversion(self):
         """
         This is called after the base class has finished processing the hits, particles and tracks.
@@ -103,7 +103,7 @@ class EventReader:
 
         particles = pd.read_csv(event["particles"])
         hits = pd.read_csv(event["truth"])
-        hits, particles = self._select_hits(hits, particles)
+        hits, particles = self._merge_particles_to_hits(hits, particles)
         hits = self._add_all_features(hits)
         hits = self._clean_noise_duplicates(hits)
 
@@ -153,41 +153,34 @@ class EventReader:
         """
         torch.save(graph, os.path.join(output_dir, f"event{event_id}-graph.pyg"))
 
-
     @staticmethod
     def calc_eta(r, z):
         theta = np.arctan2(r, z)
         return -1.0 * np.log(np.tan(theta / 2.0))  
 
-    def _select_hits(self, hits, particles):
+    def _merge_particles_to_hits(self, hits, particles):
 
-        """ 
-        Takes a set of hits and particles and applies hard cuts to the list of hits and particles. These should be defined
-        in a `hard_cuts` key in the config file. E.g.
-        hard_cuts: 
-            pt: [1000, inf]
-            barcode: [0, 200000]
+        """
+        Merge the particles and hits dataframes, and add some useful columns. These are defined in the config file.        
+        This is a bit messy, since Athena, ACTS and TrackML have a variety of different conventions and features for particles.
         """
 
-        particles = particles.assign(primary=(particles.barcode < 200000).astype(int))
+        if "barcode" in particles.columns:
+            particles = particles.assign(primary=(particles.barcode < 200000).astype(int))
 
-        if "hard_cuts" in self.config and self.config["hard_cuts"] is not None:
-            raise NotImplementedError("Hard cuts not implemented yet")
-            for cut in self.config["hard_cuts"]:
-                pass
-            hits = hits.merge(
-                particles[["particle_id", "pt", "vx", "vy", "vz", "primary"]],
-                on="particle_id",
-            )
+        if "nhits" not in particles.columns:
+            hits["nhits"] = hits.groupby("particle_id")["particle_id"].transform("count")
+            
+        assert all(vertex in particles.columns for vertex in ["vx", "vy", "vz"]), "Particles must have vertex information!"
+        particle_features = self.config["feature_sets"]["track_features"] + ["vx", "vy", "vz"]
 
-        else:
-            hits = hits.merge(
-                particles[["particle_id", "pt", "vx", "vy", "vz", "primary", "pdgId", "radius"]],
-                on="particle_id",
-                how="left",
-            )
+        assert "particle_id" in hits.columns and "particle_id" in particles.columns, "Hits and particles must have a particle_id column!"
+        hits = hits.merge(
+            particles[particle_features],
+            on="particle_id",
+            how="left",
+        )
 
-        hits["nhits"] = hits.groupby("particle_id")["particle_id"].transform("count")
         hits["particle_id"] = hits["particle_id"].fillna(0).astype(int)
         hits.loc[hits.particle_id == 0, "nhits"] = -1
 
@@ -240,6 +233,8 @@ class EventReader:
         # Group by particle ID
         if "module_columns" not in self.config or self.config["module_columns"] is None:
             module_columns = ["barrel_endcap", "hardware", "layer_disk", "eta_module", "phi_module"]
+        else:
+            module_columns = self.config["module_columns"]
 
         signal_index_list = (signal.groupby(
                 ["particle_id"] + module_columns,
@@ -269,7 +264,7 @@ class EventReader:
     def _get_track_features(self, hits, track_index_edges):
         track_features = {}
         for track_feature in self.config["feature_sets"]["track_features"]:
-            assert (hits[track_feature].values[track_index_edges][0] == hits[track_feature].values[track_index_edges][1]).all()
+            assert (hits[track_feature].values[track_index_edges][0] == hits[track_feature].values[track_index_edges][1]).all(), "Track features must be the same for each side of edge"
             track_features[track_feature] = hits[track_feature].values[track_index_edges[0]]
     
         return track_features
@@ -316,7 +311,6 @@ class EventReader:
         all_files_in_template = list(chain.from_iterable(all_files_in_template))
         all_event_ids = sorted(list({re.findall("[0-9]+", file)[-1] for file in all_files_in_template}))
 
-
         all_events = []
         for event_id in all_event_ids:
             event = {"event_id": event_id}
@@ -349,6 +343,12 @@ class EventReader:
             particles = pd.read_csv(event["particles"])
             assert len(truth) > 0, f"No truth spacepoints found in CSV file in {data_name}. Please check that the conversion to CSV was successful."
             assert len(particles) > 0, f"No particles found in CSV file in {data_name}. Please check that the conversion to CSV was successful."
+
+        for dataset1, dataset2 in combinations(["trainset", "valset", "testset"], 2):
+            dataset1_files = {event["event_id"] for event in self.get_file_names(os.path.join(self.config["stage_dir"], dataset1), filename_terms=["truth", "particles"])}
+            dataset2_files = {event["event_id"] for event in self.get_file_names(os.path.join(self.config["stage_dir"], dataset2), filename_terms=["truth", "particles"])}
+            if dataset1_files.intersection(dataset2_files): 
+                warnings.warn(f"There are overlapping files between the {dataset1} and {dataset2}. You should remove these overlapping files from one of the datasets: {dataset1_files.intersection(dataset2_files)}")
 
     def __len__(self):
         return len(self.files)

@@ -104,7 +104,6 @@ def handle_hard_cuts(event, hard_cuts_config):
     
     event.track_edges = event.track_edges[:, true_track_mask]
 
-
 def get_weight_mask(event, weight_conditions):
 
     graph_mask = torch.ones_like(event.y)

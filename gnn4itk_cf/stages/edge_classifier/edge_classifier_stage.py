@@ -15,7 +15,7 @@ from sklearn.metrics import roc_curve, auc
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-from gnn4itk_cf.utils import load_datafiles_in_dir, run_data_tests, handle_weighting, handle_hard_cuts, remap_from_mask, get_ratio
+from gnn4itk_cf.utils import load_datafiles_in_dir, run_data_tests, handle_weighting, handle_hard_cuts, remap_from_mask, get_ratio, get_optimizers
 
 class EdgeClassifierStage(LightningModule):
     def __init__(self, hparams):
@@ -98,26 +98,7 @@ class EdgeClassifierStage(LightningModule):
         return datasets
 
     def configure_optimizers(self):
-        optimizer = [
-            torch.optim.AdamW(
-                self.parameters(),
-                lr=(self.hparams["lr"]),
-                betas=(0.9, 0.999),
-                eps=1e-08,
-                amsgrad=True,
-            )
-        ]
-        scheduler = [
-            {
-                "scheduler": torch.optim.lr_scheduler.StepLR(
-                    optimizer[0],
-                    step_size=self.hparams["patience"],
-                    gamma=self.hparams["factor"],
-                ),
-                "interval": "epoch",
-                "frequency": 1,
-            }
-        ]
+        optimizer, scheduler = get_optimizers(self.parameters(), self.hparams)
         return optimizer, scheduler
 
     def training_step(self, batch, batch_idx):
@@ -139,13 +120,16 @@ class EdgeClassifierStage(LightningModule):
 
         assert hasattr(batch, "y"), "The batch does not have a truth label. Please ensure the batch has a `y` attribute."
         assert hasattr(batch, "weights"), "The batch does not have a weighting label. Please ensure the batch weighting is handled in preprocessing."
-
-        positive_loss = F.binary_cross_entropy_with_logits(
-            output[batch.y == 1], batch.y[batch.y == 1].float(), weight=batch.weights[batch.y == 1] 
+        
+        negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0) 
+        
+        negative_loss = F.binary_cross_entropy_with_logits(
+            output[negative_mask], torch.zeros_like(output[negative_mask]), weight=batch.weights[negative_mask].abs()
         )
 
-        negative_loss = F.binary_cross_entropy_with_logits(
-            output[batch.y == 0], batch.y[batch.y == 0].float(), weight=batch.weights[batch.y == 0]
+        positive_mask = (batch.y == 1) & (batch.weights > 0)
+        positive_loss = F.binary_cross_entropy_with_logits(
+            output[positive_mask], torch.ones_like(output[positive_mask]), weight=batch.weights[positive_mask].abs()
         )
 
         return positive_loss + negative_loss
@@ -156,9 +140,9 @@ class EdgeClassifierStage(LightningModule):
         loss = self.loss_function(output, batch)   
 
         all_truth = batch.y.bool()
-        target_truth = batch.weights.bool() & all_truth
+        target_truth = (batch.weights > 0) & all_truth
         
-        return {"loss": loss, "all_truth": target_truth, "target_truth": target_truth, "output": output}
+        return {"loss": loss, "all_truth": all_truth, "target_truth": target_truth, "output": output}
 
     def validation_step(self, batch, batch_idx):
 
@@ -196,7 +180,7 @@ class EdgeClassifierStage(LightningModule):
         # Eff, pur, auc
         sig_eff = sig_true_positive / sig_true
         sig_pur = sig_true_positive / edge_positive
-        background_pur = background_true_positive / edge_positive
+        total_pur = background_true_positive / edge_positive
         current_lr = self.optimizers().param_groups[0]["lr"]
 
         self.log_dict(
@@ -204,14 +188,28 @@ class EdgeClassifierStage(LightningModule):
                 "val_loss": loss,
                 "current_lr": current_lr,
                 "eff": sig_eff,
-                "target_pur": sig_pur,
-                "background_pur": background_pur,
+                "signal_pur": sig_pur,
+                "total_pur": total_pur,
                 "auc": sig_auc,
             },  # type: ignore
             sync_dist=True,
         )
 
         return preds
+
+    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_idx, optimizer_closure=None, on_tpu=False, using_native_amp=False, using_lbfgs=False):
+        """
+        Use this to manually enforce warm-up. In the future, this may become built-into PyLightning
+        """
+        # warm up lr
+        if (self.hparams["warmup"] is not None) and (self.trainer.current_epoch < self.hparams["warmup"]):
+            lr_scale = min(1.0, float(self.trainer.current_epoch + 1) / self.hparams["warmup"])
+            for pg in optimizer.param_groups:
+                pg["lr"] = lr_scale * self.hparams["lr"]
+
+        # update params
+        optimizer.step(closure=optimizer_closure)
+        optimizer.zero_grad()
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         """
@@ -404,6 +402,7 @@ class GraphDataset(Dataset):
         self.apply_hard_cuts(event)
         self.construct_weighting(event)
         self.handle_edge_list(event)
+        self.handle_feature_scaling(event)
         
     def apply_hard_cuts(self, event):
         """
@@ -430,7 +429,25 @@ class GraphDataset(Dataset):
             event.weights = torch.ones_like(event.y, dtype=torch.float32)
             
     def handle_edge_list(self, event):
+
+        # Flip event.edge_index and concat together
+        event.edge_index = torch.cat([event.edge_index, event.edge_index.flip(0)], dim=1)
+        event.y = torch.cat([event.y, event.y], dim=0)
+        event.weights = torch.cat([event.weights, event.weights], dim=0)
+
+        # Remove duplicate edges
+        unique_edges, unique_edge_indices = torch.unique(event.edge_index, dim=1, return_inverse=True)
+        event.edge_index = unique_edges
+        event.y = event.y[unique_edge_indices]
+        event.weights = event.weights[unique_edge_indices]
+
+    def handle_feature_scaling(self, event):
         """
-        TODO 
-        """ 
-        pass
+        Handle feature scaling for the event
+        """
+        
+        if self.hparams is not None and "node_scales" in self.hparams.keys() and "node_features" in self.hparams.keys():
+            assert isinstance(self.hparams["node_scales"], list), "Feature scaling must be a list of ints or floats"
+            for i, feature in enumerate(self.hparams["node_features"]):
+                assert feature in event.keys, f"Feature {feature} not found in event"
+                event[feature] = event[feature] / self.hparams["node_scales"][i]

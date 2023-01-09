@@ -8,6 +8,7 @@ dependencies = [
     "tqdm",
     "ipykernel",
     "atlasify",
+    "trackml@ https://github.com/LAL/trackml-library/tarball/master#egg=trackml-3",
 ]
 
 setup(

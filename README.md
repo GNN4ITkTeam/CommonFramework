@@ -67,6 +67,7 @@ https://portal.nersc.gov/cfs/m3443/dtmurnane/GNN4ITk/ExampleData/athena_100_even
 - [X] Triplet Module Map
 - [X] Homogeneous Metric Learning
 - [ ] Heterogeneous Metric Learning
+- [ ] Directed Metric Learning
 - [ ] Homogeneous Filter
 - [ ] Heterogeneous Filter
 - [X] Homogeneous GNN

@@ -498,6 +498,7 @@ class GraphDataset(Dataset):
         
         self.clean_node_features(event)
         self.apply_hard_cuts(event)
+        # self.remove_split_cluster_truth(event) TODO: Should handle this at some point
         
     def apply_hard_cuts(self, event):
         """
