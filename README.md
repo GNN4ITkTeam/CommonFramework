@@ -63,16 +63,17 @@ https://portal.nersc.gov/cfs/m3443/dtmurnane/GNN4ITk/ExampleData/athena_100_even
 
 ### Roadmap for Stages Codebase
 - [X] Athena DataReader
+- [X] TrackML DataReader
 - [ ] ACTS DataReader
 - [X] Triplet Module Map
 - [X] Homogeneous Metric Learning
 - [ ] Heterogeneous Metric Learning
 - [ ] Directed Metric Learning
-- [ ] Homogeneous Filter
+- [X] Homogeneous Filter
 - [ ] Heterogeneous Filter
 - [X] Homogeneous GNN
 - [ ] Heterogeneous GNN
 - [X] Connected Components
-- [ ] Walkthrough
+- [X] Walkthrough
 - [ ] Connected Components + Walkthrough
 - [ ] Connected Components + CFK
