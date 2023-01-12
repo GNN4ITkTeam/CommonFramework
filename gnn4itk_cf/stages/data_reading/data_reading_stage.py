@@ -104,10 +104,10 @@ class EventReader:
         particles = pd.read_csv(event["particles"])
         hits = pd.read_csv(event["truth"])
         hits, particles = self._merge_particles_to_hits(hits, particles)
-        hits = self._add_all_features(hits)
+        hits = self._add_handengineered_features(hits)
         hits = self._clean_noise_duplicates(hits)
 
-        tracks, track_features, hits = self._build_true_tracks(hits, particles)
+        tracks, track_features, hits = self._build_true_tracks(hits)
         hits, particles, tracks = self._custom_processing(hits, particles, tracks)
         graph = self._build_graph(hits, tracks, track_features, event_id)
         self._save_pyg_data(graph, output_dir, event_id)
@@ -169,7 +169,7 @@ class EventReader:
             particles = particles.assign(primary=(particles.barcode < 200000).astype(int))
 
         if "nhits" not in particles.columns:
-            hits["nhits"] = hits.groupby("particle_id")["particle_id"].transform("count")
+            particles["nhits"] = hits.groupby("particle_id")["particle_id"].transform("count")
             
         assert all(vertex in particles.columns for vertex in ["vx", "vy", "vz"]), "Particles must have vertex information!"
         particle_features = self.config["feature_sets"]["track_features"] + ["vx", "vy", "vz"]
@@ -203,7 +203,7 @@ class EventReader:
 
         return hits
 
-    def _add_all_features(self, hits):
+    def _add_handengineered_features(self, hits):
         assert all(col in hits.columns for col in ["x", "y", "z"]), "Need to add (x,y,z) features"
 
         r = np.sqrt(hits.x**2 + hits.y**2)
@@ -213,21 +213,20 @@ class EventReader:
 
         return hits
 
-    def _build_true_tracks(self, hits, particles):
+    def _build_true_tracks(self, hits):
 
         assert all(col in hits.columns for col in ["particle_id", "hit_id", "x", "y", "z", "vx", "vy", "vz"]), "Need to add (particle_id, hit_id), (x,y,z) and (vx,vy,vz) features to hits dataframe in custom EventReader class"
 
-        signal = hits[(hits.particle_id != 0)]
-
         # Sort by increasing distance from production
-        signal = signal.assign(
+        hits = hits.assign(
             R=np.sqrt(
-                (signal.x - signal.vx) ** 2
-                + (signal.y - signal.vy) ** 2
-                + (signal.z - signal.vz) ** 2
+                (hits.x - hits.vx) ** 2
+                + (hits.y - hits.vy) ** 2
+                + (hits.z - hits.vz) ** 2
             )
         )
 
+        signal = hits[(hits.particle_id != 0)]     
         signal = signal.sort_values("R").reset_index(drop=False)
 
         # Group by particle ID
@@ -254,20 +253,38 @@ class EventReader:
 
         assert (hits[hits.hit_id.isin(track_edges.flatten())].particle_id == 0).sum() == 0, "There are hits in the track edges that are noise"
 
-        track_features = self._get_track_features(hits, track_index_edges)
+        track_features = self._get_track_features(hits, track_index_edges, track_edges)
 
         # Remap
         track_edges, track_features, hits = self.remap_edges(track_edges, track_features, hits)
 
         return track_edges, track_features, hits
 
-    def _get_track_features(self, hits, track_index_edges):
+    def _get_track_features(self, hits, track_index_edges, track_edges):
         track_features = {}
         for track_feature in self.config["feature_sets"]["track_features"]:
             assert (hits[track_feature].values[track_index_edges][0] == hits[track_feature].values[track_index_edges][1]).all(), "Track features must be the same for each side of edge"
             track_features[track_feature] = hits[track_feature].values[track_index_edges[0]]
     
+        if "redundant_split_edges" in self.config["feature_sets"]["track_features"]:
+            track_features["redundant_split_edges"] = self._get_redundant_split_edges(track_edges, hits, track_features)
+
         return track_features
+
+    def _get_redundant_split_edges(self, track_edges, hits, track_features):
+        """
+        This is a boolean value of each truth track edge. If true, then the edge is leading to a split cluster, which is not the
+        "primary" cluster; that is the cluster that is closest to the true particle production point.
+        """
+
+        truth_track_df = pd.concat([pd.DataFrame(track_edges.T, columns=["hit_id_0", "hit_id_1"]), pd.DataFrame(track_features)], axis=1)
+        hits_unique = hits.drop_duplicates(subset="hit_id")[["hit_id", "module_id", "R"]]
+        truth_track_df = truth_track_df[["hit_id_0", "hit_id_1", "particle_id"]].merge(hits_unique, left_on="hit_id_0", right_on="hit_id", how="left").drop(columns=["hit_id"]).merge(hits_unique, left_on="hit_id_1", right_on="hit_id", how="left").drop(columns=["hit_id"])
+        primary_cluster_df = truth_track_df.sort_values(by=["ID_y", "R_x", "R_y"]).drop_duplicates(subset=["ID_y", "particle_id"], keep="first")
+        secondary_clusters = ~truth_track_df.index.isin(primary_cluster_df.index)
+
+        return secondary_clusters
+
 
     @staticmethod
     def remap_edges(track_edges, track_features, hits):

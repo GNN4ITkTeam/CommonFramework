@@ -18,7 +18,7 @@ class TrackMLReader(EventReader):
         self.raw_events = self.get_file_names(input_dir, filename_terms = ["truth", "hits", "particles", "cells"])
         
         # Very opinionated: We split the data by 80/10/10: train/val/test
-        self.trainset, self.valset, self.testset = random_split(self.raw_events, [int(len(self.raw_events)*0.8), int(len(self.raw_events)*0.1), int(len(self.raw_events)*0.1)])
+        self.trainset, self.valset, self.testset = random_split(self.raw_events, [int(len(self.raw_events)*0.8), int(len(self.raw_events)*0.1), len(self.raw_events) - int(len(self.raw_events)*0.8) - int(len(self.raw_events)*0.1)])
         self.get_detector()
         self.get_module_lookup()
 
