@@ -229,17 +229,20 @@ class EdgeClassifierStage(LightningModule):
         """
             
         output = self(batch)
-        datatype = self.predict_dataloader()[dataloader_idx].data_name
-        self.save_edge_scores(batch, output, datatype)
+        dataset = self.predict_dataloader()[dataloader_idx]
+        self.save_edge_scores(batch, output, dataset)
 
-    def save_edge_scores(self, event, output, datatype):
+    def save_edge_scores(self, event, output, dataset):
 
         event.scores = torch.sigmoid(output)
         if "undirected" in self.hparams and self.hparams["undirected"]:
             self.remove_duplicated_edges(event)
 
+        dataset.unscale_features(event)
+
         event.config.append(self.hparams)
-    
+
+        datatype = dataset.data_name    
         os.makedirs(os.path.join(self.hparams["stage_dir"], datatype), exist_ok=True)
         torch.save(event.cpu(), os.path.join(self.hparams["stage_dir"], datatype, f"event{event.event_id}.pyg"))
 
@@ -429,7 +432,7 @@ class GraphDataset(Dataset):
         self.apply_hard_cuts(event)
         self.construct_weighting(event)
         self.handle_edge_list(event)
-        self.handle_feature_scaling(event)
+        self.scale_features(event)
         
     def apply_hard_cuts(self, event):
         """
@@ -457,6 +460,10 @@ class GraphDataset(Dataset):
             
     def handle_edge_list(self, event):
 
+        if "input_cut" in self.hparams.keys() and self.hparams["input_cut"] and "scores" in event.keys:
+            # Apply a score cut to the event
+            self.apply_score_cut(event, self.hparams["input_cut"])
+
         if "undirected" in self.hparams.keys() and self.hparams["undirected"]:
             # Flip event.edge_index and concat together
             event.edge_index = torch.cat([event.edge_index, event.edge_index.flip(0)], dim=1)
@@ -468,7 +475,7 @@ class GraphDataset(Dataset):
             event.y = torch.zeros_like(event.edge_index[0], dtype=event.y.dtype).scatter(0, unique_edge_indices, event.y)
             event.weights = torch.zeros_like(event.edge_index[0], dtype=event.weights.dtype).scatter(0, unique_edge_indices, event.weights)
 
-    def handle_feature_scaling(self, event):
+    def scale_features(self, event):
         """
         Handle feature scaling for the event
         """
@@ -478,3 +485,26 @@ class GraphDataset(Dataset):
             for i, feature in enumerate(self.hparams["node_features"]):
                 assert feature in event.keys, f"Feature {feature} not found in event"
                 event[feature] = event[feature] / self.hparams["node_scales"][i]
+
+    def unscale_features(self, event):
+        """
+        Unscale features when doing prediction
+        """
+        
+        if self.hparams is not None and "node_scales" in self.hparams.keys() and "node_features" in self.hparams.keys():
+            assert isinstance(self.hparams["node_scales"], list), "Feature scaling must be a list of ints or floats"
+            for i, feature in enumerate(self.hparams["node_features"]):
+                assert feature in event.keys, f"Feature {feature} not found in event"
+                event[feature] = event[feature] * self.hparams["node_scales"][i]
+
+    def apply_score_cut(self, event, score_cut):
+        """
+        Apply a score cut to the event. This is used for the evaluation stage.
+        """
+        passing_edges_mask = event.scores >= score_cut
+        num_edges = event.edge_index.shape[1]
+        for key in event.keys:
+            if (event[key].shape[0] == num_edges) or (event["key"].shape[1] == num_edges):
+                event[key] = event[key][..., passing_edges_mask]
+
+        remap_from_mask(event, passing_edges_mask)

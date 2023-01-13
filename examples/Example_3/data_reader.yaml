@@ -1,9 +1,9 @@
 # CommonFramework configuration
 stage: data_reading
 model: TrackMLReader
-input_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev/trackml_2000_events
-stage_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev/feature_store/
-detector_path: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev/detectors.csv
+input_dir: MY_DATA_DIR/Example_3/trackml_100_events
+stage_dir: MY_DATA_DIR/Example_3/feature_store/
+detector_path: MY_DATA_DIR/Example_3/detectors.csv
 max_workers: 32
 
 # Feature Configurations

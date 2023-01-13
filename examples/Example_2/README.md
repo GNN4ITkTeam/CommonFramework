@@ -56,6 +56,11 @@ g4i-train gnn_train.yaml
 g4i-infer gnn_infer.yaml
 ```
 
+**5a.** (Optional) We can examine the performance of the GNN, by printing some efficiency plots:
+```bash
+g4i-infer gnn_infer.yaml
+```
+
 **6.** Finally, we produce track candidates from the scored graphs:
 ```bash
 g4i-infer track_building_infer.yaml
