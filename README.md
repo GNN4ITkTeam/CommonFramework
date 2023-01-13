@@ -14,7 +14,7 @@ pip install -e .
 
 otherwise use the `cpu_environment.yml` file.
 
-## First Example: Inference of Pipeline with Module Map, GNN and Connected Components
+## First Example: ITk Pipeline with Module Map, GNN and Connected Components
 
 This example is available in the `examples/Example_1` directory. The example is a simple pipeline that takes raw Athena events as input, and produces a set of track candidates as output. The pipeline consists of three steps:
 
@@ -22,11 +22,25 @@ This example is available in the `examples/Example_1` directory. The example is 
 2. **GNN** - a graph neural network that scores the edges of the graphs produced by the Module Map
 3. **Connected Components** - a simple algorithm that applies a threshold to the scores of the edges, and produces a set of track candidates from the resulting graph
 
-## Second Example: Inference of Pipeline with Metric Learning, GNN and Walkthrough
+## Second Example: ITk Pipeline with Metric Learning, GNN and Connected Components
 
-TODO
+This example is available in the `examples/Example_2` directory. The example is a simple pipeline that takes raw Athena events as input, and produces a set of track candidates as output. The pipeline consists of three steps:
 
-## Third Example: Reproducing the Results of the GNN4ITk V1 CTD Proceedings (ATL-ITK-PROC-2022-006)
+1. **Metric Learning** - a python implementation of the metric learning algorithm, which produces a set of graphs from the raw events
+2. **GNN** - a graph neural network that scores the edges of the graphs produced by the Module Map
+3. **Connected Components** - a simple algorithm that applies a threshold to the scores of the edges, and produces a set of track candidates from the resulting graph
+
+## Third Example: TrackML Pipeline with Metric Learning, Filter, GNN and Connected Components
+
+This example is available in the `examples/Example_3` directory. The example is a simple pipeline that takes raw TrackML events as input, and produces a set of track candidates as output. The pipeline consists of three steps:
+
+1. **Metric Learning** - a python implementation of the metric learning algorithm, which produces a set of graphs from the raw events
+2. (Optional). - an simple MLP edge classifier to prune down graphs that are too large for GNN training
+3. **GNN** - a graph neural network that scores the edges of the graphs produced by the Module Map
+4. **Connected Components** - a simple algorithm that applies a threshold to the scores of the edges, and produces a set of track candidates from the resulting graph
+
+
+## Fourth Example: Reproducing the Results of the GNN4ITk V1 CTD Proceedings (ATL-ITK-PROC-2022-006)
 
 TODO
 
