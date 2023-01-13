@@ -16,4 +16,5 @@ target_tracks:
 # Plotting parameters
 plots:
   graph_construction_efficiency: 
-    title: "Module Map Edge-wise Efficiency"
+    title: Module Map Edge-wise Efficiency
+    pt_units: MeV

@@ -72,3 +72,4 @@ g4i-eval track_building_eval.yaml
 
 ## Understanding the Example
 
+This example pipeline was first proposed in *C. Biscarat, S. Caillou, C. Rougier, J. Stark & J. Zahreddine* [arxiv:2103.00916](https://arxiv.org/abs/2103.00916). It uses a data-driven "module map" to assign the possibility of triplets of track hits moving through each module to every other module in the ITk detector. This is used for graph construction, the output of which is subsequently used to train an Interaction Network edge classifier. Once edges are classified, we place a score cut (between 0 and 1, which should be manually tuned to get the best performance) in the track building stage, and label all components that remain connected after the score cut with a unique track label. 

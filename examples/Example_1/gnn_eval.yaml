@@ -20,5 +20,6 @@ target_tracks:
 plots:
   graph_scoring_efficiency: 
     title: Interaction GNN Edge-wise Efficiency
+    pt_units: MeV
   graph_roc_curve:
     title: Interaction GNN ROC curve
