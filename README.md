@@ -35,7 +35,7 @@ This example is available in the `examples/Example_2` directory. The example is 
 This example is available in the `examples/Example_3` directory. The example is a simple pipeline that takes raw TrackML events as input, and produces a set of track candidates as output. The pipeline consists of three steps:
 
 1. **Metric Learning** - a python implementation of the metric learning algorithm, which produces a set of graphs from the raw events
-2. (Optional). - an simple MLP edge classifier to prune down graphs that are too large for GNN training
+2. (Optional). **Filter** - a simple MLP edge classifier to prune down graphs that are too large for GNN training
 3. **GNN** - a graph neural network that scores the edges of the graphs produced by the Module Map
 4. **Connected Components** - a simple algorithm that applies a threshold to the scores of the edges, and produces a set of track candidates from the resulting graph
 
