@@ -141,13 +141,15 @@ class GraphConstructionStage:
             all_pt.append(event.pt[event.target_mask])
 
         #  TODO: Handle different pT units!
-        # all_pt = torch.cat(all_pt).cpu().numpy() / 1000
         all_pt = torch.cat(all_pt).cpu().numpy()
         all_y_truth = torch.cat(all_y_truth).cpu().numpy()
 
         # Get the edgewise efficiency
         # Build a histogram of true pTs, and a histogram of true-positive pTs
-        pt_bins = np.logspace(np.log10(1), np.log10(50), 10)
+        pt_min, pt_max = 1, 50
+        if "pt_units" in plot_config and plot_config["pt_units"] == "MeV":
+            pt_min, pt_max = pt_min * 1000, pt_max * 1000
+        pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
 
         true_pt_hist, _ = np.histogram(all_pt, bins = pt_bins)
         true_pos_pt_hist, _ = np.histogram(all_pt[all_y_truth], bins = pt_bins)
@@ -158,9 +160,10 @@ class GraphConstructionStage:
         xerrs = (pt_bins[1:] - pt_bins[:-1]) / 2
 
         # Plot the edgewise efficiency
+        pt_units = "GeV" if "pt_units" not in plot_config else plot_config["pt_units"]
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.errorbar(xvals, eff, xerr=xerrs, yerr=err, fmt='o', color='black', label='Efficiency')
-        ax.set_xlabel('$p_T [GeV]$', ha='right', x=0.95, fontsize=14)
+        ax.set_xlabel(f'$p_T [{pt_units}]$', ha='right', x=0.95, fontsize=14)
         ax.set_ylabel(plot_config["title"], ha='right', y=0.95, fontsize=14)
         ax.set_xscale('log')
 

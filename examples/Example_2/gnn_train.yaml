@@ -1,7 +1,7 @@
 stage: edge_classifier
 model: InteractionGNN
-input_dir: MY_DATA_DIR/Example_1_Dev/module_map/ # Should contain the files used in training and inference
-stage_dir: MY_DATA_DIR/Example_1_Dev/gnn/ # A directory to be created that will store logs, artifacts, and output data
+input_dir: MY_DATA_DIR/Example_2_Dev/filter/ # Should contain the files used in training and inference
+stage_dir: MY_DATA_DIR/Example_2_Dev/gnn/ # A directory to be created that will store logs, artifacts, and output data
 project: CF_Example_1_GNN # Used in logging
 gpus: 1
 nodes: 1
@@ -34,6 +34,7 @@ hidden: 128
 n_graph_iters: 8
 nb_node_layer: 2
 nb_edge_layer: 2
+emb_channels: 0
 layernorm: True
 batchnorm: False
 aggregation: sum
@@ -41,8 +42,8 @@ hidden_activation: SiLU
 output_activation: Tanh
 
 # Training parameters
-warmup: 10
-lr: 0.001
+warmup: 5
+lr: 0.0001
 factor: 0.9
 patience: 15
 max_epochs: 200

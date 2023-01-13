@@ -86,7 +86,7 @@ class PyModuleMap(GraphConstructionStage):
             torch.save(graph, os.path.join(output_dir, f"event{graph.event_id}.pyg"))
 
     def get_hit_features(self, hits):
-        hits = hits.rename(columns={"hit_id": "hid", "ID": "mid"})
+        hits = hits.rename(columns={"hit_id": "hid", "module_id": "mid"})
         hits["r"] = np.sqrt(hits.x**2 + hits.y**2)
         hits["z"] = hits.z
         hits["eta"] = self.calc_eta(hits.r, hits.z)

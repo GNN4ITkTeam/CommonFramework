@@ -1,0 +1,23 @@
+# CommonFramework configuration
+stage: data_reading
+model: TrackMLReader
+input_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev/trackml_2000_events
+stage_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev/feature_store/
+detector_path: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev/detectors.csv
+max_workers: 32
+
+# Feature Configurations
+feature_sets:
+    hit_features: [hit_id, x, y, z, r, phi, eta, region, module_index, weight,
+                cell_count, cell_val, leta, lphi, lx, ly, lz, geta, gphi]
+    track_features: [particle_id, pt, radius, nhits]
+
+module_columns: [volume_id, layer_id, module_id]
+
+region_labels:
+    1: {volume_id: 7}
+    2: {volume_id: [12, 16]}
+    3: {volume_id: 8}
+    4: {volume_id: [13, 17]}
+    5: {volume_id: 9}
+    6: {volume_id: [14, 18]}

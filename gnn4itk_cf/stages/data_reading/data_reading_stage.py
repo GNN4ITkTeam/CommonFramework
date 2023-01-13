@@ -280,7 +280,7 @@ class EventReader:
         truth_track_df = pd.concat([pd.DataFrame(track_edges.T, columns=["hit_id_0", "hit_id_1"]), pd.DataFrame(track_features)], axis=1)
         hits_unique = hits.drop_duplicates(subset="hit_id")[["hit_id", "module_id", "R"]]
         truth_track_df = truth_track_df[["hit_id_0", "hit_id_1", "particle_id"]].merge(hits_unique, left_on="hit_id_0", right_on="hit_id", how="left").drop(columns=["hit_id"]).merge(hits_unique, left_on="hit_id_1", right_on="hit_id", how="left").drop(columns=["hit_id"])
-        primary_cluster_df = truth_track_df.sort_values(by=["ID_y", "R_x", "R_y"]).drop_duplicates(subset=["ID_y", "particle_id"], keep="first")
+        primary_cluster_df = truth_track_df.sort_values(by=["module_id_y", "R_x", "R_y"]).drop_duplicates(subset=["module_id_y", "particle_id"], keep="first")
         secondary_clusters = ~truth_track_df.index.isin(primary_cluster_df.index)
 
         return secondary_clusters

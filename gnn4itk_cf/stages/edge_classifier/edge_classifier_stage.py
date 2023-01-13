@@ -1,4 +1,5 @@
 import os
+import warnings
 from pytorch_lightning import LightningModule
 import torch.nn.functional as F
 from torch_geometric.data import Dataset
@@ -43,6 +44,13 @@ class EdgeClassifierStage(LightningModule):
             self.test_data(stage)
         elif stage == "test":
             self.load_data(stage, self.hparams["stage_dir"])
+
+        try:
+            print("Defining figures of merit")
+            self.logger.experiment.define_metric("val_loss" , summary="min")
+            self.logger.experiment.define_metric("auc" , summary="max")
+        except Exception:
+            warnings.warn("Failed to define figures of merit, due to logger unavailable")
             
     def load_data(self, stage, input_dir):
         """
@@ -170,27 +178,27 @@ class EdgeClassifierStage(LightningModule):
         edge_positive = preds.sum().float()
 
         # Signal true & signal tp
-        sig_true = target_truth.sum().float()
-        sig_true_positive = (target_truth.bool() & preds).sum().float()
-        background_true_positive = (all_truth.bool() & preds).sum().float()
-        sig_auc = roc_auc_score(
+        target_true = target_truth.sum().float()
+        target_true_positive = (target_truth.bool() & preds).sum().float()
+        all_true_positive = (all_truth.bool() & preds).sum().float()
+        target_auc = roc_auc_score(
             target_truth.bool().cpu().detach(), torch.sigmoid(output).cpu().detach()
         )
 
         # Eff, pur, auc
-        sig_eff = sig_true_positive / sig_true
-        sig_pur = sig_true_positive / edge_positive
-        total_pur = background_true_positive / edge_positive
+        target_eff = target_true_positive / target_true
+        target_pur = target_true_positive / edge_positive
+        total_pur = all_true_positive / edge_positive
         current_lr = self.optimizers().param_groups[0]["lr"]
 
         self.log_dict(
             {
                 "val_loss": loss,
                 "current_lr": current_lr,
-                "eff": sig_eff,
-                "signal_pur": sig_pur,
+                "eff": target_eff,
+                "target_pur": target_pur,
                 "total_pur": total_pur,
-                "auc": sig_auc,
+                "auc": target_auc,
             },  # type: ignore
             sync_dist=True,
         )
@@ -227,11 +235,29 @@ class EdgeClassifierStage(LightningModule):
     def save_edge_scores(self, event, output, datatype):
 
         event.scores = torch.sigmoid(output)
+        if "undirected" in self.hparams and self.hparams["undirected"]:
+            self.remove_duplicated_edges(event)
+
         event.config.append(self.hparams)
     
         os.makedirs(os.path.join(self.hparams["stage_dir"], datatype), exist_ok=True)
         torch.save(event.cpu(), os.path.join(self.hparams["stage_dir"], datatype, f"event{event.event_id}.pyg"))
 
+    def remove_duplicate_edges(self, event):
+        """
+        Remove duplicate edges, since we only need an undirected graph. Randomly flip the remaining edges to remove
+        any training biases downstream
+        """
+
+        event.edge_index[:, event.edge_index[0] > event.edge_index[1]] = event.edge_index[:, event.edge_index[0] > event.edge_index[1]].flip(0)
+        event.edge_index, edge_inverse = event.edge_index.unique(return_inverse=True, dim=-1)
+        event.y = torch.zeros_like(event.edge_index[0], dtype=event.y.dtype).scatter(0, edge_inverse, event.y)
+        event.scores = torch.zeros_like(event.edge_index[0], dtype=event.scores.dtype).scatter(0, edge_inverse, event.scores)
+        event.truth_map[event.truth_map >= 0] = edge_inverse[event.truth_map[event.truth_map >= 0]]
+        event.truth_map = event.truth_map[:event.track_edges.shape[1]]
+
+        random_flip = torch.randint(2, (event.edge_index.shape[1],), dtype=torch.bool)
+        event.edge_index[:, random_flip] = event.edge_index[:, random_flip].flip(0)
 
     @classmethod
     def evaluate(cls, config):
@@ -270,12 +296,15 @@ class EdgeClassifierStage(LightningModule):
             all_y_truth.append(event.truth_map[event.target_mask] >= 0)
             all_pt.append(event.pt[event.target_mask])
 
-        all_pt = torch.cat(all_pt).cpu().numpy() / 1000
+        all_pt = torch.cat(all_pt).cpu().numpy()
         all_y_truth = torch.cat(all_y_truth).cpu().numpy()
 
         # Get the edgewise efficiency
         # Build a histogram of true pTs, and a histogram of true-positive pTs
-        pt_bins = np.logspace(np.log10(1), np.log10(50), 10)
+        pt_min, pt_max = 1, 50
+        if "pt_units" in plot_config and plot_config["pt_units"] == "MeV":
+            pt_min, pt_max = pt_min * 1000, pt_max * 1000
+        pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
 
         true_pt_hist, true_bins = np.histogram(all_pt, bins = pt_bins)
         true_pos_pt_hist, _ = np.histogram(all_pt[all_y_truth], bins = pt_bins)
@@ -286,9 +315,10 @@ class EdgeClassifierStage(LightningModule):
         xerrs = (true_bins[1:] - true_bins[:-1]) / 2
 
         # Plot the edgewise efficiency
+        pt_units = "GeV" if "pt_units" not in plot_config else plot_config["pt_units"]
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.errorbar(xvals, eff, xerr=xerrs, yerr=err, fmt='o', color='black', label='Efficiency')
-        ax.set_xlabel('$p_T [GeV]$', ha='right', x=0.95, fontsize=14)
+        ax.set_xlabel(f'$p_T [{pt_units}]$', ha='right', x=0.95, fontsize=14)
         ax.set_ylabel(plot_config["title"], ha='right', y=0.95, fontsize=14)
         ax.set_xscale('log')
 
@@ -332,9 +362,6 @@ class EdgeClassifierStage(LightningModule):
         ax.set_yscale('log')
         ax.legend(loc='lower right', fontsize=14)
         ax.text(0.95, 0.20, f"AUC: {auc_score:.3f}", ha='right', va='bottom', transform=ax.transAxes, fontsize=14)
-
-
-        
 
         # Save the plot
         atlasify("Internal", 
@@ -430,16 +457,16 @@ class GraphDataset(Dataset):
             
     def handle_edge_list(self, event):
 
-        # Flip event.edge_index and concat together
-        event.edge_index = torch.cat([event.edge_index, event.edge_index.flip(0)], dim=1)
-        event.y = torch.cat([event.y, event.y], dim=0)
-        event.weights = torch.cat([event.weights, event.weights], dim=0)
+        if "undirected" in self.hparams.keys() and self.hparams["undirected"]:
+            # Flip event.edge_index and concat together
+            event.edge_index = torch.cat([event.edge_index, event.edge_index.flip(0)], dim=1)
+            event.y = torch.cat([event.y, event.y], dim=0)
+            event.weights = torch.cat([event.weights, event.weights], dim=0)
 
-        # Remove duplicate edges
-        unique_edges, unique_edge_indices = torch.unique(event.edge_index, dim=1, return_inverse=True)
-        event.edge_index = unique_edges
-        event.y = event.y[unique_edge_indices]
-        event.weights = event.weights[unique_edge_indices]
+            # Remove duplicate edges
+            event.edge_index, unique_edge_indices = torch.unique(event.edge_index, dim=1, return_inverse=True)
+            event.y = torch.zeros_like(event.edge_index[0], dtype=event.y.dtype).scatter(0, unique_edge_indices, event.y)
+            event.weights = torch.zeros_like(event.edge_index[0], dtype=event.weights.dtype).scatter(0, unique_edge_indices, event.weights)
 
     def handle_feature_scaling(self, event):
         """

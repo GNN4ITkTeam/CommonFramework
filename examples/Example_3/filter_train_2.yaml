@@ -7,7 +7,7 @@ gpus: 4
 nodes: 1
 
 # Dataset parameters
-data_split: [20, 20, 20] # Number of [training, validation, testing] examples
+data_split: [500, 20, 20] # Number of [training, validation, testing] examples
 
 # Truth and weighting parameters. Syntax is...
 # Single value: track[key] == value
@@ -18,10 +18,10 @@ weighting:
   - weight: 1.
     conditions: 
       y: False
-  - weight: 0.
+  - weight: -1.
     conditions:
       y: True
-  - weight: 1.
+  - weight: 2.
     conditions:
       y: True
       pt: [1., .inf]
@@ -33,7 +33,7 @@ hard_cuts:
   # pt: [1., .inf]
 
 # Model parameters
-undirected: False
+undirected: True
 edge_cut: 0.5
 node_features: [x_r,  x_phi, x_z,  x_cell_count, x_cell_val, x_leta, x_lphi, x_lx, x_ly, x_lz, x_geta, x_gphi]
 node_scales:   [1000, 3.14,  1000, 1,            1,          1,      1,      0.1,  1,    0.1,  1,      3.14]
@@ -41,13 +41,13 @@ hidden: 1024
 nb_layer: 4
 layernorm: True
 batchnorm: True
-hidden_activation: ReLU
+hidden_activation: SiLU
 
 # Training parameters
 warmup: 20
-ratio: 1
-scheduler: StepLR
-lr: 0.01
+ratio: 5
+scheduler: CosineAnnealingWarmRestarts
+lr: 0.001
 factor: 0.8
-patience: 10
+patience: 5
 max_epochs: 200

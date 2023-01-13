@@ -36,13 +36,6 @@ class Filter(EdgeClassifierStage):
             hidden_activation=hparams["hidden_activation"],
         )
 
-        try:
-            print("Defining figures of merit")
-            self.logger.experiment.define_metric("val_loss" , summary="min")
-            self.logger.experiment.define_metric("auc" , summary="max")
-        except Exception:
-            warnings.warn("Failed to define figures of merit, due to logger unavailable")
-
     def forward(self, batch):
 
         x = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()

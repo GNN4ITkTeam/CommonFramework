@@ -1,0 +1,24 @@
+stage: edge_classifier
+model: Filter
+input_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev/metric_learning/ # Should contain the files used in training and inference
+stage_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev/filter/ # A directory to be created that will store logs, artifacts, and output data
+project: CF_Example_3_Filter # Used in logging
+gpus: 1
+nodes: 1
+
+# Dataset parameters
+data_split: [0, 0, 10] # Number of [training, validation, testing] examples
+
+# Evaluation parameters
+score_cut: 0.5
+target_tracks: 
+  pt: [1., .inf]
+  nhits: [3., .inf]
+  primary: True
+
+# Plotting parameters
+plots:
+  graph_scoring_efficiency: 
+    title: Filter Edge-wise Efficiency
+  graph_roc_curve:
+    title: Filter ROC curve

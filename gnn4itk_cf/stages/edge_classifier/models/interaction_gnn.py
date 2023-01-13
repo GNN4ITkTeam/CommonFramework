@@ -81,13 +81,6 @@ class InteractionGNN(EdgeClassifierStage):
             hidden_activation=hparams["hidden_activation"],
         )
 
-        try:
-            print("Defining figures of merit")
-            self.logger.experiment.define_metric("val_loss" , summary="min")
-            self.logger.experiment.define_metric("auc" , summary="max")
-        except Exception:
-            warnings.warn("Failed to define figures of merit, due to logger unavailable")
-
     def aggregation_step(self, num_nodes):
 
         aggregation_dict = {
