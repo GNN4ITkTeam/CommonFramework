@@ -3,7 +3,7 @@ model: InteractionGNN
 input_dir: MY_DATA_DIR/Example_3/metric_learning/ # Should contain the files used in training and inference
 stage_dir: MY_DATA_DIR/Example_3/gnn/ # A directory to be created that will store logs, artifacts, and output data
 project: CF_Example_3_GNN # Used in logging
-gpus: 4
+gpus: 1
 nodes: 1
 
 # Dataset parameters
@@ -16,7 +16,7 @@ input_cut: 0.5
 # List with a string as the first value: First value defines the boolean test, the second value is a list or value. Boolean tests are: (in, not_in, is, is_not, within, not_within)
 # All other tracks follow the default: If a true edge, weight=0. If a fake edge, weight=1.
 weighting:
-  - weight: 3.
+  - weight: 2.
     conditions:
       y: True
       pt: [1., .inf]
@@ -25,7 +25,7 @@ weighting:
 # A list of hard cut conditions. Any hits not passing these conditions will be removed from the training and validation dataset.
 # By definition, noise will not pass any of these cuts, so any hard cuts will remove noise.
 hard_cuts:
-  # pt: [1., .inf]
+  pt: [1., .inf]
 
 # Model parameters
 edge_cut: 0.5
@@ -43,8 +43,6 @@ output_activation: Tanh
 
 # Training parameters
 warmup: 30
-ratio: 5
-scheduler: StepLR
 lr: 0.0005
 factor: 0.9
 patience: 30
