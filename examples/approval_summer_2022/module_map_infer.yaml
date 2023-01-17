@@ -1,0 +1,10 @@
+# CommonFramework configuration
+stage: graph_construction
+model: PyModuleMap
+input_dir: /sps/l2it/scaillou/data/TEST_COMMON_FRAMEWORK/APPROVAL_SUMMER_2022/data/ # Should contain the files used in training and inference
+stage_dir: /sps/l2it/scaillou/data/TEST_COMMON_FRAMEWORK/APPROVAL_SUMMER_2022/module_map/ # A directory to be created that will store logs, artifacts, and output data
+
+# Dataset parameters
+data_split: [400, 20, 100] # Number of [training, validation, testing] examples
+module_map_path: /sps/l2it/scaillou/MM.df
+batch_size: 2000000

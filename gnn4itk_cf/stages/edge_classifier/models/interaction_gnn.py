@@ -1,5 +1,6 @@
 import warnings
 import torch
+import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
 from torch_scatter import scatter_add, scatter_mean, scatter_max
 
@@ -22,7 +23,7 @@ class InteractionGNN(EdgeClassifierStage):
         # Define the dataset to be used, if not using the default
         self.save_hyperparameters(hparams)
 
-        self.setup_layer_sizes()
+        self.setup_layer_sizes()  
 
         hparams["batchnorm"] = (
             False if "batchnorm" not in hparams else hparams["batchnorm"]
@@ -173,3 +174,213 @@ class InteractionGNN(EdgeClassifierStage):
             self.concatenation_factor = 3
         else:
             raise ValueError("Aggregation type not recognised")
+
+
+class InteractionGNN2(EdgeClassifierStage):
+    """
+    Message Passing Neural Network
+    """
+    def __init__(self, hparams):
+        super().__init__(hparams)
+
+
+                
+                
+        hparams["batchnorm"] = (
+            False if "batchnorm" not in hparams else hparams["batchnorm"]
+        )
+        hparams["output_activation"] = (
+            None if "output_activation" not in hparams else hparams["output_activation"]
+        )
+
+
+        # Define the dataset to be used, if not using the default
+        self.save_hyperparameters(hparams)
+
+        #self.setup_layer_sizes()
+
+
+        if hparams["concat"] == True:
+            if hparams["in_out_diff_agg"]:
+                in_node_net = hparams["hidden"]*4
+            else:
+                in_node_net = hparams["hidden"]*3
+            in_edge_net = hparams["hidden"]*6
+        else:
+            if hparams["in_out_diff_agg"]:
+                in_node_net = hparams["hidden"]*3
+            else:
+                in_node_net = hparams["hidden"]*2
+            in_edge_net = hparams["hidden"]*3
+        # node encoder
+        self.node_encoder = make_mlp(
+            input_size=len(hparams["node_features"]),
+            sizes=[hparams["hidden"]]*hparams["n_node_net_layers"],
+            output_activation=hparams["output_activation"],
+            hidden_activation=hparams["hidden_activation"],
+            layer_norm=hparams["layernorm"],
+            batch_norm=hparams["batchnorm"],)
+        # edge encoder
+        if "edge_features" in hparams and len(hparams["edge_features"]) != 0:
+            self.edge_encoder = make_mlp(
+                input_size=len(hparams["edge_features"]),
+                sizes=[hparams["hidden"]]*hparams["n_edge_net_layers"],
+                output_activation=hparams["output_activation"],
+                hidden_activation=hparams["hidden_activation"],
+                layer_norm=hparams["layernorm"],
+                batch_norm=hparams["batchnorm"],)
+        else:
+            self.edge_encoder = make_mlp(
+                input_size=2*hparams["hidden"],
+                sizes=[hparams["hidden"]]*hparams["n_edge_net_layers"],
+                output_activation=hparams["output_activation"],
+                hidden_activation=hparams["hidden_activation"],
+                layer_norm=hparams["layernorm"],
+                batch_norm=hparams["batchnorm"],)
+
+        # edge network
+        if hparams["edge_net_recurrent"]:
+            self.edge_network = make_mlp(
+                input_size=in_edge_net,
+                sizes=[hparams["hidden"]]*hparams["n_edge_net_layers"],
+                output_activation=hparams["output_activation"],
+                hidden_activation=hparams["hidden_activation"],
+                layer_norm=hparams["layernorm"],
+                batch_norm=hparams["batchnorm"],)
+        else:
+            self.edge_network = nn.ModuleList(
+            [make_mlp(
+            input_size=in_edge_net,
+            sizes=[hparams["hidden"]]*hparams["n_edge_net_layers"],
+            output_activation=hparams["output_activation"],
+            hidden_activation=hparams["hidden_activation"],
+            layer_norm=hparams["layernorm"],
+            batch_norm=hparams["batchnorm"],)
+            for i in range(hparams['n_graph_iters'])])
+                # node network
+        if hparams["node_net_recurrent"]:
+            self.node_network = make_mlp(
+                input_size=in_node_net,
+                sizes=[hparams["hidden"]]*hparams["n_node_net_layers"],
+                output_activation=hparams["output_activation"],
+                hidden_activation=hparams["hidden_activation"],
+                layer_norm=hparams["layernorm"],
+                batch_norm=hparams["batchnorm"],)
+        else:
+            self.node_network = nn.ModuleList(
+            [make_mlp(
+            input_size=in_node_net,
+            sizes=[hparams["hidden"]]*hparams["n_node_net_layers"],
+            output_activation=hparams["output_activation"],
+            hidden_activation=hparams["hidden_activation"],
+            layer_norm=hparams["layernorm"],
+            batch_norm=hparams["batchnorm"],)
+            for i in range(hparams['n_graph_iters'])])
+        
+        # edge decoder
+        self.edge_decoder = make_mlp(
+            input_size=hparams["hidden"],
+            sizes=[hparams["hidden"]]*hparams["n_edge_decoder_layers"],
+            output_activation=hparams["output_activation"],
+            hidden_activation=hparams["hidden_activation"],
+            layer_norm=hparams["layernorm"],
+            batch_norm=hparams["batchnorm"],)
+        # edge output transform layer
+        self.edge_output_transform = make_mlp(
+            input_size=hparams["hidden"],
+            sizes=[hparams["hidden"], 1],
+            output_activation=hparams["edge_output_transform_final_activation"],
+            hidden_activation=hparams["hidden_activation"],
+            layer_norm=hparams["layernorm"],
+            batch_norm=hparams["batchnorm"],)
+
+        # dropout layer
+        self.dropout = nn.Dropout(p=0.1)
+        # hyperparams
+        #self.hparams = hparams
+
+    def forward(self, batch):
+
+        x = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()
+        if "edge_features" in self.hparams and len(self.hparams)!=0:
+            edge_attr = torch.stack([batch[feature] for feature in self.hparams["edge_features"]], dim=-1).float()
+        else:
+            edge_attr = None
+
+        x.requires_grad = True
+        if edge_attr!= None:
+            edge_attr.requires_grad = True
+
+        # Get src and dst
+        src, dst = batch.edge_index
+        
+        # Encode nodes and edges features into latent spaces
+        if self.hparams["checkpointing"]:
+            x = checkpoint(self.node_encoder, x)
+            if edge_attr!=None:
+                e = checkpoint(self.edge_encoder, edge_attr) 
+            else:
+                e = checkpoint(self.edge_encoder, torch.cat([x[src], x[dst]], dim=-1))
+        else:
+            x = self.node_encoder(x)
+            if edge_attr!=None:
+                e = self.edge_encoder(edge_attr)
+            else:
+                e = self.edge_encoder(torch.cat([x[src], x[dst]], dim=-1))
+        # Apply dropout
+        #x = self.dropout(x)
+        #e = self.dropout(e)
+
+        # memorize initial encodings for concatenate in the gnn loop if request
+        if self.hparams["concat"] == True:
+            input_x = x
+            input_e = e
+        # Initialize outputs
+        outputs = []
+        # Loop over gnn layers
+        for i in range(self.hparams["n_graph_iters"]):
+            if self.hparams["checkpointing"]:
+                if self.hparams["concat"] == True:
+                    x = checkpoint(self.concat, x, input_x)
+                    e = checkpoint(self.concat, e, input_e)
+                if self.hparams["node_net_recurrent"] and self.hparams["edge_net_recurrent"]:
+                    x, e, out = checkpoint(self.message_step, x, e, src, dst)
+                else:
+                    x, e, out = checkpoint(self.message_step, x, e, src, dst, i)
+            else:
+                if self.hparams["concat"] == True:
+                    x = torch.cat([x, input_x], dim=-1)
+                    e = torch.cat([e, input_e], dim=-1)
+                if self.hparams["node_net_recurrent"] and self.hparams["edge_net_recurrent"]:
+                    x, e, out = self.message_step(x, e, src, dst)
+                else:
+                    x, e, out = self.message_step(x, e, src, dst, i)
+            outputs.append(out)
+        return outputs[-1].squeeze(-1)
+
+    def message_step(self, x, e, src, dst, i=None):
+        edge_inputs = torch.cat([e, x[src], x[dst]], dim=-1) # order dst src x ?
+        if self.hparams["edge_net_recurrent"]:
+            e_updated = self.edge_network(edge_inputs)
+        else:
+            e_updated = self.edge_network[i](edge_inputs)
+        # Update nodes        
+        edge_messages_from_src = scatter_add(e_updated, dst, dim=0, dim_size=x.shape[0])
+        edge_messages_from_dst = scatter_add(e_updated, src, dim=0, dim_size=x.shape[0])
+        if self.hparams["in_out_diff_agg"]:
+            node_inputs = torch.cat([edge_messages_from_src, edge_messages_from_dst, x], dim=-1) # to check : the order dst src  x ?
+        else: 
+            # add message from src and dst ?? # edge_messages = edge_messages_from_src + edge_messages_from_dst
+            edge_messages = edge_messages_from_src + edge_messages_from_dst
+            node_inputs = torch.cat([edge_messages, x], dim=-1)
+        #x_updated = self.dropout(self.node_network[i](node_inputs))
+        if self.hparams["node_net_recurrent"]:
+            x_updated = self.node_network(node_inputs)
+        else:
+            x_updated = self.node_network[i](node_inputs)
+
+        return x_updated, e_updated, self.edge_output_transform(self.edge_decoder(e_updated))
+
+
+    def concat(self, x, y):
+        return torch.cat([x, y], dim=-1) 

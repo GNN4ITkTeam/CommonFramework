@@ -112,6 +112,33 @@ def handle_hard_cuts(event, hard_cuts_config):
     event.track_edges = event.track_edges[:, true_track_mask]
 
 
+def reset_angle(angles):
+    angles[angles > torch.pi] = angles[angles > torch.pi] - 2*torch.pi
+    angles[angles < -torch.pi] = angles[angles < -torch.pi] + 2*torch.pi
+    return angles
+
+
+def handle_edge_features(event, edge_features):
+
+    src, dst = event.edge_index
+
+    for edge_feature in edge_features:
+        if "dr" in edge_features:
+            event.dr = event.r[dst] - event.r[src]
+        if "dphi" in edge_features:
+            event.dphi = reset_angle(event.phi[dst] - event.phi[src])
+        if "dz" in edge_features:
+            event.dz = event.z[dst] - event.z[src]
+        if "deta" in edge_features:
+            event.deta = event.eta[dst] - event.eta[src]
+        if 'phislope' in edge_features:
+            dr = event.r[dst] - event.r[src]
+            dphi = reset_angle(event.phi[dst] - event.phi[src])
+            phislope = dphi / dr
+            phislope = torch.nan_to_num(phislope, nan=0.0, posinf=1, neginf=-1)
+            event.phislope = phislope
+
+
 def get_weight_mask(event, weight_conditions):
 
     graph_mask = torch.ones_like(event.y)
