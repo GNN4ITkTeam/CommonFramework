@@ -28,7 +28,7 @@ The framework is structured as follows:
 
 <div align="center">
 <figure>
-  <a href="https://ibb.co/b76jbjn"><img src="https://i.ibb.co/pn16h6p/stage-simplified.jpg" alt="stage-simplified" border="0"></a><br /><a target='_blank' href='https://imgbb.com/'>Diagram of a generic stage, with the three commands used to run the stage</a><br />
+  <a href="https://ibb.co/b76jbjn"><img src="https://i.ibb.co/pn16h6p/stage-simplified.jpg" alt="stage-simplified" border="0" width=500></a><br /><a target='_blank' href='https://imgbb.com/'>Diagram of a generic stage, with the three commands used to run the stage</a><br />
 </figure>
 </div>
 
