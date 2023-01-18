@@ -51,8 +51,6 @@ deploy-job:      # This job runs in the deploy stage.
 tag-to-github:
   stage: deploy
   script:
-    - export GITLAB_TOKEN=glpat-CeL_sWAtXhxYTFzLK6zX
-    - export GITHUB_TOKEN=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
     - GITHUB_USER=GNN4ITkTeam
     - GITHUB_REPO=commonframework
     - 'export TAG=$(curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "https://gitlab.com/api/v4/projects/$CI_PROJECT_ID/repository/tags?order_by=name" | jq -r ".[0].name")'
