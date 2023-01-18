@@ -24,6 +24,14 @@ The framework is structured as follows:
 - `gnn4itk_cf/core` - contains the core functionality of the framework, including the `train`, `infer`, and `eval` scripts.
 - `gnn4itk_cf/stages` - contains the stages that can be used in the framework. Stages are the building blocks of the framework, and can be combined to create pipelines. Stages are implemented as python classes, and are located in the `gnn4itk_cf/stages` directory. Stages are registered in the `gnn4itk_cf/stages/__init__.py` file, and can be used in the framework by specifying their name in the configuration file used.
 
+## Flow of the Framework
+
+<div align="center">
+<figure>
+  <img src=https://ibb.co/b76jbjn width="600">
+</figure>
+</div>
+
 ## Examples
 
 ### First Example: ITk Pipeline with Module Map, GNN and Connected Components
