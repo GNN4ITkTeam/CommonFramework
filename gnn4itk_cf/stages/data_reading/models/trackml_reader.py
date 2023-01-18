@@ -44,7 +44,9 @@ class TrackMLReader(EventReader):
             return
 
         # Read all dataframes
-        particles, hits, cells, truth = trackml.dataset.load_event(truth_file.split("-")[0], parts=["particles", "hits", "cells", "truth"])
+        path, filename = os.path.split(truth_file)
+        event_path = os.path.join(path, filename.split("-")[0])
+        particles, hits, cells, truth = trackml.dataset.load_event(event_path, parts=["particles", "hits", "cells", "truth"])
 
         # Merge hits and truth, and add module_id, region_id and cell information
         truth = self._process_truth(truth, hits, cells)
