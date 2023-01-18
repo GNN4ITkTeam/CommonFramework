@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 
 def make_mlp(
     input_size,
@@ -32,3 +33,59 @@ def make_mlp(
             layers.append(nn.BatchNorm1d(sizes[-1], track_running_stats=False, affine=False))
         layers.append(output_activation())
     return nn.Sequential(*layers)
+
+def get_optimizers(parameters, hparams):
+    optimizer = [
+        torch.optim.AdamW(
+            parameters,
+            lr=(hparams["lr"]),
+            betas=(0.9, 0.999),
+            eps=1e-08,
+            amsgrad=True,
+        )
+    ]
+
+    if "scheduler" not in hparams or hparams["scheduler"] is None or hparams["scheduler"] == "StepLR":
+        scheduler = [
+            {
+                "scheduler": torch.optim.lr_scheduler.StepLR(
+                    optimizer[0],
+                    step_size=hparams["patience"],
+                    gamma=hparams["factor"],
+                ),
+                "interval": "epoch",
+                "frequency": 1,
+            }
+        ]
+    elif hparams["scheduler"] == "ReduceLROnPlateau":
+        scheduler = [
+            {
+                "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer[0],
+                    mode="min",
+                    factor=hparams["factor"],
+                    patience=hparams["patience"],
+                    verbose=True,
+                ),
+                "interval": "epoch",
+                "frequency": 1,
+            }
+        ]
+    elif hparams["scheduler"] == "CosineAnnealingWarmRestarts":
+        scheduler = [
+            {
+                "scheduler": torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+                    optimizer[0],
+                    T_0=hparams["patience"],
+                    T_mult=2,
+                    eta_min=1e-8,
+                    last_epoch=-1,
+                ),
+                "interval": "epoch",
+                "frequency": 1,
+            }
+        ]
+    else:
+        raise ValueError(f"Unknown scheduler: {hparams['scheduler']}")
+
+    return optimizer, scheduler

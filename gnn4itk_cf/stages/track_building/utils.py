@@ -7,6 +7,7 @@ import torch
 import pandas as pd
 import numpy as np
 import math
+from atlasify import atlasify
 try:
     import cupy as cp
 except:
@@ -145,6 +146,10 @@ def plot_pt_eff(particles, save_path="track_reconstruction_eff_vs_pt.png"):
     # Add x and y labels
     ax.set_xlabel('$p_T [GeV]$', fontsize=16)
     ax.set_ylabel('Efficiency', fontsize=16)
+
+    atlasify("Internal", 
+         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
+         r"$p_T > 1$GeV, $|\eta < 4$")
 
     # Save the plot
     fig.savefig(save_path)

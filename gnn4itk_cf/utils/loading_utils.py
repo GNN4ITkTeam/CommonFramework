@@ -11,7 +11,6 @@ def load_datafiles_in_dir(input_dir, data_name = None, data_num = None):
         input_dir = os.path.join(input_dir, data_name)
 
     data_files = [str(path) for path in Path(input_dir).rglob("*.pyg")][:data_num]
-
     assert len(data_files) > 0, f"No data files found in {input_dir}"
     if data_num is not None:
         assert len(data_files) == data_num, f"Number of data files found ({len(data_files)}) is less than the number requested ({data_num})"
@@ -39,21 +38,22 @@ def run_data_tests(datasets: List, required_features, optional_features):
             if dataset is not None:
                 for i, event in enumerate(dataset):
                     dataset[i] = convert_to_latest_pyg_format(event)
-            
 
         for feature in required_features:
-            assert feature in sample_event, f"Feature [{feature}] not found in data, this is REQUIRED. Features found: {sample_event.keys}"
-        
-        missing_optional_features = [ feature for feature in optional_features if feature not in sample_event ]
+            assert feature in sample_event or f"x_{feature}" in sample_event, f"Feature [{feature}] not found in data, this is REQUIRED. Features found: {sample_event.keys}"
+
+        missing_optional_features = [ feature for feature in optional_features if feature not in sample_event or f"x_{feature}" not in sample_event ]
         for feature in missing_optional_features:
             warnings.warn(f"OPTIONAL feature [{feature}] not found in data")
+
+        # Check that the number of nodes is compatible with the edge indexing
+        assert sample_event.x.shape[0] >= sample_event.edge_index.max().item() + 1, "Number of nodes is not compatible with the edge indexing. Possibly an earlier stage has removed nodes, but not updated the edge indexing."
 
 def convert_to_latest_pyg_format(event):
     """
     Convert the data to the latest PyG format.
     """
     return Data.from_dict(event.__dict__)
-
 
 def handle_weighting(event, weighting_config):
     """
@@ -72,10 +72,6 @@ def handle_weighting(event, weighting_config):
     - primary == False
     - pt < 1 GeV
     - etc. As desired.
-    """
-
-    """
-    TODO: This now needs to handle the new edge feature system
     """
 
     # Set the default values, which will be overwritten if specified in the config
@@ -110,7 +106,6 @@ def handle_hard_cuts(event, hard_cuts_config):
             event[track_feature] = event[track_feature][true_track_mask]
     
     event.track_edges = event.track_edges[:, true_track_mask]
-
 
 def get_weight_mask(event, weight_conditions):
 

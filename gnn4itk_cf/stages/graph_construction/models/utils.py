@@ -1,32 +1,41 @@
-import os, sys
 import logging
-import random
+from typing import Optional, Tuple, Union
+
 
 import torch.nn as nn
 import torch
-import pandas as pd
-import numpy as np
-try:
-    import cupy as cp
-except:
-    pass
-
-from tqdm import tqdm
-
-from torch_geometric.data import Dataset
 from torch_geometric.nn import radius
 
-# ---------------------------- Dataset Processing -------------------------
+try:
+    import frnn
+    FRNN_AVAILABLE = True
+    logging.warning("FRNN is available")
+except ImportError:
+    FRNN_AVAILABLE = False
+    logging.warning("FRNN is not available, install it at https://github.com/murnanedaniel/FRNN. Using PyG radius instead.")
+if not torch.cuda.is_available():
+    FRNN_AVAILABLE = False
+    logging.warning("FRNN is not available, as no GPU is available")
 
+
+# ---------------------------- Dataset Processing -------------------------
 
 # ---------------------------- Edge Building ------------------------------
 
 def build_edges(
-    query, database, indices=None, r_max=1.0, k_max=10, return_indices=False, backend="FRNN"
-):
+    query: torch.Tensor,
+    database: torch.Tensor, 
+    indices: Optional[torch.Tensor] = None, 
+    r_max: float = 1.0, 
+    k_max: int = 10, 
+    return_indices: bool = False, 
+    backend: str = "FRNN"
+) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
 
-    if backend == "FRNN":
-        dists, idxs, nn, grid = frnn.frnn_grid_points(
+    # Type hint
+    if backend == "FRNN" and FRNN_AVAILABLE:    
+        # Compute edges
+        dists, idxs, _, _ = frnn.frnn_grid_points(
             points1=query.unsqueeze(0),
             points2=database.unsqueeze(0),
             lengths1=None,
@@ -37,17 +46,14 @@ def build_edges(
             return_nn=False,
             return_sorted=True,
         )      
-        
-        idxs = idxs.squeeze().int()
-        ind = torch.Tensor.repeat(
-        torch.arange(idxs.shape[0], device=device), (idxs.shape[1], 1), 1
-        ).T.int()
+
+        idxs: torch.Tensor = idxs.squeeze().int()
+        ind = torch.arange(idxs.shape[0], device=query.device).repeat(idxs.shape[1], 1).T.int()
         positive_idxs = idxs >= 0
         edge_list = torch.stack([ind[positive_idxs], idxs[positive_idxs]]).long()
-
-    elif backend == "PYG":
+    else:
         edge_list = radius(database, query, r=r_max, max_num_neighbors=k_max)
-        
+
     # Reset indices subset to correct global index
     if indices is not None:
         edge_list[0] = indices[edge_list[0]]
@@ -55,31 +61,38 @@ def build_edges(
     # Remove self-loops
     edge_list = edge_list[:, edge_list[0] != edge_list[1]]
 
-    if return_indices:
-        return edge_list, dists, idxs, ind
-    else:
-        return edge_list
+    return (edge_list, dists, idxs, ind) if (return_indices and backend=="FRNN") else edge_list
 
 
-def graph_intersection(input_pred_graph, input_truth_graph, return_y_pred=True, return_y_truth=False, return_pred_to_truth=False, return_truth_to_pred=False):
+def graph_intersection(input_pred_graph, input_truth_graph, return_y_pred=True, return_y_truth=False, return_pred_to_truth=False, return_truth_to_pred=False, unique_pred=True, unique_truth=True):
     """
     An updated version of the graph intersection function, which is around 25x faster than the
-    Scipy implementation (on GPU). Takes a prediction graph and a truth graph.
+    Scipy implementation (on GPU). Takes a prediction graph and a truth graph, assumed to have unique entries.
+    If unique_pred or unique_truth is False, the function will first find the unique entries in the input graphs, and return the updated edge lists.
     """
     
+    if not unique_pred:
+        input_pred_graph = torch.unique(input_pred_graph, dim=1)
+    if not unique_truth:
+        input_truth_graph = torch.unique(input_truth_graph, dim=1)
+
     unique_edges, inverse = torch.unique(torch.cat([input_pred_graph, input_truth_graph], dim=1), dim=1, sorted=False, return_inverse=True, return_counts=False)
 
-    inverse_pred_map = torch.ones(unique_edges.shape[1], dtype=torch.long) * -1
-    inverse_pred_map[inverse[:input_pred_graph.shape[1]]] = torch.arange(input_pred_graph.shape[1])
+    inverse_pred_map = torch.ones_like(unique_edges[1]) * -1
+    inverse_pred_map[inverse[:input_pred_graph.shape[1]]] = torch.arange(input_pred_graph.shape[1], device=input_pred_graph.device)
     
-    inverse_truth_map = torch.ones(unique_edges.shape[1], dtype=torch.long) * -1
-    inverse_truth_map[inverse[input_pred_graph.shape[1]:]] = torch.arange(input_truth_graph.shape[1])
+    inverse_truth_map = torch.ones_like(unique_edges[1]) * -1
+    inverse_truth_map[inverse[input_pred_graph.shape[1]:]] = torch.arange(input_truth_graph.shape[1], device=input_truth_graph.device)
 
     pred_to_truth = inverse_truth_map[inverse][:input_pred_graph.shape[1]]
     truth_to_pred = inverse_pred_map[inverse][input_pred_graph.shape[1]:]
 
     return_tensors = []
 
+    if not unique_pred:
+        return_tensors.append(input_pred_graph)
+    if not unique_truth:
+        return_tensors.append(input_truth_graph)
     if return_y_pred:
         y_pred = pred_to_truth >= 0
         return_tensors.append(y_pred)
@@ -101,7 +114,7 @@ def make_mlp(
     input_size,
     sizes,
     hidden_activation="ReLU",
-    output_activation="ReLU",
+    output_activation=None,
     layer_norm=False,
     batch_norm=False,
 ):

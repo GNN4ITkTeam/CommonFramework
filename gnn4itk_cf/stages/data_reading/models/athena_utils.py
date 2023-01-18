@@ -209,10 +209,11 @@ def add_module_id(hits, module_lookup):
     """
     Add the module ID to the hits dataframe
     """
-    if "ID" in hits:
+    if "module_id" in hits:
         return hits
     cols_to_merge = ['hardware','barrel_endcap','layer_disk','eta_module','phi_module']
     merged_hits = hits.merge(module_lookup[cols_to_merge + ["ID"]], on=cols_to_merge, how='left')
+    merged_hits = merged_hits.rename(columns={"ID": "module_id"})
 
     assert hits.shape[0] == merged_hits.shape[0], "Merged hits dataframe has different number of rows - possibly missing modules from lookup"
     assert hits.shape[1] + 1 == merged_hits.shape[1], "Merged hits dataframe has different number of columns"

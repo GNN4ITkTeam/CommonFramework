@@ -28,7 +28,7 @@ from tqdm import tqdm
 from gnn4itk_cf.utils import run_data_tests, get_ratio
 
 class GraphConstructionStage:
-    def __init__(self, hparams):
+    def __init__(self):
         super().__init__()
         """
         Initialise the Lightning Module that can scan over different GNN training regimes
@@ -57,16 +57,16 @@ class GraphConstructionStage:
             self.load_data(self.hparams["stage_dir"])
 
         
-    
-
     def load_data(self, input_dir):
         """
         Load in the data for training, validation and testing.
         """
 
         for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
-            dataset = self.dataset_class(input_dir, data_name, data_num, use_pyg = self.use_pyg, use_csv = self.use_csv)
+            dataset = self.dataset_class(input_dir, data_name, data_num, use_pyg = self.use_pyg, use_csv = self.use_csv, hparams = self.hparams)
             setattr(self, data_name, dataset)
+        
+        print(f"Loaded {len(self.trainset)} training events, {len(self.valset)} validation events and {len(self.testset)} testing events")
 
     def test_data(self):
         """
@@ -99,7 +99,6 @@ class GraphConstructionStage:
             if hasattr(graph_constructor, data_name):
                 graph_constructor.build_graphs(dataset = getattr(graph_constructor, data_name), data_name = data_name)
 
-
     def build_graphs(self, dataset, data_name):
         """
         Build the graphs using the trained model. This is the only function that needs to be overwritten by the child class.
@@ -112,20 +111,12 @@ class GraphConstructionStage:
         The gateway for the evaluation stage. This class method is called from the eval_stage.py script.
         """
         
-        # Need to load the data in the testset directory
-        # Concatenate all edge indices
-        # Concatenate all truth labels
-        # Concatenate all true track edges
-        # Concatenate all edge pts
-        # Get edgewise efficiency vs. pT of edge
-
         # Load data from testset directory
         graph_constructor = cls(config)
         graph_constructor.use_csv = False
         graph_constructor.setup(stage="test")
 
         all_plots = config["plots"]
-        
 
         # TODO: Handle the list of plots properly
         for plot_function, plot_config in all_plots.items():
@@ -138,44 +129,50 @@ class GraphConstructionStage:
         """
         Plot the graph construction efficiency vs. pT of the edge.
         """
-        all_y_truth, all_pt  = [], []
+        all_y_truth, all_pt = [], []
 
         for event in tqdm(self.testset):
             if "target_tracks" in config:
                 self.apply_target_conditions(event, config["target_tracks"])
             else:
                 event.target_mask = torch.ones(event.truth_map.shape[0], dtype = torch.bool)
+
             all_y_truth.append(event.truth_map[event.target_mask] >= 0)
             all_pt.append(event.pt[event.target_mask])
 
-        all_pt = torch.cat(all_pt).cpu().numpy() / 1000
+        #  TODO: Handle different pT units!
+        all_pt = torch.cat(all_pt).cpu().numpy()
         all_y_truth = torch.cat(all_y_truth).cpu().numpy()
 
         # Get the edgewise efficiency
         # Build a histogram of true pTs, and a histogram of true-positive pTs
-        pt_bins = np.logspace(np.log10(1), np.log10(50), 10)
+        pt_min, pt_max = 1, 50
+        if "pt_units" in plot_config and plot_config["pt_units"] == "MeV":
+            pt_min, pt_max = pt_min * 1000, pt_max * 1000
+        pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
 
-        true_pt_hist, true_bins = np.histogram(all_pt, bins = pt_bins)
-        true_pos_pt_hist, true_pos_bins = np.histogram(all_pt[all_y_truth], bins = pt_bins)
+        true_pt_hist, _ = np.histogram(all_pt, bins = pt_bins)
+        true_pos_pt_hist, _ = np.histogram(all_pt[all_y_truth], bins = pt_bins)
 
         # Divide the two histograms to get the edgewise efficiency
         eff, err = get_ratio(true_pos_pt_hist,  true_pt_hist)
-        xvals = (true_bins[1:] + true_bins[:-1]) / 2
-        xerrs = (true_bins[1:] - true_bins[:-1]) / 2
+        xvals = (pt_bins[1:] + pt_bins[:-1]) / 2
+        xerrs = (pt_bins[1:] - pt_bins[:-1]) / 2
 
         # Plot the edgewise efficiency
+        pt_units = "GeV" if "pt_units" not in plot_config else plot_config["pt_units"]
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.errorbar(xvals, eff, xerr=xerrs, yerr=err, fmt='o', color='black', label='Efficiency')
-        ax.set_xlabel('$p_T [GeV]$', ha='right', x=0.95, fontsize=14)
+        ax.set_xlabel(f'$p_T [{pt_units}]$', ha='right', x=0.95, fontsize=14)
         ax.set_ylabel(plot_config["title"], ha='right', y=0.95, fontsize=14)
         ax.set_xscale('log')
 
         # Save the plot
-        atlasify("Internal", 
-         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
-         r"$p_T > 1$GeV, $|\eta < 4$")
+        atlasify(atlas="Internal", 
+            subtext=r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
+            r"$p_T > 1$GeV, $|\eta < 4$" + "\n"
+            r"Mean graph size: " + f"{np.mean([event.edge_index.shape[1] for event in self.testset]):.2f}")
         fig.savefig(os.path.join(config["stage_dir"], "edgewise_efficiency.png"))
-
 
     def apply_target_conditions(self, event, target_tracks):
         """
@@ -186,13 +183,11 @@ class GraphConstructionStage:
 
         for key, values in target_tracks.items():
             if isinstance(values, list):
-                # passing_tracks = passing_tracks & (values[0] <= event[key]).bool() & (event[key] <= values[1]).bool()
                 passing_tracks = passing_tracks * (values[0] <= event[key].float()) * (event[key].float() <= values[1])
             else:
                 passing_tracks = passing_tracks * (event[key] == values)
 
         event.target_mask = passing_tracks
-
 
 class EventDataset(Dataset):
     """

@@ -1,0 +1,20 @@
+# CommonFramework configuration
+stage: graph_construction
+model: MetricLearning
+input_dir: MY_DATA_DIR/Example_2/feature_store/ # Should contain the files used in training and inference
+stage_dir: MY_DATA_DIR/Example_2/metric_learning/ # A directory to be created that will store logs, artifacts, and output data
+
+# Dataset parameters
+data_split: [80, 10, 10] # Number of [training, validation, testing] examples
+
+# Evaluation parameters
+target_tracks: 
+  pt: [1000., .inf]
+  nhits: [3., .inf]
+  primary: True
+
+# Plotting parameters
+plots:
+  graph_construction_efficiency: 
+    title: Metric Learning Edge-wise Efficiency
+    pt_units: MeV

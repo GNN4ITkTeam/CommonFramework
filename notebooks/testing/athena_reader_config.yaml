@@ -1,9 +1,15 @@
-input_dir: ./input_data/
-output_dir: ./output_data/
+# CommonFramework configuration
+stage: data_reading
+model: AthenaReader
+input_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_1_Dev/athena_100_events
+stage_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_1_Dev/feature_store/
+module_lookup_path: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_1_Dev/Modules_geo_10events.txt
 
+# Feature Configurations
 feature_sets:
-    hit_features: [hit_id, x, y, z, r, phi, eta, cluster_x_1, cluster_y_1, cluster_z_1, cluster_x_2, cluster_y_2, cluster_z_2, norm_x, norm_y,
-       norm_z_1, eta_angle_1, phi_angle_1, eta_angle_2, phi_angle_2, norm_z_2]
+    hit_features: [hit_id, x, y, z, r, phi, eta, region, 
+                cluster_x_1, cluster_y_1, cluster_z_1, cluster_x_2, cluster_y_2, cluster_z_2, 
+                norm_x, norm_y, norm_z_1, eta_angle_1, phi_angle_1, eta_angle_2, phi_angle_2, norm_z_2]
     track_features: [particle_id, pt, radius, primary, nhits, pdgId]
 
 region_labels:
@@ -16,6 +22,7 @@ region_labels:
 
 hard_cuts:
 
+# Datatypes and Column Names (TODO: Move this into Python code, doesn't need to be configurable)
 spacepoints_datatypes:
     cluster_index_1: int64
     cluster_index_2: int64

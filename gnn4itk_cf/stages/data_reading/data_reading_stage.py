@@ -9,9 +9,10 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from functools import partial
 import re
-from itertools import chain, product
+from itertools import chain, product, combinations
 from torch_geometric.data import Data
 import torch
+import warnings
 
 class EventReader:
     """ 
@@ -81,7 +82,6 @@ class EventReader:
         """
         raise NotImplementedError
 
-
     def _test_pyg_conversion(self):
         """
         This is called after the base class has finished processing the hits, particles and tracks.
@@ -103,11 +103,11 @@ class EventReader:
 
         particles = pd.read_csv(event["particles"])
         hits = pd.read_csv(event["truth"])
-        hits, particles = self._select_hits(hits, particles)
-        hits = self._add_all_features(hits)
+        hits, particles = self._merge_particles_to_hits(hits, particles)
+        hits = self._add_handengineered_features(hits)
         hits = self._clean_noise_duplicates(hits)
 
-        tracks, track_features, hits = self._build_true_tracks(hits, particles)
+        tracks, track_features, hits = self._build_true_tracks(hits)
         hits, particles, tracks = self._custom_processing(hits, particles, tracks)
         graph = self._build_graph(hits, tracks, track_features, event_id)
         self._save_pyg_data(graph, output_dir, event_id)
@@ -153,41 +153,34 @@ class EventReader:
         """
         torch.save(graph, os.path.join(output_dir, f"event{event_id}-graph.pyg"))
 
-
     @staticmethod
     def calc_eta(r, z):
         theta = np.arctan2(r, z)
         return -1.0 * np.log(np.tan(theta / 2.0))  
 
-    def _select_hits(self, hits, particles):
+    def _merge_particles_to_hits(self, hits, particles):
 
-        """ 
-        Takes a set of hits and particles and applies hard cuts to the list of hits and particles. These should be defined
-        in a `hard_cuts` key in the config file. E.g.
-        hard_cuts: 
-            pt: [1000, inf]
-            barcode: [0, 200000]
+        """
+        Merge the particles and hits dataframes, and add some useful columns. These are defined in the config file.        
+        This is a bit messy, since Athena, ACTS and TrackML have a variety of different conventions and features for particles.
         """
 
-        particles = particles.assign(primary=(particles.barcode < 200000).astype(int))
+        if "barcode" in particles.columns:
+            particles = particles.assign(primary=(particles.barcode < 200000).astype(int))
 
-        if "hard_cuts" in self.config and self.config["hard_cuts"] is not None:
-            raise NotImplementedError("Hard cuts not implemented yet")
-            for cut in self.config["hard_cuts"]:
-                pass
-            hits = hits.merge(
-                particles[["particle_id", "pt", "vx", "vy", "vz", "primary"]],
-                on="particle_id",
-            )
+        if "nhits" not in particles.columns:
+            particles["nhits"] = hits.groupby("particle_id")["particle_id"].transform("count")
+            
+        assert all(vertex in particles.columns for vertex in ["vx", "vy", "vz"]), "Particles must have vertex information!"
+        particle_features = self.config["feature_sets"]["track_features"] + ["vx", "vy", "vz"]
 
-        else:
-            hits = hits.merge(
-                particles[["particle_id", "pt", "vx", "vy", "vz", "primary", "pdgId", "radius"]],
-                on="particle_id",
-                how="left",
-            )
+        assert "particle_id" in hits.columns and "particle_id" in particles.columns, "Hits and particles must have a particle_id column!"
+        hits = hits.merge(
+            particles[particle_features],
+            on="particle_id",
+            how="left",
+        )
 
-        hits["nhits"] = hits.groupby("particle_id")["particle_id"].transform("count")
         hits["particle_id"] = hits["particle_id"].fillna(0).astype(int)
         hits.loc[hits.particle_id == 0, "nhits"] = -1
 
@@ -210,7 +203,7 @@ class EventReader:
 
         return hits
 
-    def _add_all_features(self, hits):
+    def _add_handengineered_features(self, hits):
         assert all(col in hits.columns for col in ["x", "y", "z"]), "Need to add (x,y,z) features"
 
         r = np.sqrt(hits.x**2 + hits.y**2)
@@ -220,26 +213,27 @@ class EventReader:
 
         return hits
 
-    def _build_true_tracks(self, hits, particles):
+    def _build_true_tracks(self, hits):
 
         assert all(col in hits.columns for col in ["particle_id", "hit_id", "x", "y", "z", "vx", "vy", "vz"]), "Need to add (particle_id, hit_id), (x,y,z) and (vx,vy,vz) features to hits dataframe in custom EventReader class"
 
-        signal = hits[(hits.particle_id != 0)]
-
         # Sort by increasing distance from production
-        signal = signal.assign(
+        hits = hits.assign(
             R=np.sqrt(
-                (signal.x - signal.vx) ** 2
-                + (signal.y - signal.vy) ** 2
-                + (signal.z - signal.vz) ** 2
+                (hits.x - hits.vx) ** 2
+                + (hits.y - hits.vy) ** 2
+                + (hits.z - hits.vz) ** 2
             )
         )
 
+        signal = hits[(hits.particle_id != 0)]     
         signal = signal.sort_values("R").reset_index(drop=False)
 
         # Group by particle ID
         if "module_columns" not in self.config or self.config["module_columns"] is None:
             module_columns = ["barrel_endcap", "hardware", "layer_disk", "eta_module", "phi_module"]
+        else:
+            module_columns = self.config["module_columns"]
 
         signal_index_list = (signal.groupby(
                 ["particle_id"] + module_columns,
@@ -259,20 +253,38 @@ class EventReader:
 
         assert (hits[hits.hit_id.isin(track_edges.flatten())].particle_id == 0).sum() == 0, "There are hits in the track edges that are noise"
 
-        track_features = self._get_track_features(hits, track_index_edges)
+        track_features = self._get_track_features(hits, track_index_edges, track_edges)
 
         # Remap
         track_edges, track_features, hits = self.remap_edges(track_edges, track_features, hits)
 
         return track_edges, track_features, hits
 
-    def _get_track_features(self, hits, track_index_edges):
+    def _get_track_features(self, hits, track_index_edges, track_edges):
         track_features = {}
         for track_feature in self.config["feature_sets"]["track_features"]:
-            assert (hits[track_feature].values[track_index_edges][0] == hits[track_feature].values[track_index_edges][1]).all()
+            assert (hits[track_feature].values[track_index_edges][0] == hits[track_feature].values[track_index_edges][1]).all(), "Track features must be the same for each side of edge"
             track_features[track_feature] = hits[track_feature].values[track_index_edges[0]]
     
+        if "redundant_split_edges" in self.config["feature_sets"]["track_features"]:
+            track_features["redundant_split_edges"] = self._get_redundant_split_edges(track_edges, hits, track_features)
+
         return track_features
+
+    def _get_redundant_split_edges(self, track_edges, hits, track_features):
+        """
+        This is a boolean value of each truth track edge. If true, then the edge is leading to a split cluster, which is not the
+        "primary" cluster; that is the cluster that is closest to the true particle production point.
+        """
+
+        truth_track_df = pd.concat([pd.DataFrame(track_edges.T, columns=["hit_id_0", "hit_id_1"]), pd.DataFrame(track_features)], axis=1)
+        hits_unique = hits.drop_duplicates(subset="hit_id")[["hit_id", "module_id", "R"]]
+        truth_track_df = truth_track_df[["hit_id_0", "hit_id_1", "particle_id"]].merge(hits_unique, left_on="hit_id_0", right_on="hit_id", how="left").drop(columns=["hit_id"]).merge(hits_unique, left_on="hit_id_1", right_on="hit_id", how="left").drop(columns=["hit_id"])
+        primary_cluster_df = truth_track_df.sort_values(by=["module_id_y", "R_x", "R_y"]).drop_duplicates(subset=["module_id_y", "particle_id"], keep="first")
+        secondary_clusters = ~truth_track_df.index.isin(primary_cluster_df.index)
+
+        return secondary_clusters
+
 
     @staticmethod
     def remap_edges(track_edges, track_features, hits):
@@ -316,7 +328,6 @@ class EventReader:
         all_files_in_template = list(chain.from_iterable(all_files_in_template))
         all_event_ids = sorted(list({re.findall("[0-9]+", file)[-1] for file in all_files_in_template}))
 
-
         all_events = []
         for event_id in all_event_ids:
             event = {"event_id": event_id}
@@ -349,6 +360,12 @@ class EventReader:
             particles = pd.read_csv(event["particles"])
             assert len(truth) > 0, f"No truth spacepoints found in CSV file in {data_name}. Please check that the conversion to CSV was successful."
             assert len(particles) > 0, f"No particles found in CSV file in {data_name}. Please check that the conversion to CSV was successful."
+
+        for dataset1, dataset2 in combinations(["trainset", "valset", "testset"], 2):
+            dataset1_files = {event["event_id"] for event in self.get_file_names(os.path.join(self.config["stage_dir"], dataset1), filename_terms=["truth", "particles"])}
+            dataset2_files = {event["event_id"] for event in self.get_file_names(os.path.join(self.config["stage_dir"], dataset2), filename_terms=["truth", "particles"])}
+            if dataset1_files.intersection(dataset2_files): 
+                warnings.warn(f"There are overlapping files between the {dataset1} and {dataset2}. You should remove these overlapping files from one of the datasets: {dataset1_files.intersection(dataset2_files)}")
 
     def __len__(self):
         return len(self.files)

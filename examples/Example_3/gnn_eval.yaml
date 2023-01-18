@@ -1,0 +1,25 @@
+# CommonFramework configuration
+stage: edge_classifier
+model: InteractionGNN
+input_dir: MY_DATA_DIR/Example_3/filter/ # Should contain the files used in training and inference
+stage_dir: MY_DATA_DIR/Example_3/gnn/ # A directory to be created that will store logs, artifacts, and output data
+project: CF_Example_3_GNN # Used in logging
+gpus: 1
+nodes: 1
+
+# Dataset parameters
+data_split: [0, 0, 10] # Number of [training, validation, testing] examples
+
+# Evaluation parameters
+score_cut: 0.5
+target_tracks: 
+  pt: [1., .inf]
+  nhits: [3., .inf]
+
+# Plotting parameters
+plots:
+  graph_scoring_efficiency: 
+    title: Interaction GNN Edge-wise Efficiency
+    pt_units: GeV
+  graph_roc_curve:
+    title: Interaction GNN ROC curve
