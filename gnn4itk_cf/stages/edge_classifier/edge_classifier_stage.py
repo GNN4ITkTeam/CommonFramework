@@ -14,8 +14,11 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda:1")
 
-from gnn4itk_cf.utils import load_datafiles_in_dir, run_data_tests, handle_weighting, handle_hard_cuts, remap_from_mask, get_ratio
+from gnn4itk_cf.utils import load_datafiles_in_dir, run_data_tests, handle_weighting, handle_hard_cuts, remap_from_mask, get_ratio, handle_edge_features
+
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 class EdgeClassifierStage(LightningModule):
     def __init__(self, hparams):
@@ -67,7 +70,7 @@ class EdgeClassifierStage(LightningModule):
     def train_dataloader(self):
         if self.trainset is not None:
             return DataLoader(
-                self.trainset, batch_size=1, num_workers=16
+                self.trainset, batch_size=1, num_workers=0
             )  
         else:
             return None
@@ -404,6 +407,7 @@ class GraphDataset(Dataset):
         self.apply_hard_cuts(event)
         self.construct_weighting(event)
         self.handle_edge_list(event)
+        self.add_edge_features(event)
         
     def apply_hard_cuts(self, event):
         """
@@ -434,3 +438,6 @@ class GraphDataset(Dataset):
         TODO 
         """ 
         pass
+
+    def add_edge_features(self, event):
+        handle_edge_features(event, self.hparams["edge_features"])

@@ -28,7 +28,6 @@ weighting:
       nhits: [3, .inf]
       primary: True
       pdgId: [not_in, [11, -11]]
-      eta: [-4., 4.]
 
 # Model parameters
 edge_cut: 0.5
