@@ -2,11 +2,13 @@
 *.txt*
 *.pt*
 *.pyg*
-*wandb*
-*logs*
+**wandb*
+**logs*
 *.ckpt*
 *_dev
 **_dev
 *.egg-info*
-*~*
-*__pycache__*
+**~*
+**__pycache__*
+*master*
+**master**

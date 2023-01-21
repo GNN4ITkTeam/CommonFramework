@@ -82,16 +82,17 @@ class InteractionGNN(EdgeClassifierStage):
             hidden_activation=hparams["hidden_activation"],
         )
 
-        try:
-            print("Defining figures of merit")
-            self.logger.experiment.define_metric("val_loss" , summary="min")
-            self.logger.experiment.define_metric("auc" , summary="max")
-        except Exception:
-            warnings.warn("Failed to define figures of merit, due to logger unavailable")
-
     def aggregation_step(self, num_nodes):
 
         aggregation_dict = {
+            "sum_mean_max": lambda x, y, **kwargs: torch.cat(
+                [
+                    scatter_max(x, y, dim=0, dim_size=num_nodes)[0],
+                    scatter_mean(x, y, dim=0, dim_size=num_nodes),
+                    scatter_add(x, y, dim=0, dim_size=num_nodes),
+                ],
+                dim=-1,
+            ),
             "sum_max": lambda x, y, **kwargs: torch.cat(
                 [
                     scatter_max(x, y, dim=0, dim_size=num_nodes)[0],
@@ -123,7 +124,6 @@ class InteractionGNN(EdgeClassifierStage):
     def message_step(self, x, start, end, e):
 
         # Compute new node features
-        # edge_messages = self.aggregation_step(x.shape[0])(e, end)
         edge_messages = torch.cat(
             [
                 self.aggregation_step(x.shape[0])(e, end),
@@ -148,7 +148,7 @@ class InteractionGNN(EdgeClassifierStage):
 
         return self.output_edge_classifier(classifier_inputs).squeeze(-1)
 
-    def forward(self, batch):
+    def forward(self, batch, **kwargs):
 
         x = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()
         start, end = batch.edge_index

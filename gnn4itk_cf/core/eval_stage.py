@@ -20,7 +20,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning import LightningModule
 import torch
 
-from gnn4itk_cf.utils import str_to_class
+from gnn4itk_cf.utils import str_to_class, find_latest_checkpoint
 
 @click.command()
 @click.argument("config_file")
@@ -50,7 +50,10 @@ def evaluate(config_file):
     stage_module = str_to_class(stage, model)
 
     if issubclass(stage_module, LightningModule):
-        checkpoint_path = max((str(path) for path in Path(config["stage_dir"]).rglob("*.ckpt")), key=os.path.getctime)
+        checkpoint_path = find_latest_checkpoint(config["stage_dir"], templates=["best*.ckpt", "*.ckpt"])
+        if not checkpoint_path:
+            print("No checkpoint found")
+            sys.exit(1)
         print(f"Loading checkpoint: {checkpoint_path}")
         checkpoint_config = torch.load(checkpoint_path)["hyper_parameters"]
         config = checkpoint_config | config

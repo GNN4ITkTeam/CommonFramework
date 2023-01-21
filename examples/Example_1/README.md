@@ -6,22 +6,22 @@ Assuming the CommonFramework repo requirements have been installed, the only oth
 ```bash
 data_dir=MY_DATA_DIR
 ```
-then download the data with
+then download the data with (assuming you have EOS ATLAS group access)
 ```bash
 mkdir $data_dir/Example_1
-wget https://cernbox.cern.ch/remote.php/dav/public-files/AREZqMSHGrWMIjc/athena_100_events.zip -O $data_dir/Example_1/athena_100_events.zip
-unzip $data_dir/Example_1/athena_100_events.zip -d $data_dir/Example_1
+scp MY_USERNAME@lxplus.cern.ch:/eos/user/d/dmurnane/GNN4ITk/FrameworkExamples/Example_1/Example_1_Data.zip $data_dir/Example_1/
+unzip $data_dir/Example_1/Example_1_Data.zip -d $data_dir/Example_1
 ```
-and enter the password provided by the GNN4ITk team. The model files can be downloaded with
+The model files can be downloaded with
 ```bash
-wget https://cernbox.cern.ch/remote.php/dav/public-files/uUCHDnGUiHdhsyl/Example_1.zip -O $data_dir/Example_1/Example_1.zip
-unzip $data_dir/Example_1/Example_1.zip -d $data_dir/Example_1
+scp MY_USERNAME@lxplus.cern.ch:/eos/user/d/dmurnane/GNN4ITk/FrameworkExamples/Example_1/Example_1_Artifacts.zip $data_dir/Example_1/
+unzip $data_dir/Example_1/Example_1_Artifacts.zip -d $data_dir/Example_1
 ```
-and enter the password provided by the GNN4ITk team. The location of this data, as well as all parameters controlling the GNN4ITk reconstruction chain, is specified in `yaml` config files. The data directory currently has a placeholder MY_DATA_DIR. Replace this with the actual data directory with
+The location of this data, as well as all parameters controlling the GNN4ITk reconstruction chain, is specified in `yaml` config files. The data directory currently has a placeholder MY_DATA_DIR. Replace this with the actual data directory with
 ```bash
 sed -i "s/MY_DATA_DIR/$data_dir/g" *.yaml
 ```
-
+ 
 ## Running the Example
 
 The following commands will run the Example 1 pipeline. In general, they follow the pattern
@@ -55,6 +55,11 @@ g4i-train gnn_train.yaml
 g4i-infer gnn_infer.yaml
 ```
 
+**4a.** (Optional) Evaluate the GNN performance:
+```bash
+g4i-eval gnn_eval.yaml
+```
+
 **5.** Finally, we produce track candidates from the scored graphs:
 ```bash
 g4i-infer track_building_infer.yaml
@@ -67,3 +72,4 @@ g4i-eval track_building_eval.yaml
 
 ## Understanding the Example
 
+This example pipeline was first proposed in *C. Biscarat, S. Caillou, C. Rougier, J. Stark & J. Zahreddine* [arxiv:2103.00916](https://arxiv.org/abs/2103.00916). It uses a data-driven "module map" to assign the possibility of triplets of track hits moving through each module to every other module in the ITk detector. This is used for graph construction, the output of which is subsequently used to train an Interaction Network edge classifier. Once edges are classified, we place a score cut (between 0 and 1, which should be manually tuned to get the best performance) in the track building stage, and label all components that remain connected after the score cut with a unique track label. 
