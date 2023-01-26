@@ -1,4 +1,5 @@
 import os
+import logging
 
 # 3rd party imports
 from ..graph_construction_stage import GraphConstructionStage
@@ -8,8 +9,6 @@ from pytorch_lightning import LightningModule
 import torch.nn.functional as F
 from torch_geometric.data import DataLoader, Dataset
 import torch
-
-import logging
 
 # Local imports
 from .utils import make_mlp, build_edges, graph_intersection

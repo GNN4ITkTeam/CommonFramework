@@ -72,7 +72,7 @@ def get_trainer(config, default_root_dir):
 
     job_id = (
         os.environ["SLURM_JOB_ID"]
-        if "SLURM_JOB_ID" in os.environ and "SLURM_JOB_QOS" in os.environ and "interactive" not in os.environ["SLURM_JOB_QOS"]
+        if "SLURM_JOB_ID" in os.environ and "SLURM_JOB_QOS" in os.environ and "interactive" not in os.environ["SLURM_JOB_QOS"] and "jupyter" not in os.environ["SLURM_JOB_QOS"]
         else None
     )
     logger = (

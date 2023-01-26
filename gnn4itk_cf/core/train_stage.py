@@ -28,7 +28,7 @@ def train(config_file):
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
-    print(config)
+    print(config) 
     # load stage
     stage = config["stage"]
     model = config["model"]
