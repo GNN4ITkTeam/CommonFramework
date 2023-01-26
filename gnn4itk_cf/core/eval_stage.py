@@ -1,3 +1,4 @@
+
 """
 This script:
 1. Loads a training config
@@ -56,7 +57,7 @@ def evaluate(config_file):
             sys.exit(1)
         print(f"Loading checkpoint: {checkpoint_path}")
         checkpoint_config = torch.load(checkpoint_path)["hyper_parameters"]
-        config = checkpoint_config | config
+        config = {**checkpoint_config, **config}
 
     stage_module.evaluate(config)
 
