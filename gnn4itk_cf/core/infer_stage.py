@@ -19,7 +19,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning import LightningModule
 
-from gnn4itk_cf.utils import str_to_class
+from gnn4itk_cf.utils import str_to_class, find_latest_checkpoint
 
 @click.command()
 @click.argument("config_file")
@@ -55,13 +55,10 @@ def infer(config_file):
         stage_module.infer(config)
 
 def lightning_infer(config, stage_module):
-    checkpoint_paths = [
-        str(path) for path in Path(config["stage_dir"]).rglob("best*.ckpt")
-    ] or [str(path) for path in Path(config["stage_dir"]).rglob("*.ckpt")]
-    if not checkpoint_paths:
+    checkpoint_path = find_latest_checkpoint(config["stage_dir"], templates=["best*.ckpt", "*.ckpt"])
+    if not checkpoint_path:
         print("No checkpoint found")
         sys.exit(1)
-    checkpoint_path = max(checkpoint_paths, key=os.path.getctime)
     print(f"Loading checkpoint: {checkpoint_path}")
 
     stage_module = stage_module.load_from_checkpoint(checkpoint_path)
