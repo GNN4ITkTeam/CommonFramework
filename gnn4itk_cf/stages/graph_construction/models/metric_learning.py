@@ -377,12 +377,28 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         """
         Step to evaluate the model's performance
         """
+        # check global step
+        if self.trainer.global_step == 0:
+            self.define_figures_of_merit()
+            
         knn_val = 500 if "knn_val" not in self.hparams else self.hparams["knn_val"]
         outputs = self.shared_evaluation(
             batch, self.hparams["r_train"], knn_val
         )
 
         return outputs["loss"]
+
+    def define_figures_of_merit(self):
+
+        # Check if self has logger key
+        try:
+            self.logger.experiment.define_metric("val_loss" , summary="min")
+            if "metric_to_monitor" in self.hparams and "metric_mode" in self.hparams:
+                self.logger.experiment.define_metric(self.hparams["metric_to_monitor"], summary=self.hparams["metric_mode"])
+
+        except Exception as e:
+            raise e
+            warnings.warn("Failed to define figures of merit, due to logger unavailable")
 
     def test_step(self, batch, batch_idx):
         """
