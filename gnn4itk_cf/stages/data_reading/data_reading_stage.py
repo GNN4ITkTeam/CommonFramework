@@ -169,7 +169,7 @@ class EventReader:
             particles = particles.assign(primary=(particles.barcode < 200000).astype(int))
 
         if "nhits" not in particles.columns:
-            particles["nhits"] = hits.groupby("particle_id")["particle_id"].transform("count")
+            hits["nhits"] = hits.groupby("particle_id")["particle_id"].transform("count")
             
         assert all(vertex in particles.columns for vertex in ["vx", "vy", "vz"]), "Particles must have vertex information!"
         particle_features = self.config["feature_sets"]["track_features"] + ["vx", "vy", "vz"]

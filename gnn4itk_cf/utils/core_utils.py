@@ -30,10 +30,10 @@ def str_to_class(stage, model):
     return getattr(getattr(stages, stage), model)
 
 def get_default_root_dir():
-    if "SLURM_JOB_ID" in os.environ: 
+    if "SLURM_JOB_ID" in os.environ and "SLURM_JOB_QOS" in os.environ and "interactive" not in os.environ["SLURM_JOB_QOS"] and "jupyter" not in os.environ["SLURM_JOB_QOS"]:
         return os.path.join(".", os.environ["SLURM_JOB_ID"])
     else:
-        return "."
+        return None
 
 def load_config_and_checkpoint(config_path, default_root_dir):
     # Check if there is a checkpoint to load
@@ -72,7 +72,7 @@ def get_trainer(config, default_root_dir):
 
     job_id = (
         os.environ["SLURM_JOB_ID"]
-        if "SLURM_JOB_ID" in os.environ and "SLURM_JOB_QOS" in os.environ and "interactive" not in os.environ["SLURM_JOB_QOS"]
+        if "SLURM_JOB_ID" in os.environ and "SLURM_JOB_QOS" in os.environ and "interactive" not in os.environ["SLURM_JOB_QOS"] and "jupyter" not in os.environ["SLURM_JOB_QOS"]
         else None
     )
     logger = (
@@ -94,6 +94,28 @@ def get_trainer(config, default_root_dir):
         strategy=CustomDDPPlugin(find_unused_parameters=False),
         default_root_dir=default_root_dir
     )
+
+def get_stage_module(config, stage_module_class, checkpoint_path=None):
+    default_root_dir = get_default_root_dir()
+    # First check if we need to load a checkpoint
+    if checkpoint_path is not None:
+        stage_module, config = load_module(checkpoint_path, stage_module_class)
+    elif default_root_dir is not None and find_latest_checkpoint(default_root_dir, "*.ckpt"):
+        checkpoint_path = find_latest_checkpoint(default_root_dir, "*.ckpt")
+        stage_module, config = load_module(checkpoint_path, stage_module_class)
+    else:
+        stage_module = stage_module_class(config)
+    return stage_module, config, default_root_dir
+
+
+# TODO Rename this here and in `get_stage_module`
+def load_module(checkpoint_path, stage_module_class):
+    checkpoint = torch.load(checkpoint_path, map_location=torch.device("cpu"))
+    config = checkpoint["hyper_parameters"]
+    stage_module = stage_module_class.load_from_checkpoint(checkpoint_path=checkpoint_path)
+    return stage_module, config
+
+
 
 
 class CustomDDPPlugin(DDPPlugin):
