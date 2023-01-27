@@ -169,10 +169,13 @@ class EventReader:
             particles = particles.assign(primary=(particles.barcode < 200000).astype(int))
 
         if "nhits" not in particles.columns:
-            particles["nhits"] = hits.groupby("particle_id")["particle_id"].transform("count")
+            hits["nhits"] = hits.groupby("particle_id")["particle_id"].transform("count")
             
         assert all(vertex in particles.columns for vertex in ["vx", "vy", "vz"]), "Particles must have vertex information!"
         particle_features = self.config["feature_sets"]["track_features"] + ["vx", "vy", "vz"]
+
+        # Get intersection of particle features and the columns in particles
+        particle_features = [feature for feature in particle_features if feature in particles.columns]
 
         assert "particle_id" in hits.columns and "particle_id" in particles.columns, "Hits and particles must have a particle_id column!"
         hits = hits.merge(
@@ -262,7 +265,9 @@ class EventReader:
 
     def _get_track_features(self, hits, track_index_edges, track_edges):
         track_features = {}
-        for track_feature in self.config["feature_sets"]["track_features"]:
+        # Get the intersection of the track features and the columns in hits
+        available_track_features = [feature for feature in self.config["feature_sets"]["track_features"] if feature in hits.columns]
+        for track_feature in available_track_features:
             assert (hits[track_feature].values[track_index_edges][0] == hits[track_feature].values[track_index_edges][1]).all(), "Track features must be the same for each side of edge"
             track_features[track_feature] = hits[track_feature].values[track_index_edges[0]]
     

@@ -18,7 +18,7 @@ class AthenaReader(EventReader):
 
         input_dir = self.config["input_dir"]
         self.raw_events = self.get_file_names(input_dir, filename_terms = ["clusters", "particles", "spacepoints"])
-        
+
         # Very opinionated: We split the data by 80/10/10: train/val/test
         self.trainset, self.valset, self.testset = random_split(self.raw_events, [int(len(self.raw_events)*0.8), int(len(self.raw_events)*0.1), int(len(self.raw_events)*0.1)])
         self.module_lookup = self.get_module_lookup()
@@ -51,10 +51,10 @@ class AthenaReader(EventReader):
         pixel_spacepoints, strip_spacepoints = athena_utils.read_spacepoints(spacepoints_file)
 
         # Read clusters
-        clusters = athena_utils.read_clusters(clusters_file, particles, self.config["column_lookup"])
+        clusters, self.shape_list = athena_utils.read_clusters(clusters_file, particles, self.config["column_lookup"])
 
         # Get truth spacepoints
-        truth = athena_utils.get_truth_spacepoints(pixel_spacepoints, strip_spacepoints, clusters, self.config["spacepoints_datatypes"])
+        truth = athena_utils.get_truth_spacepoints(pixel_spacepoints, strip_spacepoints, clusters, self.config["spacepoints_datatypes"], self.shape_list)
         truth = athena_utils.add_region_labels(truth, self.config["region_labels"])
         truth = athena_utils.add_module_id(truth, self.module_lookup)
 

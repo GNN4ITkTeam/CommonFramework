@@ -104,16 +104,16 @@ def split_particle_entries(cluster_df, particles):
     return split_pids
 
 def read_clusters(clusters_file, particles, column_lookup):
-    
+
     """
     Read the cluster CSV files by splitting into sections around the #'s
     """
     column_sets = ["coordinates", "region", "barcodes", "cells", "shape", "norms", "covariance"]
-                    
+
     clusters_raw = pd.read_csv(clusters_file, header=None, sep=r",#,|#,|,#", engine='python')
     clusters_raw.columns = column_sets
     
-    clusters_processed = split_cluster_entries(clusters_raw, particles, column_lookup)
+    clusters_processed, shape_list = split_cluster_entries(clusters_raw, particles, column_lookup)
 
     split_pids = split_particle_entries(clusters_processed, particles)
     
@@ -124,7 +124,7 @@ def read_clusters(clusters_file, particles, column_lookup):
     # Fix indexing mismatch in DumpObjects - is this still necessary????
     clusters_processed["cluster_id"] = clusters_processed["cluster_id"] - 1
     
-    return clusters_processed
+    return clusters_processed, shape_list
 
 def split_cluster_entries(clusters_raw, particles, column_lookup):
     """
@@ -145,16 +145,17 @@ def split_cluster_entries(clusters_raw, particles, column_lookup):
     # Handle the two versions of dumpObjects - one with more shape information
     cluster_shape = clusters_raw["shape"].str.split(",", expand=True)
     if cluster_shape.shape[1] == 2:
-        clusters_processed[column_lookup["shape_b"]] = cluster_shape
+        shape_list = column_lookup["shape_b"]
     elif cluster_shape.shape[1] == 14:
-        clusters_processed[column_lookup["shape_a"]] = cluster_shape
+        shape_list = column_lookup["shape_a"]
     else:
         raise ValueError("Unknown shape information")
+    clusters_processed[shape_list] = cluster_shape
 
     # Split the particle IDs
     clusters_processed[["particle_id"]] = clusters_raw[["barcodes"]]
 
-    return clusters_processed
+    return clusters_processed, shape_list
 
 def truth_match_clusters(pixel_hits, strip_hits, clusters):
     """
@@ -176,7 +177,7 @@ def truth_match_clusters(pixel_hits, strip_hits, clusters):
     truth_spacepoints = pd.concat([pixel_clusters, strip_clusters], ignore_index=True)
     return truth_spacepoints
 
-def merge_spacepoints_clusters(spacepoints, clusters):
+def merge_spacepoints_clusters(spacepoints, clusters, shape_list):
     """
     Finally, we merge the features of each cluster with the spacepoints - where a spacepoint may
     own 1 or 2 signal clusters, and thus we give the suffixes _1, _2
@@ -184,7 +185,7 @@ def merge_spacepoints_clusters(spacepoints, clusters):
 
     spacepoints = spacepoints.merge(clusters.drop(["particle_id", "side"], axis=1), left_on='cluster_index_1', right_on='cluster_id', how='left').drop("cluster_id", axis=1)
     
-    unique_cluster_fields = ['cluster_id', 'cluster_x', 'cluster_y', 'cluster_z', 'eta_angle', 'phi_angle', 'norm_z'] # These are fields that is unique to each cluster (therefore they need the _1, _2 suffix)
+    unique_cluster_fields = ['cluster_id', 'cluster_x', 'cluster_y', 'cluster_z', 'norm_z'] + shape_list # These are fields that is unique to each cluster (therefore they need the _1, _2 suffix)
     spacepoints = spacepoints.merge(clusters[unique_cluster_fields], left_on='cluster_index_2', right_on='cluster_id', how='left', suffixes=("_1", "_2")).drop("cluster_id", axis=1)
     
     # Ignore duplicate entries (possible if a particle has duplicate hits in the same clusters)
@@ -192,13 +193,13 @@ def merge_spacepoints_clusters(spacepoints, clusters):
     
     return spacepoints
 
-def get_truth_spacepoints(pixel_spacepoints, strip_spacepoints, clusters, spacepoints_datatypes):
+def get_truth_spacepoints(pixel_spacepoints, strip_spacepoints, clusters, spacepoints_datatypes, shape_list):
 
     # # Build truth list of spacepoints by handling matching clusters
     truth_spacepoints = truth_match_clusters(pixel_spacepoints, strip_spacepoints, clusters)
     # # Tidy up the truth dataframe and add in all cluster information
     truth_spacepoints["cluster_index_2"] = truth_spacepoints["cluster_index_2"].fillna(-1)
-    truth_spacepoints = merge_spacepoints_clusters(truth_spacepoints, clusters)
+    truth_spacepoints = merge_spacepoints_clusters(truth_spacepoints, clusters, shape_list)
 
     # # Fix spacepoint datatypes
     truth_spacepoints = truth_spacepoints.astype(spacepoints_datatypes)
