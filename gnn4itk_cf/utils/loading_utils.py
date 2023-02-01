@@ -47,7 +47,8 @@ def run_data_tests(datasets: List, required_features, optional_features):
             warnings.warn(f"OPTIONAL feature [{feature}] not found in data")
 
         # Check that the number of nodes is compatible with the edge indexing
-        assert sample_event.x.shape[0] >= sample_event.edge_index.max().item() + 1, "Number of nodes is not compatible with the edge indexing. Possibly an earlier stage has removed nodes, but not updated the edge indexing."
+        if "edge_index" in sample_event.keys and "x" in sample_event.keys:
+            assert sample_event.x.shape[0] >= sample_event.edge_index.max().item() + 1, "Number of nodes is not compatible with the edge indexing. Possibly an earlier stage has removed nodes, but not updated the edge indexing."
 
 def convert_to_latest_pyg_format(event):
     """
