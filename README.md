@@ -78,7 +78,7 @@ Work in progress!
 If this work is useful for your research, please cite our vCHEP2021 and CTD2022 proceedings:
 
 ```
-@ARTICLE{2021arXiv210306995J,
+@ARTICLE{YourReferenceHere,
        author = {{Ju}, Xiangyang and {Murnane}, Daniel and {Calafiura}, Paolo and {Choma}, Nicholas and {Conlon}, Sean and {Farrell}, Steve and {Xu}, Yaoyuan and {Spiropulu}, Maria and {Vlimant}, Jean-Roch and {Aurisano}, Adam and {Hewes}, Jeremy and {Cerati}, Giuseppe and {Gray}, Lindsey and {Klijnsma}, Thomas and {Kowalkowski}, Jim and {Atkinson}, Markus and {Neubauer}, Mark and {DeZoort}, Gage and {Thais}, Savannah and {Chauhan}, Aditi and {Schuy}, Alex and {Hsu}, Shih-Chieh and {Ballow}, Alex},
         title = "{Performance of a Geometric Deep Learning Pipeline for HL-LHC Particle Tracking}",
       journal = {arXiv e-prints},
