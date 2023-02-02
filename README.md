@@ -77,7 +77,8 @@ Work in progress!
 
 If this work is useful for your research, please cite our vCHEP2021 and CTD2022 proceedings:
 
-@article{YourReferenceHere,
+```
+  @article{YourReferenceHere,
 	author = {{Biscarat, Catherine} and {Caillou, Sylvain} and {Rougier, Charline} and {Stark, Jan} and {Zahreddine, Jad}},
 	title = {Towards a realistic track reconstruction algorithm based on graph neural networks for the HL-LHC},
 	DOI= "10.1051/epjconf/202125103047",
@@ -87,7 +88,8 @@ If this work is useful for your research, please cite our vCHEP2021 and CTD2022 
 	volume = 251,
 	pages = "03047",
 }
-
+```
+```
 @techreport{YourReferenceHere,
       author        = "Caillou, Sylvain and Calafiura, Paolo and Farrell, Steven
                        Andrew and Ju, Xiangyang and Murnane, Daniel Thomas and
@@ -101,14 +103,17 @@ If this work is useful for your research, please cite our vCHEP2021 and CTD2022 
       year          = "2022",
       url           = "https://cds.cern.ch/record/2815578",
 }
+```
 
 If you use this code in your work, please cite the gnn4itk framework:
 
+```
 @misc{YourReferenceHere,
 author = {Murnane, Daniel and Caillou, Sylvain and Clafiura, Paolo and Stark, Jan and Vallier, Alexis and Rougier, Charline and Torres, Heberth and Collard, Christophe and Farrell, Steven Andrew and Ju, Xiangyang and Liu, Ryan and Minh Pham, Tuan and Neubauer, Mark and Atkinson, Markus Julian and Huth, Benjamin},
 title = {gnn4itk},
 url = {https://github.com/GNN4ITkTeam/CommonFramework}
 }
+```
 
 
 
