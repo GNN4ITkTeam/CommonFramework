@@ -4,7 +4,7 @@ This repository contains the framework used for developing, testing and presenti
 
 Related work can be found here:
 
-1. https://doi.org/10.1051/epjconf/202125103047
+1. https://indico.cern.ch/event/948465/contributions/4323753/https://doi.org/10.1051/epjconf/202125103047
 2. https://cds.cern.ch/record/2815578?ln=en.
 
 **This repository is still under development and may be subject to breaking changes.**
@@ -72,5 +72,44 @@ This example is available in the `examples/Example_3` directory. The example is 
 ### Fourth Example: Reproducing the Results of the GNN4ITk V1 CTD Proceedings (ATL-ITK-PROC-2022-006)
 
 Work in progress!
+
+## CITATION
+
+If this work is useful for your research, please cite our vCHEP2021 and CTD2022 proceedings:
+
+@article{YourReferenceHere,
+	author = {{Biscarat, Catherine} and {Caillou, Sylvain} and {Rougier, Charline} and {Stark, Jan} and {Zahreddine, Jad}},
+	title = {Towards a realistic track reconstruction algorithm based on graph neural networks for the HL-LHC},
+	DOI= "10.1051/epjconf/202125103047",
+	url= "https://doi.org/10.1051/epjconf/202125103047",
+	journal = {EPJ Web Conf.},
+	year = 2021,
+	volume = 251,
+	pages = "03047",
+}
+
+@techreport{YourReferenceHere,
+      author        = "Caillou, Sylvain and Calafiura, Paolo and Farrell, Steven
+                       Andrew and Ju, Xiangyang and Murnane, Daniel Thomas and
+                       Rougier, Charline and Stark, Jan and Vallier, Alexis",
+      collaboration = "ATLAS",
+      title         = "{ATLAS ITk Track Reconstruction with a GNN-based
+                       pipeline}",
+      institution   = "CERN",
+      reportNumber  = "ATL-ITK-PROC-2022-006",
+      address       = "Geneva",
+      year          = "2022",
+      url           = "https://cds.cern.ch/record/2815578",
+}
+
+If you use this code in your work, please cite the gnn4itk framework:
+
+@misc{YourReferenceHere,
+author = {Murnane, Daniel and Caillou, Sylvain and Clafiura, Paolo and Stark, Jan and Vallier, Alexis and Rougier, Charline and Torres, Heberth and Collard, Christophe and Farrell, Steven Andrew and Ju, Xiangyang and Liu, Ryan and Minh Pham, Tuan and Neubauer, Mark and Atkinson, Markus Julian and Huth, Benjamin},
+title = {gnn4itk},
+url = {https://github.com/GNN4ITkTeam/CommonFramework}
+}
+
+
 
 
