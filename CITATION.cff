@@ -3,11 +3,10 @@ title: gnn4itk
 message: Geometric Learning for tracking in ITk
 type: software
 authors:
-  - given-names: Daniel
-    family-names: Murnane
-    email: dtmurnane@lbl.gov
-    affiliation: Lawrence Berkeley National Lab. (US)
-    orcid: 'https://orcid.org/0000-0003-4046-4822'
+  - given-names: Markus Julian
+    affiliation: Univ. Illinois at Urbana Champaign (US)
+    family-names: Atkinson
+    email: atkinsmj82@gmail.com
   - given-names: Sylvain
     family-names: Caillou
     email: sylvain.caillou@l2it.in2p3.fr
@@ -18,26 +17,6 @@ authors:
     email: pcalafiura@lbl.gov
     affiliation: Lawrence Berkeley National Lab. (US)
     orcid: 'https://orcid.org/0000-0002-1692-1678'
-  - given-names: Jan
-    family-names: Stark
-    email: jan.stark@l2it.in2p3.fr
-    affiliation: Centre National de la Recherche Scientifique (FR)
-    orcid: 'https://orcid.org/0000-0002-1217-672X'
-  - given-names: Alexis
-    family-names: Vallier
-    email: alexis.vallier@l2it.in2p3.fr
-    affiliation: Centre National de la Recherche Scientifique (FR)
-    orcid: 'https://orcid.org/0000-0002-5496-349X'
-  - given-names: Charline
-    family-names: Rougier
-    email: charline.rougier@l2it.in2p3.fr
-    affiliation: Centre National de la Recherche Scientifique (FR)
-    orcid: 'https://orcid.org/0000-0002-9853-7468'
-  - given-names: Heberth
-    family-names: Torres
-    email: heberth.torres@l2it.in2p3.fr
-    affiliation: Centre National de la Recherche Scientifique (FR)
-    orcid: 'https://orcid.org/0000-0003-0822-1206'
   - given-names: Christophe
     family-names: Collard
     email: christophe.collard@l2it.in2p3.fr
@@ -46,6 +25,11 @@ authors:
   - given-names: Steven Andrew
     family-names: Farrell
     affiliation: Lawrence Berkeley National Lab. (US)
+  - given-names: Benjamin
+    family-names: Huth
+    affiliation: Universität Regensburg
+    orcid: 'https://orcid.org/0000-0002-3163-1062'
+    email: benjamin.huth@ur.de
   - given-names: Xiangyang
     family-names: Ju
     email: xju@lbl.gov
@@ -59,23 +43,39 @@ authors:
     family-names: Minh Pham
     email: pmtuan@lbl.gov
     affiliation: University of Wisconsin-Madison
+  - given-names: Daniel
+    family-names: Murnane
+    email: dtmurnane@lbl.gov
+    affiliation: Lawrence Berkeley National Lab. (US)
+    orcid: 'https://orcid.org/0000-0003-4046-4822'
   - given-names: Mark
     family-names: Neubauer
     email: msn@illinois.edu
     affiliation: Univ. Illinois at Urbana Champaign (US)
     orcid: 'https://orcid.org/0000-0001-8434-9274'
-  - given-names: Markus Julian
-    affiliation: Univ. Illinois at Urbana Champaign (US)
-    family-names: Atkinson
-    email: atkinsmj82@gmail.com
-  - given-names: Benjamin
-    family-names: Huth
-    affiliation: Universität Regensburg
-    orcid: 'https://orcid.org/0000-0002-3163-1062'
-    email: benjamin.huth@ur.de
+  - given-names: Charline
+    family-names: Rougier
+    email: charline.rougier@l2it.in2p3.fr
+    affiliation: Centre National de la Recherche Scientifique (FR)
+    orcid: 'https://orcid.org/0000-0002-9853-7468'
+  - given-names: Jan
+    family-names: Stark
+    email: jan.stark@l2it.in2p3.fr
+    affiliation: Centre National de la Recherche Scientifique (FR)
+    orcid: 'https://orcid.org/0000-0002-1217-672X'
+  - given-names: Heberth
+    family-names: Torres
+    email: heberth.torres@l2it.in2p3.fr
+    affiliation: Centre National de la Recherche Scientifique (FR)
+    orcid: 'https://orcid.org/0000-0003-0822-1206'
+  - given-names: Alexis
+    family-names: Vallier
+    email: alexis.vallier@l2it.in2p3.fr
+    affiliation: Centre National de la Recherche Scientifique (FR)
+    orcid: 'https://orcid.org/0000-0002-5496-349X'
 repository-code: 'https://github.com/GNN4ITkTeam/CommonFramework'
 keywords:
-  - Graph Neural Network
+  - Graph Neural Network (GNN)
   - Tracking
   - ATLAS ITk
 license: Apache-2.0
