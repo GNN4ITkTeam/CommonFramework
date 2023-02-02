@@ -1,6 +1,7 @@
 # Common Framework for GNN4ITk Project
 
-This repository contains the framework used for developing, testing and presenting the GNN-based ITk track reconstruction project GNN4ITk. To get started, run the setup commands, then take a look at the examples in the `examples` directory. Instructions and further details about the framework are available under the subdirectory of interest - `examples`, `gnn4itk_cf/stages` or `gnn4itk_cf/core`.
+This repository contains the framework used for developing, testing and presenting the GNN-based ITk track reconstruction project GNN4ITk. Related work can be found here https://doi.org/10.1051/epjconf/202125103047 and here https://cds.cern.ch/record/2815578?ln=en.
+To get started, run the setup commands, then take a look at the examples in the `examples` directory. Instructions and further details about the framework are available under the subdirectory of interest - `examples`, `gnn4itk_cf/stages` or `gnn4itk_cf/core`.
 
 **This repository is still under development and may be subject to breaking changes.**
 
@@ -63,3 +64,5 @@ This example is available in the `examples/Example_3` directory. The example is 
 ### Fourth Example: Reproducing the Results of the GNN4ITk V1 CTD Proceedings (ATL-ITK-PROC-2022-006)
 
 Work in progress!
+
+
