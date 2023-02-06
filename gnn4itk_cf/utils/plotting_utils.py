@@ -183,3 +183,45 @@ def get_ratio(x_vals, y_vals):
 
 #     # Save the plot
 #     fig.savefig('pt_efficiency.png')
+def plot_eff_pur_region(edge_truth, edge_positive, edge_regions, node_r, node_z, node_regions, plot_config):
+    # Draw a few nodes to get a feeling for the geometry
+    fig, ax = plt.subplots()
+
+    draw_idxs = np.arange(len(node_z))
+    np.random.shuffle(draw_idxs)
+    draw_idxs = draw_idxs[:1000]
+    ax.scatter(node_z[draw_idxs], node_r[draw_idxs], s=1, color='lightgrey')
+
+    colors = ['r', 'g', 'b', 'y', 'c', 'm']
+    for region, color in zip(range(1,7), colors):
+        edge_mask = (edge_regions == region)
+        node_mask = (node_regions == region)
+        true = edge_truth[edge_mask]
+        positive = edge_positive[edge_mask]
+        true_positive = np.logical_and(true, positive)
+
+        if sum(true) == 0 or sum(positive) == 0:
+            continue
+
+        eff = sum(true_positive) / sum(true)
+        pur = sum(true_positive) / sum(positive)
+
+        r_range = node_r[node_mask].min(), node_r[node_mask].max()
+        z_range = node_z[node_mask].min(), node_z[node_mask].max()
+
+        fmt_str = "eff: {:.3f} \npur: {:.3f}"
+        ax.text(
+            np.mean(z_range)*1.1 - 0.5,
+            np.mean(r_range),
+            fmt_str.format(eff, pur))
+        rectangle_args = {
+            "xy": (z_range[0], r_range[0]),
+            "width": (z_range[1]-z_range[0]),
+            "height": (r_range[1]-r_range[0]),
+        }
+        ax.add_patch(plt.Rectangle(**rectangle_args, alpha=0.1, color=color, linewidth=0))
+
+    ax.set_xlabel("z")
+    ax.set_ylabel("r")
+
+    return fig, ax

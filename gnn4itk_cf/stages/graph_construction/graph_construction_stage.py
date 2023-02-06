@@ -39,7 +39,7 @@ from atlasify import atlasify
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from gnn4itk_cf.utils import run_data_tests, get_ratio
+from gnn4itk_cf.utils import run_data_tests, get_ratio, plot_eff_pur_region
 
 class GraphConstructionStage:
     def __init__(self):
@@ -187,6 +187,29 @@ class GraphConstructionStage:
             r"$p_T > 1$GeV, $|\eta < 4$" + "\n"
             r"Mean graph size: " + f"{np.mean([event.edge_index.shape[1] for event in self.testset]):.2f}")
         fig.savefig(os.path.join(config["stage_dir"], "edgewise_efficiency.png"))
+
+    def graph_region_efficiency_purity(self, plot_config, config):
+        edge_truth, edge_regions  = [], []
+        node_r, node_z, node_regions = [], [], []
+
+        for event in tqdm(self.testset):
+            edge_truth.append(event.y)
+            edge_regions.append(event.x_region[event.edge_index[0]]) # Assign region depending on first node in edge
+
+            node_r.append(event.x_r)
+            node_z.append(event.x_z)
+            node_regions.append(event.x_region)
+
+        edge_truth = torch.cat(edge_truth).cpu().numpy()
+        edge_positive = np.ones(len(edge_truth))
+        edge_regions = torch.cat(edge_regions).cpu().numpy()
+
+        node_r = torch.cat(node_r).cpu().numpy()
+        node_z = torch.cat(node_z).cpu().numpy()
+        node_regions = torch.cat(node_regions).cpu().numpy()
+
+        fig, ax = plot_eff_pur_region(edge_truth, edge_positive, edge_regions, node_r, node_z, node_regions, plot_config)
+        fig.savefig(os.path.join(config["stage_dir"], "region_eff_pur.png"))
 
     def apply_target_conditions(self, event, target_tracks):
         """
