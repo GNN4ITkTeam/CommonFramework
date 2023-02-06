@@ -31,7 +31,7 @@ from sklearn.metrics import roc_curve, auc
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #device = torch.device("cuda:1")
 
-from gnn4itk_cf.utils import load_datafiles_in_dir, run_data_tests, handle_weighting, handle_hard_cuts, remap_from_mask, get_ratio, handle_edge_features, get_optimizers
+from gnn4itk_cf.utils import load_datafiles_in_dir, run_data_tests, handle_weighting, handle_hard_cuts, remap_from_mask, get_ratio, handle_edge_features, get_optimizers, plot_eff_pur_region
 
 torch.multiprocessing.set_sharing_strategy('file_system')
 
@@ -390,6 +390,31 @@ class EdgeClassifierStage(LightningModule):
          r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
          r"$p_T > 1$GeV, $|\eta < 4$")
         fig.savefig(os.path.join(config["stage_dir"], "roc_curve.png"))
+
+    def graph_region_efficiency_purity(self, plot_config, config):
+        edge_truth, edge_regions, edge_positive  = [], [], []
+        node_r, node_z, node_regions = [], [], []
+
+        for event in tqdm(self.testset):
+            edge_truth.append(event.y)
+            edge_regions.append(event.x_region[event.edge_index[0]]) # Assign region depending on first node in edge
+            edge_positive.append(event.scores > config["edge_cut"])
+
+            node_r.append(event.x_r)
+            node_z.append(event.x_z)
+            node_regions.append(event.x_region)
+
+        edge_truth = torch.cat(edge_truth).cpu().numpy()
+        edge_regions = torch.cat(edge_regions).cpu().numpy()
+        edge_positive = torch.cat(edge_positive).cpu().numpy()
+
+        node_r = torch.cat(node_r).cpu().numpy()
+        node_z = torch.cat(node_z).cpu().numpy()
+        node_regions = torch.cat(node_regions).cpu().numpy()
+
+        fig, ax = plot_eff_pur_region(edge_truth, edge_positive, edge_regions, node_r, node_z, node_regions, plot_config)
+        fig.savefig(os.path.join(config["stage_dir"], "region_eff_pur.png"))
+
 
     def apply_score_cut(self, event, score_cut):
         """
