@@ -1,6 +1,6 @@
 # Common Framework for GNN4ITk Project
 
-This repository contains the framework used for developing, testing and presenting the GNN-based ITk track reconstruction project GNN4ITk. 
+This repository contains the framework used for developing, testing and presenting the GNN-based ITk track reconstruction project GNN4ITk.
 
 Related work can be found here:
 1. https://arxiv.org/abs/2103.06995
@@ -97,7 +97,7 @@ archivePrefix = {arXiv},
 ```
 
 ```
-  @article{YourReferenceHere,
+@article{YourReferenceHere,
 	author = {{Biscarat, Catherine} and {Caillou, Sylvain} and {Rougier, Charline} and {Stark, Jan} and {Zahreddine, Jad}},
 	title = {Towards a realistic track reconstruction algorithm based on graph neural networks for the HL-LHC},
 	DOI= "10.1051/epjconf/202125103047",
@@ -128,7 +128,7 @@ If you use this code in your work, please cite the gnn4itk framework:
 
 ```
 @misc{YourReferenceHere,
-author = {Atkinson, Markus Julian and Caillou, Sylvain and Clafiura, Paolo and Collard, Christophe and Farrell, Steven Andrew and Huth, Benjamin and Ju, Xiangyang and Liu, Ryan and Minh Pham, Tuan and Murnane, Daniel and Neubauer, Mark and Rougier, Charline and Stark, Jan and Torres, Heberth and Vallier, Alexis},
+author = {Atkinson, Markus Julian and Caillou, Sylvain and Clafiura, Paolo and Collard, Christophe and Farrell, Steven Andrew and Huth, Benjamin and Ju, Xiangyang and Liu, Ryan and Minh Pham, Tuan and Murnane, Daniel (corresponding author) and Neubauer, Mark and Rougier, Charline and Stark, Jan and Torres, Heberth and Vallier, Alexis},
 title = {gnn4itk},
 url = {https://github.com/GNN4ITkTeam/CommonFramework}
 }
