@@ -77,7 +77,7 @@ def evaluate_labelled_graph(graph, matching_fraction=0.5, matching_style="ATLAS"
 
     if matching_fraction == 0.5:
         # Add a tiny bit of noise to the matching fraction to avoid double-matched tracks
-        matching_fraction += 0.00001
+        matching_fraction += 1e-6
 
     # Load the labelled graphs as reconstructed dataframes
     reconstruction_df = load_reconstruction_df(graph)

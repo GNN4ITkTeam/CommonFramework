@@ -24,13 +24,14 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         # Construct the MLP architecture
         in_channels = len(hparams["node_features"])
+        layer_norm = hparams["layer_norm"] if "layer_norm" in hparams else True
 
         self.network = make_mlp(
             in_channels,
             [hparams["emb_hidden"]] * hparams["nb_layer"] + [hparams["emb_dim"]],
             hidden_activation=hparams["activation"],
             output_activation=None,
-            layer_norm=True,
+            layer_norm=layer_norm,
         )
 
         self.dataset_class = GraphDataset

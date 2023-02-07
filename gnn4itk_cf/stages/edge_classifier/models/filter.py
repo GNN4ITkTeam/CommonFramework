@@ -1,5 +1,7 @@
 import warnings
 import torch
+import copy
+import os
 from torch.utils.checkpoint import checkpoint
 from torch_scatter import scatter_add, scatter_mean, scatter_max
 
@@ -106,26 +108,42 @@ class Filter(EdgeClassifierStage):
 
         return sample_hard_negatives, sample_easy_negatives
 
-    def memory_robust_eval(self, batch):
+    def memory_robust_eval_v2(self, batch):
         """
-        A recursive function that splits the batch into smaller batches and evaluates them one by one. If there is a memory error, it splits the batch in half and tries again.
+        A version of the memory_robust_eval that isn't recurrent - uses a simple loop to avoid memory problems
         """
-        try:
-            return self(batch)
-        except RuntimeError as e:
-            if "out of memory" in str(e):
-                return self.split_batch(batch)
-            else:
-                raise e
 
-    def split_batch(self, batch):
-        warnings.warn("Splitting batch due to memory error")
-        if hasattr(torch.cuda, "empty_cache"):
-            torch.cuda.empty_cache()
-        # Deep copy the batch into two smaller batches
-        batch_split_a = batch.clone()
-        batch_split_b = batch.clone()
-        batch_split_a.edge_index = batch.edge_index[:, :batch.edge_index.shape[1]//2]
-        batch_split_b.edge_index = batch.edge_index[:, batch.edge_index.shape[1]//2:]
-        # Evaluate and combine the two smaller batches
-        return torch.cat([self.memory_robust_eval(batch_split_a), self.memory_robust_eval(batch_split_b)])
+        # Evaluate and combine the two smaller batches, by storing edges temporarily
+        all_edges = batch.edge_index
+        evals = []
+        attempts = 0
+
+        while not evals:
+            chunk_size = all_edges.shape[1] // 2**attempts
+            attempts += 1
+
+            try:
+                for i in range(0, all_edges.shape[1], chunk_size):
+                    batch.edge_index = all_edges[:, i:i+chunk_size]
+                    evals.append(self(batch))
+            except RuntimeError as e:
+                if "out of memory" not in str(e):
+                    raise e
+                warnings.warn("Splitting batch due to memory error")
+                if hasattr(torch.cuda, "empty_cache"):
+                    torch.cuda.empty_cache()
+        # Reset the batch edges
+        batch.edge_index = all_edges
+
+        return torch.cat(evals)
+    
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):            
+        dataset = self.datasets[dataloader_idx]
+
+        if os.path.exists(os.path.join(self.hparams["stage_dir"], dataset.data_name , f"event{batch.event_id}.pyg")):
+            return
+        
+        output = self.memory_robust_eval_v2(batch)
+        
+        
+        self.save_edge_scores(batch, output, dataset)

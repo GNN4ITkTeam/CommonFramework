@@ -1,16 +1,19 @@
 # CommonFramework configuration
 stage: data_reading
 model: AthenaReader
-input_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_1_Dev/athena_100_events
-stage_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_1_Dev/feature_store/
-module_lookup_path: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_1_Dev/Modules_geo_10events.txt
+input_dir: /global/cfs/cdirs/m3443/data/ITk-upgrade/processed_2023paper/ttbar_correlated/all_events
+stage_dir: /global/cfs/cdirs/m3443/data/ITk-upgrade/processed_2023paper/ttbar_correlated/feature_store_testing
+module_lookup_path: /global/cfs/cdirs/m3443/data/ITk-upgrade/jan_files/ITKEvents4Paper2023/NewITkSamples_ttbar_test1/J101_0/Modules_geo.txt
+max_workers: 32
 
 # Feature Configurations
 feature_sets:
     hit_features: [hit_id, x, y, z, r, phi, eta, region, 
                 cluster_x_1, cluster_y_1, cluster_z_1, cluster_x_2, cluster_y_2, cluster_z_2, 
-                norm_x, norm_y, norm_z_1, eta_angle_1, phi_angle_1, eta_angle_2, phi_angle_2, norm_z_2]
-    track_features: [particle_id, pt, radius, primary, nhits, pdgId]
+                norm_x, norm_y, norm_z_1, norm_z_2,
+                count_1, charge_count_1, loc_eta_1, loc_phi_1, localDir0_1, localDir1_1, localDir2_1, lengthDir0_1, lengthDir1_1, lengthDir2_1, glob_eta_1, glob_phi_1, eta_angle_1, phi_angle_1,
+                count_2, charge_count_2, loc_eta_2, loc_phi_2, localDir0_2, localDir1_2, localDir2_2, lengthDir0_2, lengthDir1_2, lengthDir2_2, glob_eta_2, glob_phi_2, eta_angle_2, phi_angle_2]
+    track_features: [particle_id, pt, radius, primary, nhits, pdgId, redundant_split_edges]
 
 region_labels:
     1: {hardware: PIXEL, barrel_endcap: -2}

@@ -102,12 +102,12 @@ class EdgeClassifierStage(LightningModule):
 
     def predict_dataloader(self):
 
-        datasets = []
+        self.datasets = []
         for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
             if data_num > 0:
                 dataset = self.dataset_class(self.hparams["input_dir"], data_name, data_num, "predict", self.hparams)
-                datasets.append(dataset) 
-        return datasets
+                self.datasets.append(dataset) 
+        return self.datasets
 
     def configure_optimizers(self):
         optimizer, scheduler = get_optimizers(self.parameters(), self.hparams)
@@ -231,16 +231,21 @@ class EdgeClassifierStage(LightningModule):
         2. Add the scored edges to the graph, as `scores` attribute
         3. Append the stage config to the `config` attribute of the graph
         """
-            
-        output = self(batch)
-        dataset = self.predict_dataloader()[dataloader_idx]
+
+        dataset = self.datasets[dataloader_idx]
+
+        if os.path.exists(os.path.join(self.hparams["stage_dir"], dataset.data_name , f"event{batch.event_id}.pyg")):
+            return
+        
+        output = self(batch)        
+        
         self.save_edge_scores(batch, output, dataset)
 
     def save_edge_scores(self, event, output, dataset):
 
         event.scores = torch.sigmoid(output)
         if "undirected" in self.hparams and self.hparams["undirected"]:
-            self.remove_duplicated_edges(event)
+            self.remove_duplicate_edges(event)
 
         dataset.unscale_features(event)
 
@@ -254,12 +259,24 @@ class EdgeClassifierStage(LightningModule):
         """
         Remove duplicate edges, since we only need an undirected graph. Randomly flip the remaining edges to remove
         any training biases downstream
+
+        TODO: Refactor this to be more readable
         """
 
+        original_num_edges = event.edge_index.shape[1]
+
+        # Remove duplicate edges and return the unique inverse, in order to filter all other edge-list attributes
         event.edge_index[:, event.edge_index[0] > event.edge_index[1]] = event.edge_index[:, event.edge_index[0] > event.edge_index[1]].flip(0)
         event.edge_index, edge_inverse = event.edge_index.unique(return_inverse=True, dim=-1)
-        event.y = torch.zeros_like(event.edge_index[0], dtype=event.y.dtype).scatter(0, edge_inverse, event.y)
-        event.scores = torch.zeros_like(event.edge_index[0], dtype=event.scores.dtype).scatter(0, edge_inverse, event.scores)
+
+        # Filter all other edge-list attributes
+        for key in event.keys:
+            if isinstance(event[key], torch.Tensor) and ((event[key].shape[0] == original_num_edges) or (len(event[key].shape) == 2 and event[key].shape[1] == original_num_edges)):
+                event[key] = torch.zeros_like(event.edge_index[0], dtype=event[key].dtype).scatter(0, edge_inverse, event[key])
+
+        # event.y = torch.zeros_like(event.edge_index[0], dtype=event.y.dtype).scatter(0, edge_inverse, event.y)
+        # event.scores = torch.zeros_like(event.edge_index[0], dtype=event.scores.dtype).scatter(0, edge_inverse, event.scores)
+
         event.truth_map[event.truth_map >= 0] = edge_inverse[event.truth_map[event.truth_map >= 0]]
         event.truth_map = event.truth_map[:event.track_edges.shape[1]]
 
@@ -296,10 +313,15 @@ class EdgeClassifierStage(LightningModule):
             # Need to apply score cut and remap the truth_map 
             if "score_cut" in config:
                 self.apply_score_cut(event, config["score_cut"])
+
+            print(event.y.sum() / event.y.shape[0], event.y.sum() / (event.truth_map >= 0).sum())
             if "target_tracks" in config:
                 self.apply_target_conditions(event, config["target_tracks"])
             else:
                 event.target_mask = torch.ones(event.truth_map.shape[0], dtype = torch.bool)
+
+            print(event.target_mask.sum(), (event.truth_map[event.target_mask] >= 0).sum())
+
             all_y_truth.append(event.truth_map[event.target_mask] >= 0)
             all_pt.append(event.pt[event.target_mask])
 
@@ -379,10 +401,24 @@ class EdgeClassifierStage(LightningModule):
 
     def apply_score_cut(self, event, score_cut):
         """
-        Apply a score cut to the event. This is used for the evaluation stage.
+        Apply a score cut to the event. This is used for the evaluation stage, and for any stage downstream of an edge classification stage.
+        E.g. If the filter classification has been run, then the GNN will only be run on the edges that pass the filter.
         """
+
+        # passing_edges_mask = event.scores >= score_cut
+        # remap_from_mask(event, passing_edges_mask)
+
         passing_edges_mask = event.scores >= score_cut
+        
         remap_from_mask(event, passing_edges_mask)
+        num_edges = event.edge_index.shape[1]
+        
+        # for key in event.keys:
+        #     # If the key is a tensor with the same number of edges as the event, or a matrix with the same number of edges as the second dimension, then apply the mask
+        #     if isinstance(event[key], torch.Tensor) and ((event[key].shape[0] == num_edges) or (len(event[key].shape) == 2 and event[key].shape[1] == num_edges)):
+        #         event[key] = event[key][..., passing_edges_mask]
+    
+        
 
     def apply_target_conditions(self, event, target_tracks):
         """
@@ -470,18 +506,32 @@ class GraphDataset(Dataset):
             self.apply_score_cut(event, self.hparams["input_cut"])
 
         if "undirected" in self.hparams.keys() and self.hparams["undirected"]:
-            # Flip event.edge_index and concat together
+            num_edges = event.edge_index.shape[1]
+            # Flip event.edge_index and concat together, and remove duplicates
             event.edge_index = torch.cat([event.edge_index, event.edge_index.flip(0)], dim=1)
-            event.y = torch.cat([event.y, event.y], dim=0)
-            event.weights = torch.cat([event.weights, event.weights], dim=0)
+            event.edge_index, unique_edge_indices = torch.unique(event.edge_index, dim=1, return_inverse=True)
+
+            # Concat all edge-like features together
+            for key in event.keys:
+                if isinstance(event[key], torch.Tensor) and ((event[key].shape[0] == num_edges)):
+                    event[key] = torch.cat([event[key], event[key]], dim=0)
+                    event[key] = torch.zeros_like(event.edge_index[0], dtype=event[key].dtype).scatter(0, unique_edge_indices, event[key])
+
+            # event.y = torch.cat([event.y, event.y], dim=0)
+            # event.weights = torch.cat([event.weights, event.weights], dim=0)
 
             # Remove duplicate edges
-            event.edge_index, unique_edge_indices = torch.unique(event.edge_index, dim=1, return_inverse=True)
-            event.y = torch.zeros_like(event.edge_index[0], dtype=event.y.dtype).scatter(0, unique_edge_indices, event.y)
-            event.weights = torch.zeros_like(event.edge_index[0], dtype=event.weights.dtype).scatter(0, unique_edge_indices, event.weights)
+            
+            # event.y = torch.zeros_like(event.edge_index[0], dtype=event.y.dtype).scatter(0, unique_edge_indices, event.y)
+            # event.weights = torch.zeros_like(event.edge_index[0], dtype=event.weights.dtype).scatter(0, unique_edge_indices, event.weights)
 
     def add_edge_features(self, event):
-        handle_edge_features(event, self.hparams["edge_features"])
+        """
+        Add edge features to the graph
+        """
+        if "edge_features" in self.hparams.keys() and self.hparams["edge_features"]:
+            assert isinstance(self.hparams["edge_features"], list), "Edge features must be a list of strings"
+            handle_edge_features(event, self.hparams["edge_features"])
 
     def scale_features(self, event):
         """
@@ -511,6 +561,7 @@ class GraphDataset(Dataset):
         """
         passing_edges_mask = event.scores >= score_cut
         num_edges = event.edge_index.shape[1]
+        print(num_edges, passing_edges_mask.sum())
         for key in event.keys:
             if (event[key].shape[0] == num_edges) or (event["key"].shape[1] == num_edges):
                 event[key] = event[key][..., passing_edges_mask]
