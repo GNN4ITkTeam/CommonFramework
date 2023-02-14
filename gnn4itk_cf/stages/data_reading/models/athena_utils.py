@@ -57,11 +57,10 @@ def get_detectable_particles(particles, clusters):
     particles = pd.merge(particles, num_clusters, on='particle_id').fillna(method='ffill')
 
     cut1 = particles[particles.charge.abs() > 0]  # Keep charged particles
-    cut2 = cut1[cut1.num_clusters > 0]  # Keep particles which are leaved at least one cluster
-    return cut2
+    return cut1[cut1.num_clusters > 0]
 
 def read_spacepoints(filename):
-    
+
     hits = pd.read_csv(
         filename,
         header=None,
@@ -164,18 +163,17 @@ def truth_match_clusters(pixel_hits, strip_hits, clusters):
     with shared truth particle_id
     """
     pixel_clusters = pixel_hits.merge(clusters[['cluster_id', 'particle_id']], left_on='cluster_index_1', right_on='cluster_id', how='left').drop("cluster_id", axis=1)
-    pixel_clusters["particle_id_1"] = pixel_clusters["particle_id"] 
+    pixel_clusters["particle_id_1"] = pixel_clusters["particle_id"]
     pixel_clusters["particle_id_2"] = -1
     strip_clusters = strip_hits.merge(clusters[['cluster_id', 'particle_id']], left_on='cluster_index_1', right_on='cluster_id', how='left')
     strip_clusters = strip_clusters.merge(clusters[['cluster_id', 'particle_id']], left_on='cluster_index_2', right_on='cluster_id', how='left', suffixes=('_1', '_2')).drop(['cluster_id_1', 'cluster_id_2'], axis=1)
-    
+
     # Get clusters that share particle ID
     matching_clusters = strip_clusters.particle_id_1 == strip_clusters.particle_id_2
     strip_clusters['particle_id'] = strip_clusters["particle_id_1"].where(matching_clusters, other=0)
     strip_clusters["particle_id_1"].astype('int64')
     strip_clusters["particle_id_2"].astype('int64')
-    truth_spacepoints = pd.concat([pixel_clusters, strip_clusters], ignore_index=True)
-    return truth_spacepoints
+    return pd.concat([pixel_clusters, strip_clusters], ignore_index=True)
 
 def merge_spacepoints_clusters(spacepoints, clusters, shape_list):
     """
@@ -205,6 +203,15 @@ def get_truth_spacepoints(pixel_spacepoints, strip_spacepoints, clusters, spacep
     truth_spacepoints = truth_spacepoints.astype(spacepoints_datatypes)
 
     return truth_spacepoints
+
+def get_truth_clusters(clusters, clusters_datatypes):
+    """
+    Get the truth clusters from the clusters dataframe
+    """
+    clusters = clusters.astype(clusters_datatypes)
+    clusters.rename(columns={"cluster_id": "hit_id"}, inplace=True)
+    
+    return clusters
 
 def add_module_id(hits, module_lookup):
     """
