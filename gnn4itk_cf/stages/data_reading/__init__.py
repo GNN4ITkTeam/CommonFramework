@@ -14,8 +14,10 @@
 
 from .models.athena_reader import AthenaReader
 from .models.trackml_reader import TrackMLReader
+from .models.acts_reader import ActsReader
 
 __all__ = [
     'AthenaReader',
     'TrackMLReader',
+    'ActsReader',
     ]
