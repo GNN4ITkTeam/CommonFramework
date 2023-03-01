@@ -7,4 +7,3 @@ gpus: 1
 nodes: 1
 
 data_split: [80, 10, 10] # Number of [training, validation, testing] examples
-

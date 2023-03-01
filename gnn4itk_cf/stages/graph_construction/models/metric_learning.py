@@ -60,7 +60,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
     def train_dataloader(self):
         if self.trainset is not None:
             return DataLoader(
-                self.trainset, batch_size=1, num_workers=0
+                self.trainset, batch_size=1, num_workers=16
             )  
         else:
             return None
@@ -68,7 +68,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
     def val_dataloader(self):
         if self.valset is not None:
             return DataLoader(
-                self.valset, batch_size=1, num_workers=0
+                self.valset, batch_size=1, num_workers=16
             )  
         else:
             return None

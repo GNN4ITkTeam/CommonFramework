@@ -94,7 +94,7 @@ class EdgeClassifierStage(LightningModule):
     def train_dataloader(self):
         if self.trainset is not None:
             return DataLoader(
-                self.trainset, batch_size=1, num_workers=0
+                self.trainset, batch_size=1, num_workers=16
             )  
         else:
             return None
@@ -102,7 +102,7 @@ class EdgeClassifierStage(LightningModule):
     def val_dataloader(self):
         if self.valset is not None:
             return DataLoader(
-                self.valset, batch_size=1, num_workers=0
+                self.valset, batch_size=1, num_workers=16
             )  
         else:
             return None
@@ -110,19 +110,19 @@ class EdgeClassifierStage(LightningModule):
     def test_dataloader(self):
         if self.testset is not None:
             return DataLoader(
-                self.testset, batch_size=1, num_workers=0
+                self.testset, batch_size=1, num_workers=16
             )  
         else:
             return None
 
     def predict_dataloader(self):
 
-        datasets = []
+        self.datasets = []
         for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
             if data_num > 0:
                 dataset = self.dataset_class(self.hparams["input_dir"], data_name, data_num, "predict", self.hparams)
-                datasets.append(dataset) 
-        return datasets
+                self.datasets.append(dataset) 
+        return self.datasets
 
     def configure_optimizers(self):
         optimizer, scheduler = get_optimizers(self.parameters(), self.hparams)
