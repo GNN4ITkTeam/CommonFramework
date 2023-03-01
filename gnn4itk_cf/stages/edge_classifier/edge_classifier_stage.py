@@ -33,6 +33,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 from gnn4itk_cf.utils import load_datafiles_in_dir, run_data_tests, handle_weighting, handle_hard_cuts, remap_from_mask, get_ratio, handle_edge_features, get_optimizers, plot_eff_pur_region
 
+# TODO: What is this for??
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 
@@ -246,15 +247,17 @@ class EdgeClassifierStage(LightningModule):
         3. Append the stage config to the `config` attribute of the graph
         """
             
-        output = self(batch)
-        dataset = self.predict_dataloader()[dataloader_idx]
+        dataset = self.datasets[dataloader_idx]
+        if os.path.exists(os.path.join(self.hparams["stage_dir"], dataset.data_name , f"event{batch.event_id}.pyg")):
+            return
+        output = self(batch)        
         self.save_edge_scores(batch, output, dataset)
 
     def save_edge_scores(self, event, output, dataset):
 
         event.scores = torch.sigmoid(output)
-        if "undirected" in self.hparams and self.hparams["undirected"]:
-            self.remove_duplicated_edges(event)
+        # if "undirected" in self.hparams and self.hparams["undirected"]:
+        #     self.remove_duplicated_edges(event)
 
         dataset.unscale_features(event)
 
@@ -475,7 +478,7 @@ class GraphDataset(Dataset):
         self.apply_hard_cuts(event)
         self.construct_weighting(event)
         self.handle_edge_list(event)
-        self.add_edge_features(event)
+        # self.add_edge_features(event)
         self.scale_features(event)
         
     def apply_hard_cuts(self, event):
@@ -508,16 +511,28 @@ class GraphDataset(Dataset):
             # Apply a score cut to the event
             self.apply_score_cut(event, self.hparams["input_cut"])
 
-        if "undirected" in self.hparams.keys() and self.hparams["undirected"]:
-            # Flip event.edge_index and concat together
-            event.edge_index = torch.cat([event.edge_index, event.edge_index.flip(0)], dim=1)
-            event.y = torch.cat([event.y, event.y], dim=0)
-            event.weights = torch.cat([event.weights, event.weights], dim=0)
+        # if "undirected" in self.hparams.keys() and self.hparams["undirected"]:
+        #     # Flip event.edge_index and concat together
+        #     self.to_undirected(event)
+            
+    
+    def to_undirected(self, event):
+        """
+        Add the reverse of the edge_index to the event. This then requires all edge features to be duplicated.
+        Additionally, the truth map must be duplicated.
+        """
 
-            # Remove duplicate edges
-            event.edge_index, unique_edge_indices = torch.unique(event.edge_index, dim=1, return_inverse=True)
-            event.y = torch.zeros_like(event.edge_index[0], dtype=event.y.dtype).scatter(0, unique_edge_indices, event.y)
-            event.weights = torch.zeros_like(event.edge_index[0], dtype=event.weights.dtype).scatter(0, unique_edge_indices, event.weights)
+        num_edges = event.edge_index.shape[1]
+        # Flip event.edge_index and concat together
+        event.edge_index = torch.cat([event.edge_index, event.edge_index.flip(0)], dim=1)
+        # event.edge_index, unique_edge_indices = torch.unique(event.edge_index, dim=1, return_inverse=True)
+
+        # Concat all edge-like features together
+        for key in event.keys:
+            if isinstance(event[key], torch.Tensor) and ((event[key].shape[0] == num_edges)):
+                event[key] = torch.cat([event[key], event[key]], dim=0)
+                # event[key] = torch.zeros_like(event.edge_index[0], dtype=event[key].dtype).scatter(0, unique_edge_indices, event[key])
+
 
     def add_edge_features(self, event):
         handle_edge_features(event, self.hparams["edge_features"])

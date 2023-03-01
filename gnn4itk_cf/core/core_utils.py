@@ -24,8 +24,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from gnn4itk_cf import stages
 from gnn4itk_cf.stages import *
-from pytorch_lightning.plugins import DDPPlugin
-from pytorch_lightning.overrides import LightningDistributedModule
+from pytorch_lightning.strategies import DDPStrategy
 
 try:
     import wandb
@@ -105,7 +104,7 @@ def get_trainer(config, default_root_dir):
         max_epochs=config["max_epochs"],
         callbacks=[checkpoint_callback],
         logger=logger,
-        strategy=CustomDDPPlugin(find_unused_parameters=False),
+        strategy=DDPStrategy(find_unused_parameters=False),
         default_root_dir=default_root_dir
     )
 
@@ -128,13 +127,3 @@ def load_module(checkpoint_path, stage_module_class):
     config = checkpoint["hyper_parameters"]
     stage_module = stage_module_class.load_from_checkpoint(checkpoint_path=checkpoint_path)
     return stage_module, config
-
-
-
-
-class CustomDDPPlugin(DDPPlugin):
-    def configure_ddp(self):
-        self.pre_configure_ddp()
-        self._model = self._setup_model(LightningDistributedModule(self.model))
-        self._register_ddp_hooks()
-        self._model._set_static_graph()

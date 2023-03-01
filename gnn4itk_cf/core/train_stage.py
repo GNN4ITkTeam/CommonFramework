@@ -26,7 +26,7 @@ import click
 
 from pytorch_lightning import LightningModule
 
-from gnn4itk_cf.utils import str_to_class, get_trainer, get_stage_module
+from .core_utils import str_to_class, get_trainer, get_stage_module
 
 @click.command()
 @click.argument("config_file")

@@ -35,7 +35,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning import LightningModule
 import torch
 
-from gnn4itk_cf.utils import str_to_class, find_latest_checkpoint
+from .core_utils import str_to_class, find_latest_checkpoint
 
 @click.command()
 @click.argument("config_file")

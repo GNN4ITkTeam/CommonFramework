@@ -159,13 +159,19 @@ class InteractionGNN(EdgeClassifierStage):
     def output_step(self, x, start, end, e):
 
         classifier_inputs = torch.cat([x[start], x[end], e], dim=1)
+        classifier_output = self.output_edge_classifier(classifier_inputs).squeeze(-1)
 
-        return self.output_edge_classifier(classifier_inputs).squeeze(-1)
+        if "undirected" in self.hparams and self.hparams["undirected"]: # Take mean of outgoing edges and incoming edges
+            classifier_output = (classifier_output[:classifier_output.shape[0] // 2] + classifier_output[classifier_output.shape[0] // 2:]) / 2
+
+        return 
 
     def forward(self, batch, **kwargs):
 
         x = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()
         start, end = batch.edge_index
+        if "undirected" in self.hparams and self.hparams["undirected"]:
+            start, end = torch.cat([start, end]), torch.cat([end, start])
 
         # Encode the graph features into the hidden space
         x.requires_grad = True
@@ -188,7 +194,6 @@ class InteractionGNN(EdgeClassifierStage):
             self.concatenation_factor = 3
         else:
             raise ValueError("Aggregation type not recognised")
-
 
 class InteractionGNN2(EdgeClassifierStage):
     """
