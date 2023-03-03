@@ -104,7 +104,7 @@ def get_trainer(config, default_root_dir):
         max_epochs=config["max_epochs"],
         callbacks=[checkpoint_callback],
         logger=logger,
-        strategy=DDPStrategy(find_unused_parameters=False),
+        strategy=DDPStrategy(find_unused_parameters=False, static_graph=True),
         default_root_dir=default_root_dir
     )
 
@@ -120,8 +120,6 @@ def get_stage_module(config, stage_module_class, checkpoint_path=None):
         stage_module = stage_module_class(config)
     return stage_module, config, default_root_dir
 
-
-# TODO Rename this here and in `get_stage_module`
 def load_module(checkpoint_path, stage_module_class):
     checkpoint = torch.load(checkpoint_path, map_location=torch.device("cpu"))
     config = checkpoint["hyper_parameters"]

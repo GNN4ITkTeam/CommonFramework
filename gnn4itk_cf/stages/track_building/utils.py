@@ -35,11 +35,15 @@ import matplotlib.pyplot as plt
 
 def load_reconstruction_df(graph):
     """Load the reconstructed tracks from a file."""
-    pids = torch.zeros(graph.hit_id.shape[0], dtype=torch.int64)
+    if hasattr(graph, "hit_id"):
+        hit_id = graph.hit_id
+    else:
+        hit_id = torch.arange(graph.num_nodes)
+    pids = torch.zeros(hit_id.shape[0], dtype=torch.int64)
     pids[graph.track_edges[0]] = graph.particle_id
     pids[graph.track_edges[1]] = graph.particle_id
 
-    return pd.DataFrame({"hit_id": graph.hit_id, "track_id": graph.labels, "particle_id": pids})
+    return pd.DataFrame({"hit_id": hit_id, "track_id": graph.labels, "particle_id": pids})
 
 def load_particles_df(graph):
     """Load the particles from a file."""
@@ -118,17 +122,6 @@ def evaluate_labelled_graph(graph, matching_fraction=0.5, matching_style="ATLAS"
 # ------------- PLOTTING UTILS ----------------
 
 
-fontsize=16
-minor_size=14
-pt_min, pt_max = 1, 20
-default_pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
-default_pt_configs = {
-    'bins': default_pt_bins,
-    'histtype': 'step',
-    'lw': 2,
-    'log': False
-}
-
 default_eta_bins = np.arange(-4., 4.4, step=0.4)
 default_eta_configs = {
     'bins': default_eta_bins,
@@ -137,16 +130,21 @@ default_eta_configs = {
     'log': False
 }
 
-def plot_pt_eff(particles, save_path="track_reconstruction_eff_vs_pt.png"):
+def plot_pt_eff(particles, pt_units, save_path="track_reconstruction_eff_vs_pt.png"):
 
     pt = particles.pt.values
 
-    true_pt = pt[particles["is_reconstructable"]] / 1000
-    reco_pt = pt[particles["is_reconstructable"] & particles["is_reconstructed"]] / 1000
+    true_pt = pt[particles["is_reconstructable"]]
+    reco_pt = pt[particles["is_reconstructable"] & particles["is_reconstructed"]]
+
+    pt_min, pt_max = 1, 20
+    if pt_units == "MeV":
+        pt_min, pt_max = pt_min * 1000, pt_max * 1000
+    pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
 
     # Get histogram values of true_pt and reco_pt
-    true_vals, true_bins = np.histogram(true_pt, bins=default_pt_bins)
-    reco_vals, reco_bins = np.histogram(reco_pt, bins=default_pt_bins)
+    true_vals, true_bins = np.histogram(true_pt, bins=pt_bins)
+    reco_vals, reco_bins = np.histogram(reco_pt, bins=pt_bins)
 
     # Plot the ratio of the histograms as an efficiency
     eff, err = get_ratio(reco_vals, true_vals)
@@ -158,7 +156,7 @@ def plot_pt_eff(particles, save_path="track_reconstruction_eff_vs_pt.png"):
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.errorbar(xvals, eff, xerr=xerrs, yerr=err, fmt='o', color='black', label='Efficiency')
     # Add x and y labels
-    ax.set_xlabel('$p_T [GeV]$', fontsize=16)
+    ax.set_xlabel(f'$p_T [{pt_units}]$', fontsize=16)
     ax.set_ylabel('Efficiency', fontsize=16)
 
     atlasify("Internal", 

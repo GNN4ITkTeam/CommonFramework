@@ -29,7 +29,6 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#device = torch.device("cuda:1")
 
 from gnn4itk_cf.utils import load_datafiles_in_dir, run_data_tests, handle_weighting, handle_hard_cuts, remap_from_mask, get_ratio, handle_edge_features, get_optimizers, plot_eff_pur_region
 
@@ -547,7 +546,7 @@ class GraphDataset(Dataset):
             for i, feature in enumerate(self.hparams["node_features"]):
                 assert feature in event.keys, f"Feature {feature} not found in event"
                 event[feature] = event[feature] / self.hparams["node_scales"][i]
-
+ 
     def unscale_features(self, event):
         """
         Unscale features when doing prediction
@@ -566,8 +565,7 @@ class GraphDataset(Dataset):
         passing_edges_mask = event.scores >= score_cut
         num_edges = event.edge_index.shape[1]
         for key in event.keys:
-            if (event[key].shape[0] == num_edges) or (event["key"].shape[1] == num_edges):
+            if isinstance(event[key], torch.Tensor) and event[key].shape and (event[key].shape[0] == num_edges or event[key].shape[-1] == num_edges):
                 event[key] = event[key][..., passing_edges_mask]
 
         remap_from_mask(event, passing_edges_mask)
-

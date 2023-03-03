@@ -173,7 +173,8 @@ class TrackBuildingStage:
         particles = particles.drop_duplicates(subset=['particle_id'])
 
         # Plot the results across pT and eta
-        utils.plot_pt_eff(particles, save_path= os.path.join(self.hparams["stage_dir"], "track_reconstruction_eff_vs_pt.png"))
+        pt_units = plot_config["pt_units"] if "pt_units" in plot_config else "GeV"
+        utils.plot_pt_eff(particles, pt_units, save_path= os.path.join(self.hparams["stage_dir"], "track_reconstruction_eff_vs_pt.png"))
 
     def apply_target_conditions(self, event, target_tracks):
         """

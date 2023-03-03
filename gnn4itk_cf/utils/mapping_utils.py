@@ -200,7 +200,8 @@ def remap_from_mask(event, edge_mask):
     Takes a mask applied to the edge_index tensor, and remaps the truth_map tensor indices to match.
     """
 
-    truth_map_to_edges = torch.ones(event.edge_index.shape[1], dtype=torch.long) * -1
+    # print(event, edge_mask, edge_mask.sum())
+    truth_map_to_edges = torch.ones(edge_mask.shape[0], dtype=torch.long) * -1
     truth_map_to_edges[event.truth_map[event.truth_map >= 0]] = torch.arange(event.truth_map.shape[0])[event.truth_map >= 0]
     truth_map_to_edges = truth_map_to_edges[edge_mask]
 

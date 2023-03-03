@@ -18,5 +18,5 @@ dependencies:
     - cugraph=22.08
     - cudatoolkit=11.6
     - pytorch=1.12.1
-    - pytorch-lightning=1.9.2
+    - pytorch-lightning #=1.9.2
     - pyg

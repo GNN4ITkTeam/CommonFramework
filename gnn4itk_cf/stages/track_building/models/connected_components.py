@@ -57,12 +57,23 @@ class ConnectedComponents(TrackBuildingStage):
             # Apply score cut
             edge_mask = graph.scores > self.hparams["score_cut"]
 
+            # Get number of nodes
+            if hasattr(graph, "num_nodes"):
+                num_nodes = graph.num_nodes
+            elif hasattr(graph, "x"):
+                num_nodes = graph.x.size(0)
+            elif hasattr(graph, "x_x"):
+                num_nodes = graph.x_x.size(0)
+            else:
+                num_nodes = graph.edge_index.max().item() + 1
+
             # Convert to sparse scipy array
-            sparse_edges = to_scipy_sparse_matrix(graph.edge_index[:, edge_mask], num_nodes = graph.x.size(0))
+            sparse_edges = to_scipy_sparse_matrix(graph.edge_index[:, edge_mask], num_nodes = num_nodes)
 
             # Run connected components
             _, candidate_labels = sps.csgraph.connected_components(sparse_edges, directed=False, return_labels=True)  
             graph.labels = torch.from_numpy(candidate_labels).long()
+            graph.config.append(self.hparams)
 
             # TODO: Graph name file??
             torch.save(graph, os.path.join(output_dir, f"event{graph.event_id}.pyg"))

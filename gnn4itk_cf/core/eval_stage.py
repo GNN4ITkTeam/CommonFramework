@@ -70,7 +70,7 @@ def evaluate(config_file):
             print("No checkpoint found")
             sys.exit(1)
         print(f"Loading checkpoint: {checkpoint_path}")
-        checkpoint_config = torch.load(checkpoint_path)["hyper_parameters"]
+        checkpoint_config = torch.load(checkpoint_path, map_location=torch.device("cpu"))["hyper_parameters"]
         config = {**checkpoint_config, **config}
 
     stage_module.evaluate(config)
