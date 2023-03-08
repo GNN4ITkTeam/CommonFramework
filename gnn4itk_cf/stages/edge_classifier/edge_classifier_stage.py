@@ -91,37 +91,40 @@ class EdgeClassifierStage(LightningModule):
         run_data_tests([self.trainset, self.valset, self.testset], required_features, optional_features)
 
     def train_dataloader(self):
-        if self.trainset is not None:
-            return DataLoader(
-                self.trainset, batch_size=1, num_workers=16
-            )  
-        else:
+        if self.trainset is None:
             return None
+        num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][0]
+        return DataLoader(
+            self.trainset, batch_size=1, num_workers=num_workers
+        )
 
     def val_dataloader(self):
-        if self.valset is not None:
-            return DataLoader(
-                self.valset, batch_size=1, num_workers=16
-            )  
-        else:
+        if self.valset is None:
             return None
+        num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][1]
+        return DataLoader(
+            self.valset, batch_size=1, num_workers=num_workers
+        )
 
     def test_dataloader(self):
-        if self.testset is not None:
-            return DataLoader(
-                self.testset, batch_size=1, num_workers=16
-            )  
-        else:
+        if self.testset is None:
             return None
+        num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][2]
+        return DataLoader(
+            self.testset, batch_size=1, num_workers=num_workers
+        )
 
     def predict_dataloader(self):
 
         self.datasets = []
-        for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
+        dataloaders = []
+        for i, (data_name, data_num) in enumerate(zip(["trainset", "valset", "testset"], self.hparams["data_split"])):
             if data_num > 0:
                 dataset = self.dataset_class(self.hparams["input_dir"], data_name, data_num, "predict", self.hparams)
                 self.datasets.append(dataset) 
-        return self.datasets
+                num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][i]
+                dataloaders.append(DataLoader(dataset, batch_size=1, num_workers=num_workers))
+        return dataloaders
 
     def configure_optimizers(self):
         optimizer, scheduler = get_optimizers(self.parameters(), self.hparams)
@@ -132,7 +135,7 @@ class EdgeClassifierStage(LightningModule):
         output = self(batch)
         loss = self.loss_function(output, batch)     
 
-        self.log("train_loss", loss, on_step=False, on_epoch=True)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
 
         return loss
 
@@ -219,6 +222,7 @@ class EdgeClassifierStage(LightningModule):
                 "auc": target_auc,
             },  # type: ignore
             sync_dist=True,
+            batch_size=1,
         )
 
         return preds
@@ -245,7 +249,7 @@ class EdgeClassifierStage(LightningModule):
         2. Add the scored edges to the graph, as `scores` attribute
         3. Append the stage config to the `config` attribute of the graph
         """
-            
+
         dataset = self.datasets[dataloader_idx]
         if os.path.exists(os.path.join(self.hparams["stage_dir"], dataset.data_name , f"event{batch.event_id}.pyg")):
             return
@@ -255,9 +259,6 @@ class EdgeClassifierStage(LightningModule):
     def save_edge_scores(self, event, output, dataset):
 
         event.scores = torch.sigmoid(output)
-        # if "undirected" in self.hparams and self.hparams["undirected"]:
-        #     self.remove_duplicated_edges(event)
-
         dataset.unscale_features(event)
 
         event.config.append(self.hparams)
@@ -265,22 +266,6 @@ class EdgeClassifierStage(LightningModule):
         datatype = dataset.data_name    
         os.makedirs(os.path.join(self.hparams["stage_dir"], datatype), exist_ok=True)
         torch.save(event.cpu(), os.path.join(self.hparams["stage_dir"], datatype, f"event{event.event_id}.pyg"))
-
-    def remove_duplicate_edges(self, event):
-        """
-        Remove duplicate edges, since we only need an undirected graph. Randomly flip the remaining edges to remove
-        any training biases downstream
-        """
-
-        event.edge_index[:, event.edge_index[0] > event.edge_index[1]] = event.edge_index[:, event.edge_index[0] > event.edge_index[1]].flip(0)
-        event.edge_index, edge_inverse = event.edge_index.unique(return_inverse=True, dim=-1)
-        event.y = torch.zeros_like(event.edge_index[0], dtype=event.y.dtype).scatter(0, edge_inverse, event.y)
-        event.scores = torch.zeros_like(event.edge_index[0], dtype=event.scores.dtype).scatter(0, edge_inverse, event.scores)
-        event.truth_map[event.truth_map >= 0] = edge_inverse[event.truth_map[event.truth_map >= 0]]
-        event.truth_map = event.truth_map[:event.track_edges.shape[1]]
-
-        random_flip = torch.randint(2, (event.edge_index.shape[1],), dtype=torch.bool)
-        event.edge_index[:, random_flip] = event.edge_index[:, random_flip].flip(0)
 
     @classmethod
     def evaluate(cls, config):
@@ -477,7 +462,7 @@ class GraphDataset(Dataset):
         self.apply_hard_cuts(event)
         self.construct_weighting(event)
         self.handle_edge_list(event)
-        # self.add_edge_features(event)
+        self.add_edge_features(event)
         self.scale_features(event)
         
     def apply_hard_cuts(self, event):
@@ -500,7 +485,7 @@ class GraphDataset(Dataset):
 
         if self.hparams is not None and "weighting" in self.hparams.keys():
             assert isinstance(self.hparams["weighting"], list) & isinstance(self.hparams["weighting"][0], dict), "Weighting must be a list of dictionaries"
-            handle_weighting(event, self.hparams["weighting"])
+            event.weights = handle_weighting(event, self.hparams["weighting"])
         else:
             event.weights = torch.ones_like(event.y, dtype=torch.float32)
             
@@ -534,7 +519,9 @@ class GraphDataset(Dataset):
 
 
     def add_edge_features(self, event):
-        handle_edge_features(event, self.hparams["edge_features"])
+        if "edge_features" in self.hparams.keys():
+            assert isinstance(self.hparams["edge_features"], list), "Edge features must be a list of strings"
+            handle_edge_features(event, self.hparams["edge_features"])
 
     def scale_features(self, event):
         """

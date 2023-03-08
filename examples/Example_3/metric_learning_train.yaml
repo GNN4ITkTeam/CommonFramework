@@ -35,7 +35,8 @@ hard_cuts:
 
 # Model parameters
 undirected: True
-node_features: [r, phi, z, cell_count, cell_val, leta, lphi, lx, ly, lz, geta, gphi]
+node_features: [r,    phi,   z,    cell_count,   cell_val,   leta,   lphi,   lx,   ly,   lz,   geta,   gphi]
+node_scales:   [1000, 3.14,  1000, 1,            1,          1,      1,      0.1,  1,    0.1,  1,      3.14]
 emb_hidden: 1024
 nb_layer: 4
 emb_dim: 12

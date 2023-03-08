@@ -101,7 +101,7 @@ def handle_weighting(event, weighting_config):
         weight_val = weight_spec["weight"]
         weights[get_weight_mask(event, weight_spec["conditions"])] = weight_val
 
-    event.weights = weights
+    return weights
 
 def handle_hard_cuts(event, hard_cuts_config):
 
@@ -116,16 +116,15 @@ def handle_hard_cuts(event, hard_cuts_config):
     graph_mask = torch.isin(event.edge_index, event.track_edges[:, true_track_mask]).all(0)
     remap_from_mask(event, graph_mask)
 
-    for edge_key in ["edge_index", "y", "weight", "scores"]:
-        if edge_key in event.keys:
+    num_edges = event.edge_index.shape[1]
+    for edge_key in event.keys:
+        if isinstance(event[edge_key], torch.Tensor) and num_edges in event[edge_key].shape:
             event[edge_key] = event[edge_key][..., graph_mask]
 
+    num_track_edges = event.track_edges.shape[1]
     for track_feature in event.keys:
-        if isinstance(event[track_feature], torch.Tensor) and (event[track_feature].ndim == 1) and (event[track_feature].shape[0] == event.track_edges.shape[1]) and track_feature != "track_edges":
-            event[track_feature] = event[track_feature][true_track_mask]
-    
-    event.track_edges = event.track_edges[:, true_track_mask]
-
+        if isinstance(event[track_feature], torch.Tensor) and num_track_edges in event[track_feature].shape:
+            event[track_feature] = event[track_feature][..., true_track_mask]
 
 def handle_hard_node_cuts(event, hard_cuts_config):
     """
@@ -146,8 +145,9 @@ def handle_hard_node_cuts(event, hard_cuts_config):
     logging.info(f"Masking the following number of nodes with the HARD CUT: {node_mask.sum()} / {node_mask.shape[0]}")
     
     # TODO: Refactor the below to use the remap_from_mask function
+    num_nodes = event.num_nodes
     for feature in event.keys:
-        if isinstance(event[feature], torch.Tensor) and event[feature].shape and event[feature].shape[0] == event.num_nodes:
+        if isinstance(event[feature], torch.Tensor) and event[feature].shape and event[feature].shape[0] == num_nodes:
             event[feature] = event[feature][node_mask]
 
     num_tracks = event.track_edges.shape[1]
@@ -158,9 +158,6 @@ def handle_hard_node_cuts(event, hard_cuts_config):
             event[feature] = event[feature][..., track_mask]
 
     event.track_edges = node_lookup[event.track_edges]
-
-    print( (~torch.isin(torch.arange(event.x_x.shape[0]), event.track_edges)).sum())
-
     event.num_nodes = node_mask.sum()
 
 def reset_angle(angles):
@@ -198,6 +195,6 @@ def get_weight_mask(event, weight_conditions):
         assert condition_key in event.keys, f"Condition key {condition_key} not found in event keys {event.keys}"
         condition_lambda = get_condition_lambda(condition_key, condition_val)
         value_mask = condition_lambda(event)
-        graph_mask = graph_mask * map_tensor_handler(value_mask, output_type="edge-like", num_nodes = event.num_nodes, edge_index = event.edge_index, track_edges = event.track_edges, truth_map = event.truth_map)
+        graph_mask = graph_mask * map_tensor_handler(value_mask, output_type="edge-like", num_nodes = event.num_nodes, edge_index = event.edge_index, truth_map = event.truth_map)
 
     return graph_mask

@@ -2,7 +2,7 @@
 stage: data_reading
 model: TrackMLReader
 input_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev/trackml_100_events
-stage_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev_A/feature_store/
+stage_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev_B/feature_store/
 detector_path: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev/detectors.csv
 max_workers: 32
 

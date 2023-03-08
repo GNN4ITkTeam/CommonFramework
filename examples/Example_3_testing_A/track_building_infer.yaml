@@ -1,9 +1,9 @@
 # CommonFramework configuration
 stage: track_building
 model: ConnectedComponents
-input_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev_A/gnn/ # Should contain the files used in training and inference
-stage_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev_A/connected_components/ # A directory to be created that will store logs, artifacts, and output data
+input_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev_B/gnn/ # Should contain the files used in training and inference
+stage_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev_B/connected_components/ # A directory to be created that will store logs, artifacts, and output data
 
 # Dataset parameters
 data_split: [80, 10, 10] # Number of [training, validation, testing] examples
-score_cut: 0.5
+score_cut: 0.8

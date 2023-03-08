@@ -251,7 +251,7 @@ class GraphDataset(Dataset):
 
         if self.hparams is not None and "weighting" in self.hparams.keys():
             assert isinstance(self.hparams["weighting"], list) & isinstance(self.hparams["weighting"][0], dict), "Weighting must be a list of dictionaries"
-            handle_weighting(event, self.hparams["weighting"])
+            event.weights = handle_weighting(event, self.hparams["weighting"])
         else:
             event.weights = torch.ones_like(event.y, dtype=torch.float32)
             

@@ -89,7 +89,7 @@ def calculate_matching_fraction(spacepoint_matching_df):
     return spacepoint_matching_df
 
 def evaluate_labelled_graph(graph, matching_fraction=0.5, matching_style="ATLAS", min_track_length=1, min_particle_length=1):
-
+    
     if matching_fraction < 0.5:
         raise ValueError("Matching fraction must be >= 0.5")
 
@@ -103,7 +103,11 @@ def evaluate_labelled_graph(graph, matching_fraction=0.5, matching_style="ATLAS"
 
     # Get matching dataframe
     matching_df = get_matching_df(reconstruction_df, particles_df, min_track_length=min_track_length, min_particle_length=min_particle_length) 
-    matching_df["event_id"] = int(graph.event_id)
+    # Flatten event_id if it's a list
+    event_id = graph.event_id
+    while type(event_id) == list:
+        event_id = event_id[0]
+    matching_df["event_id"] = int(event_id)
 
     # calculate matching fraction
     matching_df = calculate_matching_fraction(matching_df)

@@ -35,7 +35,7 @@ hard_cuts:
 # Model parameters
 undirected: True
 edge_cut: 0.5
-node_features: [x_r,  x_phi, x_z,  x_cell_count, x_cell_val, x_leta, x_lphi, x_lx, x_ly, x_lz, x_geta, x_gphi]
+node_features: [r,    phi,   z,    cell_count,   cell_val,   leta,   lphi,   lx,   ly,   lz,   geta,   gphi]
 node_scales:   [1000, 3.14,  1000, 1,            1,          1,      1,      0.1,  1,    0.1,  1,      3.14]
 hidden: 1024
 nb_layer: 4

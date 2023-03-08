@@ -11,7 +11,7 @@ nodes: 1
 data_split: [0, 0, 10] # Number of [training, validation, testing] examples
 
 # Evaluation parameters
-score_cut: 0.5
+score_cut: 0.2
 target_tracks: 
   pt: [1., .inf]
   nhits: [3., .inf]

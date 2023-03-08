@@ -27,8 +27,8 @@ import logging
 
 # Local imports
 from .utils import make_mlp, build_edges, graph_intersection
-from ..utils import handle_weighting, handle_hard_node_cuts, build_signal_edges
-from gnn4itk_cf.utils import load_datafiles_in_dir
+from ..utils import build_signal_edges #handle_weighting
+from gnn4itk_cf.utils import load_datafiles_in_dir, handle_hard_node_cuts, handle_weighting
 
 class MetricLearning(GraphConstructionStage, LightningModule):
     def __init__(self, hparams):
@@ -58,37 +58,40 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         return F.normalize(x_out)
 
     def train_dataloader(self):
-        if self.trainset is not None:
-            return DataLoader(
-                self.trainset, batch_size=1, num_workers=16
-            )  
-        else:
+        if self.trainset is None:
             return None
+        num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][0]
+        return DataLoader(
+            self.trainset, batch_size=1, num_workers=num_workers
+        )
 
     def val_dataloader(self):
-        if self.valset is not None:
-            return DataLoader(
-                self.valset, batch_size=1, num_workers=16
-            )  
-        else:
+        if self.valset is None:
             return None
+        num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][1]
+        return DataLoader(
+            self.valset, batch_size=1, num_workers=num_workers
+        )
 
     def test_dataloader(self):
-        if self.testset is not None:
-            return DataLoader(
-                self.testset, batch_size=1, num_workers=0
-            )  
-        else:
+        if self.testset is None:
             return None
+        num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][2]
+        return DataLoader(
+            self.testset, batch_size=1, num_workers=num_workers
+        )
 
     def predict_dataloader(self):
 
-        datasets = []
-        for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
+        self.datasets = []
+        dataloaders = []
+        for i, (data_name, data_num) in enumerate(zip(["trainset", "valset", "testset"], self.hparams["data_split"])):
             if data_num > 0:
                 dataset = self.dataset_class(self.hparams["input_dir"], data_name, data_num, "predict", self.hparams)
-                datasets.append(dataset) 
-        return datasets
+                self.datasets.append(dataset) 
+                num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][i]
+                dataloaders.append(DataLoader(dataset, batch_size=1, num_workers=num_workers))
+        return dataloaders
 
     def configure_optimizers(self):
         optimizer = [
@@ -115,7 +118,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
     def get_input_data(self, batch):
 
-        input_data = torch.stack([batch["x_" + feature] for feature in self.hparams["node_features"]], dim=-1).float()
+        input_data = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()
         input_data[input_data != input_data] = 0 # Replace NaNs with 0s
 
         return input_data
@@ -181,13 +184,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             true_edges
         )
 
-        # print("Adding signal edges:", signal_true_edges.shape[1], "from true edges:", true_edges.shape[1])
-
         edges = torch.cat(
             [edges, signal_true_edges], dim=-1,
         )
-
-        # print("weighting:", self.hparams["weighting"])
 
         return edges
 
@@ -218,8 +217,8 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         batch.edge_index, embedding = self.get_training_edges(batch)
         self.apply_embedding(batch, embedding, batch.edge_index)
 
-        batch.edge_index, batch.y, truth_map, true_edges = self.get_truth(batch, batch.edge_index)
-        weights = self.get_weights(batch, true_edges, truth_map)
+        batch.edge_index, batch.y, batch.truth_map, true_edges = self.get_truth(batch, batch.edge_index)
+        weights = self.get_weights(batch)#, true_edges, truth_map)
 
         loss = self.loss_function(batch, embedding, weights)
 
@@ -247,6 +246,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         # Append true signal edges
         training_edges = self.append_signal_edges(batch, training_edges)
 
+        # Remove duplicate edges
+        training_edges = torch.unique(training_edges, dim=-1)
+
         return training_edges, embedding
 
     def get_truth(self, batch, pred_edges):
@@ -263,9 +265,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         return pred_edges, truth, truth_map, true_edges
 
-    def get_weights(self, batch, true_edges, truth_map):
+    def get_weights(self, batch):#, true_edges, truth_map):
 
-        return handle_weighting(batch, self.hparams["weighting"], true_edges=true_edges, truth_map=truth_map)
+        return handle_weighting(batch, self.hparams["weighting"])#, true_edges=true_edges, truth_map=truth_map)
 
     def apply_embedding(self, batch, embedding_inplace=None, training_edges=None):
 
@@ -311,7 +313,6 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         """
         
         negative_mask = ((truth == 0) & (weights != 0)) | (weights < 0) 
-        # print("Negatives:", negative_mask.shape, (truth==0).sum(), (weights <0).sum(), (weights != 0).sum())
 
         # Handle negative loss, but don't reduce vector
         negative_loss = torch.nn.functional.hinge_embedding_loss(
@@ -325,7 +326,6 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         negative_loss = torch.mean(negative_loss * weights[negative_mask].abs())
 
         positive_mask = (truth == 1) & (weights > 0)
-        # print("Positives:", positive_mask.shape, (truth==1).sum(), (weights > 0).sum())
 
         # Handle positive loss, but don't reduce vector
         positive_loss = torch.nn.functional.hinge_embedding_loss(
@@ -352,7 +352,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         # Calculate truth from intersection between Prediction graph and Truth graph
         batch.edge_index, batch.y, batch.truth_map, true_edges = self.get_truth(batch, batch.edge_index)
 
-        weights = self.get_weights(batch, true_edges, batch.truth_map)
+        weights = self.get_weights(batch)#, true_edges, batch.truth_map)
 
         d = self.get_distances(
             embedding, batch.edge_index
@@ -444,18 +444,20 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         2. Build graph and save as batch.edge_index
         3. Run the truth calculation and save as batch.y and batch.truth_map
         """
-            
+
         knn_infer = 500 if "knn_infer" not in self.hparams else self.hparams["knn_infer"]
         self.shared_evaluation(batch, self.hparams["r_infer"], knn_infer)
-        
+
         if self.hparams["undirected"]:
             self.remove_duplicate_edges(batch)
 
-        datatype = self.predict_dataloader()[dataloader_idx].data_name
+        dataset = self.datasets[dataloader_idx]
+        dataset.unscale_features(batch)
+        datatype = dataset.data_name
 
-        self.build_graphs(batch, datatype)
+        self.save_graph(batch, datatype)
 
-    def build_graphs(self, event, datatype):
+    def save_graph(self, event, datatype):
 
         event.config.append(self.hparams)
         os.makedirs(os.path.join(self.hparams["stage_dir"], datatype), exist_ok=True)
@@ -465,6 +467,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         """
         Remove duplicate edges, since we only need an undirected graph. Randomly flip the remaining edges to remove
         any training biases downstream
+        TODO: Make this more readable
         """
 
         event.edge_index[:, event.edge_index[0] > event.edge_index[1]] = event.edge_index[:, event.edge_index[0] > event.edge_index[1]].flip(0)
@@ -510,9 +513,10 @@ class GraphDataset(Dataset):
         Process event before it is used in training and validation loops
         """
         
-        self.clean_node_features(event)
+        self.cleaning_and_tests(event)
         self.apply_hard_cuts(event)
         # self.remove_split_cluster_truth(event) TODO: Should handle this at some point
+        self.scale_features(event)
         
     def apply_hard_cuts(self, event):
         """
@@ -524,27 +528,37 @@ class GraphDataset(Dataset):
         if self.hparams is not None and "hard_cuts" in self.hparams.keys() and self.hparams["hard_cuts"]:
             assert isinstance(self.hparams["hard_cuts"], dict), "Hard cuts must be a dictionary"
             handle_hard_node_cuts(event, self.hparams["hard_cuts"])
-
-    def build_signal_edges(self, event):
-        """
-        Build signal edges for the event. This is implemented by finding which true edges are from tracks that pass the signal cut.
-        """
-        
-        if self.hparams is not None and "weighting" in self.hparams.keys() and self.hparams["weighting"]:
-            build_signal_edges(event, self.hparams["weighting"])
             
-    def clean_node_features(self, event):
+    def cleaning_and_tests(self, event):
         """
-        Ensure that node features abide by the correct convention. That is, they begin with "x_".
+        Ensure that data is clean and has the correct shape
         """
 
-        if "x" in event.keys:
+        if not hasattr(event, "num_nodes"):
+            assert "x" in event.keys, "No node features found in event"
             event.num_nodes = event.x.shape[0]
 
-        for feature in event.keys:
-            if event.is_node_attr(feature) and not feature.startswith("x_"):
-                event[f"x_{feature}"] = event[feature]
-                event[feature] = None
+    def scale_features(self, event):
+        """
+        Handle feature scaling for the event
+        """
+        
+        if self.hparams is not None and "node_scales" in self.hparams.keys() and "node_features" in self.hparams.keys():
+            assert isinstance(self.hparams["node_scales"], list), "Feature scaling must be a list of ints or floats"
+            for i, feature in enumerate(self.hparams["node_features"]):
+                assert feature in event.keys, f"Feature {feature} not found in event"
+                event[feature] = event[feature] / self.hparams["node_scales"][i]
+ 
+    def unscale_features(self, event):
+        """
+        Unscale features when doing prediction
+        """
+        
+        if self.hparams is not None and "node_scales" in self.hparams.keys() and "node_features" in self.hparams.keys():
+            assert isinstance(self.hparams["node_scales"], list), "Feature scaling must be a list of ints or floats"
+            for i, feature in enumerate(self.hparams["node_features"]):
+                assert feature in event.keys, f"Feature {feature} not found in event"
+                event[feature] = event[feature] * self.hparams["node_scales"][i]
 
     def handle_edge_list(self, event):
         """

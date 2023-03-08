@@ -15,7 +15,7 @@ data_split: [80, 10, 10] # Number of [training, validation, testing] examples
 # List with a string as the first value: First value defines the boolean test, the second value is a list or value. Boolean tests are: (in, not_in, is, is_not, within, not_within)
 # All other tracks follow the default: If a true edge, weight=0. If a fake edge, weight=1.
 weighting:
-  - weight: 2.
+  - weight: 1.
     conditions:
       y: True
       pt: [1000, .inf]
@@ -30,14 +30,16 @@ hard_cuts:
 
 # Model parameters
 edge_cut: 0.5
+undirected: True
 node_features: [r, phi, z]
+node_scales:   [1000, 3.14, 1000]
 hidden: 128
 n_graph_iters: 8
 nb_node_layer: 2
 nb_edge_layer: 2
 layernorm: True
 batchnorm: False
-aggregation: sum_mean_max
+aggregation: [sum, mean, max, std]
 hidden_activation: SiLU
 output_activation: Tanh
 
@@ -45,5 +47,5 @@ output_activation: Tanh
 warmup: 10
 lr: 0.001
 factor: 0.8
-patience: 15
+patience: 10
 max_epochs: 50

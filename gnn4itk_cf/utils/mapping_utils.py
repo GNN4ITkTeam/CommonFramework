@@ -17,12 +17,11 @@ from torch_scatter import scatter
 
 def get_condition_lambda(condition_key, condition_val):
 
-    # Refactor the above switch case into a dictionary
     condition_dict = {
         "is": lambda event: event[condition_key] == condition_val,
         "is_not": lambda event: event[condition_key] != condition_val,
-        "in": lambda event: torch.isin(event[condition_key], torch.tensor(condition_val[1])),
-        "not_in": lambda event: ~torch.isin(event[condition_key], torch.tensor(condition_val[1])),
+        "in": lambda event: torch.isin(event[condition_key], torch.tensor(condition_val[1], device=event[condition_key].device)),
+        "not_in": lambda event: ~torch.isin(event[condition_key], torch.tensor(condition_val[1], device=event[condition_key].device)),
         "within": lambda event: (condition_val[0] <= event[condition_key].float()) & (event[condition_key].float() <= condition_val[1]),
         "not_within": lambda event: not ((condition_val[0] <= event[condition_key].float()) & (event[condition_key].float() <= condition_val[1])),
     }
@@ -91,10 +90,12 @@ node_to_edge /               \ node_to_track
 
     if num_track_edges is None and truth_map is not None:
         num_track_edges = truth_map.shape[0]
+    if num_track_edges is None and track_edges is not None:
+        num_track_edges = track_edges.shape[1]
     if num_edges is None and edge_index is not None:
         num_edges = edge_index.shape[1]
     if input_type is None:
-        input_type = infer_input_type(input_tensor, num_nodes, num_edges, num_track_edges)
+        input_type, input_tensor = infer_input_type(input_tensor, num_nodes, num_edges, num_track_edges)
 
     if input_type == output_type:
         return input_tensor
@@ -110,13 +111,15 @@ def infer_input_type(input_tensor: torch.Tensor, num_nodes: int = None, num_edge
     """
 
     if num_nodes is not None and input_tensor.shape[0] == num_nodes:
-        return "node-like"
+        return "node-like", input_tensor
     elif num_edges is not None and num_edges in input_tensor.shape:
-        return "edge-like"
+        return "edge-like", input_tensor
     elif num_track_edges is not None and num_track_edges in input_tensor.shape:
-        return "track-like"
+        return "track-like", input_tensor
+    elif num_track_edges is not None and num_track_edges//2 in input_tensor.shape:
+        return "track-like", torch.cat([input_tensor, input_tensor], dim=0)
     else:
-        return "node-like"
+        return "node-like", input_tensor
 
 def map_nodes_to_edges(nodelike_input: torch.Tensor, edge_index: torch.Tensor, aggr: str = None):
     """
@@ -174,7 +177,7 @@ def map_tracks_to_nodes(tracklike_input: torch.Tensor, track_edges: torch.Tensor
         nodelike_output[track_edges] = tracklike_input
         return nodelike_output
     
-    return scatter(tracklike_input, track_edges[1], dim=0, dim_size=num_nodes, reduce=aggr)
+    return scatter(tracklike_input.repeat(2), torch.cat([track_edges[0], track_edges[1]]), dim=0, dim_size=num_nodes, reduce=aggr)
     
 def map_tracks_to_edges(tracklike_input: torch.Tensor, truth_map: torch.Tensor, num_edges: int = None):
     """
@@ -200,7 +203,6 @@ def remap_from_mask(event, edge_mask):
     Takes a mask applied to the edge_index tensor, and remaps the truth_map tensor indices to match.
     """
 
-    # print(event, edge_mask, edge_mask.sum())
     truth_map_to_edges = torch.ones(edge_mask.shape[0], dtype=torch.long) * -1
     truth_map_to_edges[event.truth_map[event.truth_map >= 0]] = torch.arange(event.truth_map.shape[0])[event.truth_map >= 0]
     truth_map_to_edges = truth_map_to_edges[edge_mask]
@@ -208,3 +210,31 @@ def remap_from_mask(event, edge_mask):
     new_map = torch.ones(event.truth_map.shape[0], dtype=torch.long) * -1
     new_map[truth_map_to_edges[truth_map_to_edges >= 0]] = torch.arange(truth_map_to_edges.shape[0])[truth_map_to_edges >= 0]
     event.truth_map = new_map.to(event.truth_map.device)
+
+def map_to_edges(event):
+
+    """
+    A function that takes any event and maps edges to track-like tensors
+    """
+
+    edge_mask = event.edge_mask
+    truth_map = event.truth_map
+    edge_index = event.edge_index
+    edge_attr = event.edge_attr
+    x = event.x
+
+    # First, we need to remap the truth map to match the edge mask
+    remap_from_mask(event, edge_mask)
+
+    # Now, we can map the nodes to the edges
+    x = map_nodes_to_edges(x, edge_index, aggr="mean")
+    edge_attr = map_nodes_to_edges(edge_attr, edge_index, aggr="mean")
+
+    # Now, we can map the tracks to the edges
+    x = map_tracks_to_edges(x, truth_map)
+    edge_attr = map_tracks_to_edges(edge_attr, truth_map)
+
+    event.x = x
+    event.edge_attr = edge_attr
+
+    return event
