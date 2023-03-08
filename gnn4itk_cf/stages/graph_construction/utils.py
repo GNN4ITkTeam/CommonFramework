@@ -84,39 +84,6 @@ def handle_weighting(event, weighting_config, pred_edges=None, truth=None, true_
 
     return weights
 
-def handle_hard_node_cuts(event, hard_cuts_config):
-    """
-    Given set of cut config, remove nodes that do not pass the cuts.
-    Remap the track_edges to the new node list.
-    """
-    node_like_feature = [event[feature] for feature in event.keys if event.is_node_attr(feature)][0]
-    node_mask = torch.ones_like(node_like_feature, dtype=torch.bool)
-
-    for condition_key, condition_val in hard_cuts_config.items():
-        assert condition_key in event.keys, f"Condition key {condition_key} not found in event keys {event.keys}"
-        condition_lambda = get_condition_lambda(condition_key, condition_val)
-        value_mask = condition_lambda(event)
-        node_val_mask = torch.zeros_like(node_like_feature, dtype=torch.bool)
-        node_val_mask[event.track_edges[0]], node_val_mask[event.track_edges[1]] = value_mask, value_mask
-        node_mask = node_mask * node_val_mask
-
-    logging.info(f"Masking the following number of nodes with the HARD CUT: {node_mask.sum()} / {node_mask.shape[0]}")
-    
-    # TODO: Refactor the below to use the remap_from_mask function
-    for feature in event.keys:
-        if isinstance(event[feature], torch.Tensor) and event[feature].shape and event[feature].shape[0] == event.num_nodes:
-            event[feature] = event[feature][node_mask]
-
-    num_tracks = event.track_edges.shape[1]
-    track_mask = node_mask[event.track_edges].all(0)
-    node_lookup = torch.cumsum(node_mask, dim=0) - 1
-    for feature in event.keys:
-        if isinstance(event[feature], torch.Tensor) and event[feature].shape and event[feature].shape[-1] == num_tracks:
-            event[feature] = event[feature][..., track_mask]
-
-    event.track_edges = node_lookup[event.track_edges]
-    event.num_nodes = node_mask.sum()
-
 def handle_hard_cuts(event, hard_cuts_config):
     true_track_mask = torch.ones_like(event.truth_map, dtype=torch.bool)
 

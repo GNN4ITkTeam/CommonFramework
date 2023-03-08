@@ -17,6 +17,7 @@ import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
 from torch_scatter import scatter_add, scatter_mean, scatter_max
+from torch_geometric.nn import aggr
 
 from gnn4itk_cf.utils import make_mlp
 from ..edge_classifier_stage import EdgeClassifierStage
@@ -37,7 +38,7 @@ class InteractionGNN(EdgeClassifierStage):
         # Define the dataset to be used, if not using the default
         self.save_hyperparameters(hparams)
 
-        self.setup_layer_sizes()  
+        self.setup_aggregation()  
 
         hparams["batchnorm"] = (
             False if "batchnorm" not in hparams else hparams["batchnorm"]
@@ -78,7 +79,7 @@ class InteractionGNN(EdgeClassifierStage):
 
         # The node network computes new node features
         self.node_network = make_mlp(
-            self.concatenation_factor * hparams["hidden"],
+            self.network_input_size,
             [hparams["hidden"]] * hparams["nb_node_layer"],
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
@@ -96,55 +97,13 @@ class InteractionGNN(EdgeClassifierStage):
             hidden_activation=hparams["hidden_activation"],
         )
 
-    def aggregation_step(self, num_nodes):
-
-        aggregation_dict = {
-            "sum_mean_max": lambda x, y, **kwargs: torch.cat(
-                [
-                    scatter_max(x, y, dim=0, dim_size=num_nodes)[0],
-                    scatter_mean(x, y, dim=0, dim_size=num_nodes),
-                    scatter_add(x, y, dim=0, dim_size=num_nodes),
-                ],
-                dim=-1,
-            ),
-            "sum_max": lambda x, y, **kwargs: torch.cat(
-                [
-                    scatter_max(x, y, dim=0, dim_size=num_nodes)[0],
-                    scatter_add(x, y, dim=0, dim_size=num_nodes),
-                ],
-                dim=-1,
-            ),
-            "mean_max": lambda x, y, **kwargs: torch.cat(
-                [
-                    scatter_max(x, y, dim=0, dim_size=num_nodes)[0],
-                    scatter_mean(x, y, dim=0, dim_size=num_nodes),
-                ],
-                dim=-1,
-            ),
-            "mean_sum": lambda x, y, **kwargs: torch.cat(
-                [
-                    scatter_mean(x, y, dim=0, dim_size=num_nodes),
-                    scatter_add(x, y, dim=0, dim_size=num_nodes),
-                ],
-                dim=-1,
-            ),
-            "sum": lambda x, y, **kwargs: scatter_add(x, y, dim=0, dim_size=num_nodes),
-            "mean": lambda x, y, **kwargs: scatter_mean(x, y, dim=0, dim_size=num_nodes),
-            "max": lambda x, y, **kwargs: scatter_max(x, y, dim=0, dim_size=num_nodes)[0],
-        }
-
-        return aggregation_dict[self.hparams["aggregation"]]
-
     def message_step(self, x, start, end, e):
 
         # Compute new node features
-        edge_messages = torch.cat(
-            [
-                self.aggregation_step(x.shape[0])(e, end),
-                self.aggregation_step(x.shape[0])(e, start)
-            ],
-            dim=-1,
-        )
+        edge_messages = torch.cat([
+            self.aggregation(e, end, dim_size=x.shape[0]),
+            self.aggregation(e, start, dim_size=x.shape[0]),
+        ], dim=-1)
 
         node_inputs = torch.cat([x, edge_messages], dim=-1)
 
@@ -159,13 +118,19 @@ class InteractionGNN(EdgeClassifierStage):
     def output_step(self, x, start, end, e):
 
         classifier_inputs = torch.cat([x[start], x[end], e], dim=1)
+        classifier_output = self.output_edge_classifier(classifier_inputs).squeeze(-1)
 
-        return self.output_edge_classifier(classifier_inputs).squeeze(-1)
+        if "undirected" in self.hparams and self.hparams["undirected"]: # Take mean of outgoing edges and incoming edges
+            classifier_output = (classifier_output[:classifier_output.shape[0] // 2] + classifier_output[classifier_output.shape[0] // 2:]) / 2
+
+        return classifier_output
 
     def forward(self, batch, **kwargs):
 
         x = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()
         start, end = batch.edge_index
+        if "undirected" in self.hparams and self.hparams["undirected"]:
+            start, end = torch.cat([start, end]), torch.cat([end, start])
 
         # Encode the graph features into the hidden space
         x.requires_grad = True
@@ -178,16 +143,23 @@ class InteractionGNN(EdgeClassifierStage):
 
         return self.output_step(x, start, end, e)
 
-    def setup_layer_sizes(self):
+    def setup_aggregation(self):
 
-        if self.hparams["aggregation"] == "sum_mean_max":
-            self.concatenation_factor = 7
-        elif self.hparams["aggregation"] in ["sum_max", "mean_max", "mean_sum"]:
-            self.concatenation_factor = 5
-        elif self.hparams["aggregation"] in ["sum", "mean", "max"]:
-            self.concatenation_factor = 3
+        if "aggregation" not in self.hparams:
+            self.hparams["aggregation"] = ["sum"]
+            self.network_input_size = 3*(self.hparams["hidden"])
+        elif isinstance(self.hparams["aggregation"], str):
+            self.hparams["aggregation"] = [self.hparams["aggregation"]]
+            self.network_input_size = 3*(self.hparams["hidden"])
+        elif isinstance(self.hparams["aggregation"], list):
+            self.network_input_size = (1 + 2*len(self.hparams["aggregation"]))*(self.hparams["hidden"])
         else:
-            raise ValueError("Aggregation type not recognised")
+            raise ValueError("Unknown aggregation type")
+        
+        try:
+            self.aggregation = aggr.MultiAggregation(self.hparams["aggregation"], mode="cat")
+        except ValueError:
+            raise ValueError("Unknown aggregation type. Did you know that the latest version of GNN4ITk accepts any list of aggregations? E.g. [sum, mean], [max, min, std], etc.")
 
 
 class InteractionGNN2(EdgeClassifierStage):

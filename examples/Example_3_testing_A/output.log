@@ -1,0 +1,542 @@
+Loading checkpoint: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev/filter/artifacts/best-v32.ckpt
+Defining figures of merit
+Defining figures of merit
+Predicting: 0it [00:00, ?it/s]Predicting:   0%|          | 0/1000 [00:00<?, ?it/s]Predicting DataLoader 0:   0%|          | 0/1000 [00:00<?, ?it/s]Data(track_edges=[2, 96834], particle_id=[96834], pt=[96834], radius=[96834], nhits=[96834], config=[2], event_id='000021000', num_nodes=125576, x_y=[125576], x_cell_val=[125576], x_ly=[125576], x_gphi=[125576], x_geta=[125576], x_region=[125576], x_lphi=[125576], x_x=[125576], x_lx=[125576], x_weight=[125576], x_hit_id=[125576], x_leta=[125576], x_r=[125576], x_eta=[125576], x_cell_count=[125576], x_module_index=[125576], x_phi=[125576], x_z=[125576], x_lz=[125576], edge_index=[2, 1627888], y=[1627888], truth_map=[96834], weights=[1627888])
+61.567488 MB
+Predicting DataLoader 0:   0%|          | 1/1000 [00:00<00:01, 735.58it/s]Data(track_edges=[2, 92848], particle_id=[92848], pt=[92848], radius=[92848], nhits=[92848], config=[2], event_id='000021001', num_nodes=120844, x_y=[120844], x_cell_val=[120844], x_ly=[120844], x_gphi=[120844], x_geta=[120844], x_region=[120844], x_lphi=[120844], x_x=[120844], x_lx=[120844], x_weight=[120844], x_hit_id=[120844], x_leta=[120844], x_r=[120844], x_eta=[120844], x_cell_count=[120844], x_module_index=[120844], x_phi=[120844], x_z=[120844], x_lz=[120844], edge_index=[2, 1501150], y=[1501150], truth_map=[92848], weights=[1501150])
+61.567488 MB
+Predicting DataLoader 0:   0%|          | 2/1000 [00:02<24:11,  1.45s/it] Data(track_edges=[2, 73799], particle_id=[73799], pt=[73799], radius=[73799], nhits=[73799], config=[2], event_id='000021003', num_nodes=99777, x_y=[99777], x_cell_val=[99777], x_ly=[99777], x_gphi=[99777], x_geta=[99777], x_region=[99777], x_lphi=[99777], x_x=[99777], x_lx=[99777], x_weight=[99777], x_hit_id=[99777], x_leta=[99777], x_r=[99777], x_eta=[99777], x_cell_count=[99777], x_module_index=[99777], x_phi=[99777], x_z=[99777], x_lz=[99777], edge_index=[2, 1033390], y=[1033390], truth_map=[73799], weights=[1033390])
+61.567488 MB
+Predicting DataLoader 0:   0%|          | 3/1000 [00:05<27:52,  1.68s/it]Data(track_edges=[2, 83269], particle_id=[83269], pt=[83269], radius=[83269], nhits=[83269], config=[2], event_id='000021004', num_nodes=110324, x_y=[110324], x_cell_val=[110324], x_ly=[110324], x_gphi=[110324], x_geta=[110324], x_region=[110324], x_lphi=[110324], x_x=[110324], x_lx=[110324], x_weight=[110324], x_hit_id=[110324], x_leta=[110324], x_r=[110324], x_eta=[110324], x_cell_count=[110324], x_module_index=[110324], x_phi=[110324], x_z=[110324], x_lz=[110324], edge_index=[2, 1278042], y=[1278042], truth_map=[83269], weights=[1278042])
+61.567488 MB
+Predicting DataLoader 0:   0%|          | 4/1000 [00:07<31:08,  1.88s/it]Data(track_edges=[2, 90611], particle_id=[90611], pt=[90611], radius=[90611], nhits=[90611], config=[2], event_id='000021008', num_nodes=118241, x_y=[118241], x_cell_val=[118241], x_ly=[118241], x_gphi=[118241], x_geta=[118241], x_region=[118241], x_lphi=[118241], x_x=[118241], x_lx=[118241], x_weight=[118241], x_hit_id=[118241], x_leta=[118241], x_r=[118241], x_eta=[118241], x_cell_count=[118241], x_module_index=[118241], x_phi=[118241], x_z=[118241], x_lz=[118241], edge_index=[2, 1429616], y=[1429616], truth_map=[90611], weights=[1429616])
+61.567488 MB
+Predicting DataLoader 0:   0%|          | 5/1000 [00:10<34:10,  2.06s/it]Data(track_edges=[2, 85728], particle_id=[85728], pt=[85728], radius=[85728], nhits=[85728], config=[2], event_id='000021010', num_nodes=113103, x_y=[113103], x_cell_val=[113103], x_ly=[113103], x_gphi=[113103], x_geta=[113103], x_region=[113103], x_lphi=[113103], x_x=[113103], x_lx=[113103], x_weight=[113103], x_hit_id=[113103], x_leta=[113103], x_r=[113103], x_eta=[113103], x_cell_count=[113103], x_module_index=[113103], x_phi=[113103], x_z=[113103], x_lz=[113103], edge_index=[2, 1332354], y=[1332354], truth_map=[85728], weights=[1332354])
+61.567488 MB
+Predicting DataLoader 0:   1%|          | 6/1000 [00:12<35:36,  2.15s/it]Data(track_edges=[2, 87334], particle_id=[87334], pt=[87334], radius=[87334], nhits=[87334], config=[2], event_id='000021011', num_nodes=114956, x_y=[114956], x_cell_val=[114956], x_ly=[114956], x_gphi=[114956], x_geta=[114956], x_region=[114956], x_lphi=[114956], x_x=[114956], x_lx=[114956], x_weight=[114956], x_hit_id=[114956], x_leta=[114956], x_r=[114956], x_eta=[114956], x_cell_count=[114956], x_module_index=[114956], x_phi=[114956], x_z=[114956], x_lz=[114956], edge_index=[2, 1354912], y=[1354912], truth_map=[87334], weights=[1354912])
+61.567488 MB
+Predicting DataLoader 0:   1%|          | 7/1000 [00:15<36:39,  2.22s/it]Data(track_edges=[2, 85934], particle_id=[85934], pt=[85934], radius=[85934], nhits=[85934], config=[2], event_id='000021012', num_nodes=113279, x_y=[113279], x_cell_val=[113279], x_ly=[113279], x_gphi=[113279], x_geta=[113279], x_region=[113279], x_lphi=[113279], x_x=[113279], x_lx=[113279], x_weight=[113279], x_hit_id=[113279], x_leta=[113279], x_r=[113279], x_eta=[113279], x_cell_count=[113279], x_module_index=[113279], x_phi=[113279], x_z=[113279], x_lz=[113279], edge_index=[2, 1332386], y=[1332386], truth_map=[85934], weights=[1332386])
+61.567488 MB
+Predicting DataLoader 0:   1%|          | 8/1000 [00:18<37:23,  2.26s/it]Data(track_edges=[2, 75617], particle_id=[75617], pt=[75617], radius=[75617], nhits=[75617], config=[2], event_id='000021018', num_nodes=101659, x_y=[101659], x_cell_val=[101659], x_ly=[101659], x_gphi=[101659], x_geta=[101659], x_region=[101659], x_lphi=[101659], x_x=[101659], x_lx=[101659], x_weight=[101659], x_hit_id=[101659], x_leta=[101659], x_r=[101659], x_eta=[101659], x_cell_count=[101659], x_module_index=[101659], x_phi=[101659], x_z=[101659], x_lz=[101659], edge_index=[2, 1061648], y=[1061648], truth_map=[75617], weights=[1061648])
+61.567488 MB
+Predicting DataLoader 0:   1%|          | 9/1000 [00:20<37:00,  2.24s/it]Data(track_edges=[2, 79477], particle_id=[79477], pt=[79477], radius=[79477], nhits=[79477], config=[2], event_id='000021025', num_nodes=105855, x_y=[105855], x_cell_val=[105855], x_ly=[105855], x_gphi=[105855], x_geta=[105855], x_region=[105855], x_lphi=[105855], x_x=[105855], x_lx=[105855], x_weight=[105855], x_hit_id=[105855], x_leta=[105855], x_r=[105855], x_eta=[105855], x_cell_count=[105855], x_module_index=[105855], x_phi=[105855], x_z=[105855], x_lz=[105855], edge_index=[2, 1194140], y=[1194140], truth_map=[79477], weights=[1194140])
+61.567488 MB
+Predicting DataLoader 0:   1%|          | 10/1000 [00:22<37:05,  2.25s/it]Data(track_edges=[2, 80958], particle_id=[80958], pt=[80958], radius=[80958], nhits=[80958], config=[2], event_id='000021027', num_nodes=107595, x_y=[107595], x_cell_val=[107595], x_ly=[107595], x_gphi=[107595], x_geta=[107595], x_region=[107595], x_lphi=[107595], x_x=[107595], x_lx=[107595], x_weight=[107595], x_hit_id=[107595], x_leta=[107595], x_r=[107595], x_eta=[107595], x_cell_count=[107595], x_module_index=[107595], x_phi=[107595], x_z=[107595], x_lz=[107595], edge_index=[2, 1201770], y=[1201770], truth_map=[80958], weights=[1201770])
+61.567488 MB
+Predicting DataLoader 0:   1%|          | 11/1000 [00:24<37:12,  2.26s/it]Data(track_edges=[2, 85621], particle_id=[85621], pt=[85621], radius=[85621], nhits=[85621], config=[2], event_id='000021028', num_nodes=112915, x_y=[112915], x_cell_val=[112915], x_ly=[112915], x_gphi=[112915], x_geta=[112915], x_region=[112915], x_lphi=[112915], x_x=[112915], x_lx=[112915], x_weight=[112915], x_hit_id=[112915], x_leta=[112915], x_r=[112915], x_eta=[112915], x_cell_count=[112915], x_module_index=[112915], x_phi=[112915], x_z=[112915], x_lz=[112915], edge_index=[2, 1300766], y=[1300766], truth_map=[85621], weights=[1300766])
+61.567488 MB
+Predicting DataLoader 0:   1%|          | 12/1000 [00:27<37:33,  2.28s/it]Data(track_edges=[2, 80578], particle_id=[80578], pt=[80578], radius=[80578], nhits=[80578], config=[2], event_id='000021030', num_nodes=107296, x_y=[107296], x_cell_val=[107296], x_ly=[107296], x_gphi=[107296], x_geta=[107296], x_region=[107296], x_lphi=[107296], x_x=[107296], x_lx=[107296], x_weight=[107296], x_hit_id=[107296], x_leta=[107296], x_r=[107296], x_eta=[107296], x_cell_count=[107296], x_module_index=[107296], x_phi=[107296], x_z=[107296], x_lz=[107296], edge_index=[2, 1208152], y=[1208152], truth_map=[80578], weights=[1208152])
+61.567488 MB
+Predicting DataLoader 0:   1%|▏         | 13/1000 [00:29<37:36,  2.29s/it]Data(track_edges=[2, 77351], particle_id=[77351], pt=[77351], radius=[77351], nhits=[77351], config=[2], event_id='000021031', num_nodes=104054, x_y=[104054], x_cell_val=[104054], x_ly=[104054], x_gphi=[104054], x_geta=[104054], x_region=[104054], x_lphi=[104054], x_x=[104054], x_lx=[104054], x_weight=[104054], x_hit_id=[104054], x_leta=[104054], x_r=[104054], x_eta=[104054], x_cell_count=[104054], x_module_index=[104054], x_phi=[104054], x_z=[104054], x_lz=[104054], edge_index=[2, 1096532], y=[1096532], truth_map=[77351], weights=[1096532])
+61.567488 MB
+Predicting DataLoader 0:   1%|▏         | 14/1000 [00:31<37:24,  2.28s/it]Data(track_edges=[2, 77057], particle_id=[77057], pt=[77057], radius=[77057], nhits=[77057], config=[2], event_id='000021032', num_nodes=103449, x_y=[103449], x_cell_val=[103449], x_ly=[103449], x_gphi=[103449], x_geta=[103449], x_region=[103449], x_lphi=[103449], x_x=[103449], x_lx=[103449], x_weight=[103449], x_hit_id=[103449], x_leta=[103449], x_r=[103449], x_eta=[103449], x_cell_count=[103449], x_module_index=[103449], x_phi=[103449], x_z=[103449], x_lz=[103449], edge_index=[2, 1107556], y=[1107556], truth_map=[77057], weights=[1107556])
+61.567488 MB
+Predicting DataLoader 0:   2%|▏         | 15/1000 [00:34<37:17,  2.27s/it]Data(track_edges=[2, 82872], particle_id=[82872], pt=[82872], radius=[82872], nhits=[82872], config=[2], event_id='000021033', num_nodes=110064, x_y=[110064], x_cell_val=[110064], x_ly=[110064], x_gphi=[110064], x_geta=[110064], x_region=[110064], x_lphi=[110064], x_x=[110064], x_lx=[110064], x_weight=[110064], x_hit_id=[110064], x_leta=[110064], x_r=[110064], x_eta=[110064], x_cell_count=[110064], x_module_index=[110064], x_phi=[110064], x_z=[110064], x_lz=[110064], edge_index=[2, 1262798], y=[1262798], truth_map=[82872], weights=[1262798])
+61.567488 MB
+Predicting DataLoader 0:   2%|▏         | 16/1000 [00:36<37:27,  2.28s/it]Data(track_edges=[2, 75313], particle_id=[75313], pt=[75313], radius=[75313], nhits=[75313], config=[2], event_id='000021034', num_nodes=101486, x_y=[101486], x_cell_val=[101486], x_ly=[101486], x_gphi=[101486], x_geta=[101486], x_region=[101486], x_lphi=[101486], x_x=[101486], x_lx=[101486], x_weight=[101486], x_hit_id=[101486], x_leta=[101486], x_r=[101486], x_eta=[101486], x_cell_count=[101486], x_module_index=[101486], x_phi=[101486], x_z=[101486], x_lz=[101486], edge_index=[2, 1082868], y=[1082868], truth_map=[75313], weights=[1082868])
+61.567488 MB
+Predicting DataLoader 0:   2%|▏         | 17/1000 [00:38<37:16,  2.27s/it]Data(track_edges=[2, 88361], particle_id=[88361], pt=[88361], radius=[88361], nhits=[88361], config=[2], event_id='000021035', num_nodes=115805, x_y=[115805], x_cell_val=[115805], x_ly=[115805], x_gphi=[115805], x_geta=[115805], x_region=[115805], x_lphi=[115805], x_x=[115805], x_lx=[115805], x_weight=[115805], x_hit_id=[115805], x_leta=[115805], x_r=[115805], x_eta=[115805], x_cell_count=[115805], x_module_index=[115805], x_phi=[115805], x_z=[115805], x_lz=[115805], edge_index=[2, 1376596], y=[1376596], truth_map=[88361], weights=[1376596])
+61.567488 MB
+Predicting DataLoader 0:   2%|▏         | 18/1000 [00:41<37:35,  2.30s/it]Data(track_edges=[2, 76184], particle_id=[76184], pt=[76184], radius=[76184], nhits=[76184], config=[2], event_id='000021036', num_nodes=102598, x_y=[102598], x_cell_val=[102598], x_ly=[102598], x_gphi=[102598], x_geta=[102598], x_region=[102598], x_lphi=[102598], x_x=[102598], x_lx=[102598], x_weight=[102598], x_hit_id=[102598], x_leta=[102598], x_r=[102598], x_eta=[102598], x_cell_count=[102598], x_module_index=[102598], x_phi=[102598], x_z=[102598], x_lz=[102598], edge_index=[2, 1100644], y=[1100644], truth_map=[76184], weights=[1100644])
+61.567488 MB
+Predicting DataLoader 0:   2%|▏         | 19/1000 [00:43<37:26,  2.29s/it]Data(track_edges=[2, 91777], particle_id=[91777], pt=[91777], radius=[91777], nhits=[91777], config=[2], event_id='000021037', num_nodes=119775, x_y=[119775], x_cell_val=[119775], x_ly=[119775], x_gphi=[119775], x_geta=[119775], x_region=[119775], x_lphi=[119775], x_x=[119775], x_lx=[119775], x_weight=[119775], x_hit_id=[119775], x_leta=[119775], x_r=[119775], x_eta=[119775], x_cell_count=[119775], x_module_index=[119775], x_phi=[119775], x_z=[119775], x_lz=[119775], edge_index=[2, 1468600], y=[1468600], truth_map=[91777], weights=[1468600])
+61.567488 MB
+Predicting DataLoader 0:   2%|▏         | 20/1000 [00:46<37:52,  2.32s/it]Data(track_edges=[2, 107375], particle_id=[107375], pt=[107375], radius=[107375], nhits=[107375], config=[2], event_id='000021038', num_nodes=137141, x_y=[137141], x_cell_val=[137141], x_ly=[137141], x_gphi=[137141], x_geta=[137141], x_region=[137141], x_lphi=[137141], x_x=[137141], x_lx=[137141], x_weight=[137141], x_hit_id=[137141], x_leta=[137141], x_r=[137141], x_eta=[137141], x_cell_count=[137141], x_module_index=[137141], x_phi=[137141], x_z=[137141], x_lz=[137141], edge_index=[2, 1846412], y=[1846412], truth_map=[107375], weights=[1846412])
+69.261824 MB
+Predicting DataLoader 0:   2%|▏         | 21/1000 [00:49<38:46,  2.38s/it]Data(track_edges=[2, 85804], particle_id=[85804], pt=[85804], radius=[85804], nhits=[85804], config=[2], event_id='000021040', num_nodes=113402, x_y=[113402], x_cell_val=[113402], x_ly=[113402], x_gphi=[113402], x_geta=[113402], x_region=[113402], x_lphi=[113402], x_x=[113402], x_lx=[113402], x_weight=[113402], x_hit_id=[113402], x_leta=[113402], x_r=[113402], x_eta=[113402], x_cell_count=[113402], x_module_index=[113402], x_phi=[113402], x_z=[113402], x_lz=[113402], edge_index=[2, 1330178], y=[1330178], truth_map=[85804], weights=[1330178])
+69.261824 MB
+Predicting DataLoader 0:   2%|▏         | 22/1000 [00:52<38:51,  2.38s/it]Data(track_edges=[2, 103053], particle_id=[103053], pt=[103053], radius=[103053], nhits=[103053], config=[2], event_id='000021042', num_nodes=132372, x_y=[132372], x_cell_val=[132372], x_ly=[132372], x_gphi=[132372], x_geta=[132372], x_region=[132372], x_lphi=[132372], x_x=[132372], x_lx=[132372], x_weight=[132372], x_hit_id=[132372], x_leta=[132372], x_r=[132372], x_eta=[132372], x_cell_count=[132372], x_module_index=[132372], x_phi=[132372], x_z=[132372], x_lz=[132372], edge_index=[2, 1759180], y=[1759180], truth_map=[103053], weights=[1759180])
+69.261824 MB
+Predicting DataLoader 0:   2%|▏         | 23/1000 [00:55<39:30,  2.43s/it]Data(track_edges=[2, 89035], particle_id=[89035], pt=[89035], radius=[89035], nhits=[89035], config=[2], event_id='000021043', num_nodes=116909, x_y=[116909], x_cell_val=[116909], x_ly=[116909], x_gphi=[116909], x_geta=[116909], x_region=[116909], x_lphi=[116909], x_x=[116909], x_lx=[116909], x_weight=[116909], x_hit_id=[116909], x_leta=[116909], x_r=[116909], x_eta=[116909], x_cell_count=[116909], x_module_index=[116909], x_phi=[116909], x_z=[116909], x_lz=[116909], edge_index=[2, 1390202], y=[1390202], truth_map=[89035], weights=[1390202])
+69.261824 MB
+Predicting DataLoader 0:   2%|▏         | 24/1000 [00:58<39:39,  2.44s/it]Data(track_edges=[2, 69479], particle_id=[69479], pt=[69479], radius=[69479], nhits=[69479], config=[2], event_id='000021044', num_nodes=95235, x_y=[95235], x_cell_val=[95235], x_ly=[95235], x_gphi=[95235], x_geta=[95235], x_region=[95235], x_lphi=[95235], x_x=[95235], x_lx=[95235], x_weight=[95235], x_hit_id=[95235], x_leta=[95235], x_r=[95235], x_eta=[95235], x_cell_count=[95235], x_module_index=[95235], x_phi=[95235], x_z=[95235], x_lz=[95235], edge_index=[2, 957926], y=[957926], truth_map=[69479], weights=[957926])
+69.261824 MB
+Predicting DataLoader 0:   2%|▎         | 25/1000 [01:00<39:17,  2.42s/it]Data(track_edges=[2, 74046], particle_id=[74046], pt=[74046], radius=[74046], nhits=[74046], config=[2], event_id='000021046', num_nodes=100091, x_y=[100091], x_cell_val=[100091], x_ly=[100091], x_gphi=[100091], x_geta=[100091], x_region=[100091], x_lphi=[100091], x_x=[100091], x_lx=[100091], x_weight=[100091], x_hit_id=[100091], x_leta=[100091], x_r=[100091], x_eta=[100091], x_cell_count=[100091], x_module_index=[100091], x_phi=[100091], x_z=[100091], x_lz=[100091], edge_index=[2, 1057734], y=[1057734], truth_map=[74046], weights=[1057734])
+69.261824 MB
+Predicting DataLoader 0:   3%|▎         | 26/1000 [01:02<39:02,  2.40s/it]Data(track_edges=[2, 80399], particle_id=[80399], pt=[80399], radius=[80399], nhits=[80399], config=[2], event_id='000021048', num_nodes=107186, x_y=[107186], x_cell_val=[107186], x_ly=[107186], x_gphi=[107186], x_geta=[107186], x_region=[107186], x_lphi=[107186], x_x=[107186], x_lx=[107186], x_weight=[107186], x_hit_id=[107186], x_leta=[107186], x_r=[107186], x_eta=[107186], x_cell_count=[107186], x_module_index=[107186], x_phi=[107186], x_z=[107186], x_lz=[107186], edge_index=[2, 1165822], y=[1165822], truth_map=[80399], weights=[1165822])
+69.261824 MB
+Predicting DataLoader 0:   3%|▎         | 27/1000 [01:04<38:57,  2.40s/it]Data(track_edges=[2, 97462], particle_id=[97462], pt=[97462], radius=[97462], nhits=[97462], config=[2], event_id='000021049', num_nodes=126253, x_y=[126253], x_cell_val=[126253], x_ly=[126253], x_gphi=[126253], x_geta=[126253], x_region=[126253], x_lphi=[126253], x_x=[126253], x_lx=[126253], x_weight=[126253], x_hit_id=[126253], x_leta=[126253], x_r=[126253], x_eta=[126253], x_cell_count=[126253], x_module_index=[126253], x_phi=[126253], x_z=[126253], x_lz=[126253], edge_index=[2, 1617920], y=[1617920], truth_map=[97462], weights=[1617920])
+69.261824 MB
+Predicting DataLoader 0:   3%|▎         | 28/1000 [01:08<39:23,  2.43s/it]Data(track_edges=[2, 83757], particle_id=[83757], pt=[83757], radius=[83757], nhits=[83757], config=[2], event_id='000021054', num_nodes=110761, x_y=[110761], x_cell_val=[110761], x_ly=[110761], x_gphi=[110761], x_geta=[110761], x_region=[110761], x_lphi=[110761], x_x=[110761], x_lx=[110761], x_weight=[110761], x_hit_id=[110761], x_leta=[110761], x_r=[110761], x_eta=[110761], x_cell_count=[110761], x_module_index=[110761], x_phi=[110761], x_z=[110761], x_lz=[110761], edge_index=[2, 1241942], y=[1241942], truth_map=[83757], weights=[1241942])
+69.261824 MB
+Predicting DataLoader 0:   3%|▎         | 29/1000 [01:10<39:21,  2.43s/it]Data(track_edges=[2, 104664], particle_id=[104664], pt=[104664], radius=[104664], nhits=[104664], config=[2], event_id='000021057', num_nodes=134092, x_y=[134092], x_cell_val=[134092], x_ly=[134092], x_gphi=[134092], x_geta=[134092], x_region=[134092], x_lphi=[134092], x_x=[134092], x_lx=[134092], x_weight=[134092], x_hit_id=[134092], x_leta=[134092], x_r=[134092], x_eta=[134092], x_cell_count=[134092], x_module_index=[134092], x_phi=[134092], x_z=[134092], x_lz=[134092], edge_index=[2, 1856472], y=[1856472], truth_map=[104664], weights=[1856472])
+69.261824 MB
+Predicting DataLoader 0:   3%|▎         | 30/1000 [01:14<39:57,  2.47s/it]Data(track_edges=[2, 79009], particle_id=[79009], pt=[79009], radius=[79009], nhits=[79009], config=[2], event_id='000021058', num_nodes=105694, x_y=[105694], x_cell_val=[105694], x_ly=[105694], x_gphi=[105694], x_geta=[105694], x_region=[105694], x_lphi=[105694], x_x=[105694], x_lx=[105694], x_weight=[105694], x_hit_id=[105694], x_leta=[105694], x_r=[105694], x_eta=[105694], x_cell_count=[105694], x_module_index=[105694], x_phi=[105694], x_z=[105694], x_lz=[105694], edge_index=[2, 1151862], y=[1151862], truth_map=[79009], weights=[1151862])
+69.261824 MB
+Predicting DataLoader 0:   3%|▎         | 31/1000 [01:16<39:47,  2.46s/it]Data(track_edges=[2, 87343], particle_id=[87343], pt=[87343], radius=[87343], nhits=[87343], config=[2], event_id='000021061', num_nodes=114768, x_y=[114768], x_cell_val=[114768], x_ly=[114768], x_gphi=[114768], x_geta=[114768], x_region=[114768], x_lphi=[114768], x_x=[114768], x_lx=[114768], x_weight=[114768], x_hit_id=[114768], x_leta=[114768], x_r=[114768], x_eta=[114768], x_cell_count=[114768], x_module_index=[114768], x_phi=[114768], x_z=[114768], x_lz=[114768], edge_index=[2, 1345236], y=[1345236], truth_map=[87343], weights=[1345236])
+69.261824 MB
+Predicting DataLoader 0:   3%|▎         | 32/1000 [01:19<39:50,  2.47s/it]Data(track_edges=[2, 68784], particle_id=[68784], pt=[68784], radius=[68784], nhits=[68784], config=[2], event_id='000021065', num_nodes=94309, x_y=[94309], x_cell_val=[94309], x_ly=[94309], x_gphi=[94309], x_geta=[94309], x_region=[94309], x_lphi=[94309], x_x=[94309], x_lx=[94309], x_weight=[94309], x_hit_id=[94309], x_leta=[94309], x_r=[94309], x_eta=[94309], x_cell_count=[94309], x_module_index=[94309], x_phi=[94309], x_z=[94309], x_lz=[94309], edge_index=[2, 949442], y=[949442], truth_map=[68784], weights=[949442])
+69.261824 MB
+Predicting DataLoader 0:   3%|▎         | 33/1000 [01:20<39:30,  2.45s/it]Data(track_edges=[2, 82127], particle_id=[82127], pt=[82127], radius=[82127], nhits=[82127], config=[2], event_id='000021066', num_nodes=108958, x_y=[108958], x_cell_val=[108958], x_ly=[108958], x_gphi=[108958], x_geta=[108958], x_region=[108958], x_lphi=[108958], x_x=[108958], x_lx=[108958], x_weight=[108958], x_hit_id=[108958], x_leta=[108958], x_r=[108958], x_eta=[108958], x_cell_count=[108958], x_module_index=[108958], x_phi=[108958], x_z=[108958], x_lz=[108958], edge_index=[2, 1200478], y=[1200478], truth_map=[82127], weights=[1200478])
+69.261824 MB
+Predicting DataLoader 0:   3%|▎         | 34/1000 [01:23<39:25,  2.45s/it]Data(track_edges=[2, 88400], particle_id=[88400], pt=[88400], radius=[88400], nhits=[88400], config=[2], event_id='000021067', num_nodes=116042, x_y=[116042], x_cell_val=[116042], x_ly=[116042], x_gphi=[116042], x_geta=[116042], x_region=[116042], x_lphi=[116042], x_x=[116042], x_lx=[116042], x_weight=[116042], x_hit_id=[116042], x_leta=[116042], x_r=[116042], x_eta=[116042], x_cell_count=[116042], x_module_index=[116042], x_phi=[116042], x_z=[116042], x_lz=[116042], edge_index=[2, 1378530], y=[1378530], truth_map=[88400], weights=[1378530])
+69.261824 MB
+Predicting DataLoader 0:   4%|▎         | 35/1000 [01:25<39:30,  2.46s/it]Data(track_edges=[2, 85738], particle_id=[85738], pt=[85738], radius=[85738], nhits=[85738], config=[2], event_id='000021071', num_nodes=113036, x_y=[113036], x_cell_val=[113036], x_ly=[113036], x_gphi=[113036], x_geta=[113036], x_region=[113036], x_lphi=[113036], x_x=[113036], x_lx=[113036], x_weight=[113036], x_hit_id=[113036], x_leta=[113036], x_r=[113036], x_eta=[113036], x_cell_count=[113036], x_module_index=[113036], x_phi=[113036], x_z=[113036], x_lz=[113036], edge_index=[2, 1321698], y=[1321698], truth_map=[85738], weights=[1321698])
+69.261824 MB
+Predicting DataLoader 0:   4%|▎         | 36/1000 [01:28<39:31,  2.46s/it]Data(track_edges=[2, 88224], particle_id=[88224], pt=[88224], radius=[88224], nhits=[88224], config=[2], event_id='000021072', num_nodes=115892, x_y=[115892], x_cell_val=[115892], x_ly=[115892], x_gphi=[115892], x_geta=[115892], x_region=[115892], x_lphi=[115892], x_x=[115892], x_lx=[115892], x_weight=[115892], x_hit_id=[115892], x_leta=[115892], x_r=[115892], x_eta=[115892], x_cell_count=[115892], x_module_index=[115892], x_phi=[115892], x_z=[115892], x_lz=[115892], edge_index=[2, 1370220], y=[1370220], truth_map=[88224], weights=[1370220])
+69.261824 MB
+Predicting DataLoader 0:   4%|▎         | 37/1000 [01:31<39:32,  2.46s/it]Data(track_edges=[2, 80266], particle_id=[80266], pt=[80266], radius=[80266], nhits=[80266], config=[2], event_id='000021073', num_nodes=107341, x_y=[107341], x_cell_val=[107341], x_ly=[107341], x_gphi=[107341], x_geta=[107341], x_region=[107341], x_lphi=[107341], x_x=[107341], x_lx=[107341], x_weight=[107341], x_hit_id=[107341], x_leta=[107341], x_r=[107341], x_eta=[107341], x_cell_count=[107341], x_module_index=[107341], x_phi=[107341], x_z=[107341], x_lz=[107341], edge_index=[2, 1207978], y=[1207978], truth_map=[80266], weights=[1207978])
+69.261824 MB
+Predicting DataLoader 0:   4%|▍         | 38/1000 [01:33<39:28,  2.46s/it]Data(track_edges=[2, 68831], particle_id=[68831], pt=[68831], radius=[68831], nhits=[68831], config=[2], event_id='000021077', num_nodes=94151, x_y=[94151], x_cell_val=[94151], x_ly=[94151], x_gphi=[94151], x_geta=[94151], x_region=[94151], x_lphi=[94151], x_x=[94151], x_lx=[94151], x_weight=[94151], x_hit_id=[94151], x_leta=[94151], x_r=[94151], x_eta=[94151], x_cell_count=[94151], x_module_index=[94151], x_phi=[94151], x_z=[94151], x_lz=[94151], edge_index=[2, 913346], y=[913346], truth_map=[68831], weights=[913346])
+69.261824 MB
+Predicting DataLoader 0:   4%|▍         | 39/1000 [01:35<39:10,  2.45s/it]Data(track_edges=[2, 67651], particle_id=[67651], pt=[67651], radius=[67651], nhits=[67651], config=[2], event_id='000021079', num_nodes=93072, x_y=[93072], x_cell_val=[93072], x_ly=[93072], x_gphi=[93072], x_geta=[93072], x_region=[93072], x_lphi=[93072], x_x=[93072], x_lx=[93072], x_weight=[93072], x_hit_id=[93072], x_leta=[93072], x_r=[93072], x_eta=[93072], x_cell_count=[93072], x_module_index=[93072], x_phi=[93072], x_z=[93072], x_lz=[93072], edge_index=[2, 907636], y=[907636], truth_map=[67651], weights=[907636])
+69.261824 MB
+Predicting DataLoader 0:   4%|▍         | 40/1000 [01:37<38:52,  2.43s/it]Data(track_edges=[2, 107775], particle_id=[107775], pt=[107775], radius=[107775], nhits=[107775], config=[2], event_id='000021080', num_nodes=137725, x_y=[137725], x_cell_val=[137725], x_ly=[137725], x_gphi=[137725], x_geta=[137725], x_region=[137725], x_lphi=[137725], x_x=[137725], x_lx=[137725], x_weight=[137725], x_hit_id=[137725], x_leta=[137725], x_r=[137725], x_eta=[137725], x_cell_count=[137725], x_module_index=[137725], x_phi=[137725], x_z=[137725], x_lz=[137725], edge_index=[2, 1920694], y=[1920694], truth_map=[107775], weights=[1920694])
+71.5136 MB
+attempt 0
+chunk size 1920694
+attempt 1
+chunk size 960347
+Predicting DataLoader 0:   4%|▍         | 41/1000 [01:57<45:57,  2.88s/it]Data(track_edges=[2, 67369], particle_id=[67369], pt=[67369], radius=[67369], nhits=[67369], config=[2], event_id='000021082', num_nodes=92536, x_y=[92536], x_cell_val=[92536], x_ly=[92536], x_gphi=[92536], x_geta=[92536], x_region=[92536], x_lphi=[92536], x_x=[92536], x_lx=[92536], x_weight=[92536], x_hit_id=[92536], x_leta=[92536], x_r=[92536], x_eta=[92536], x_cell_count=[92536], x_module_index=[92536], x_phi=[92536], x_z=[92536], x_lz=[92536], edge_index=[2, 893874], y=[893874], truth_map=[67369], weights=[893874])
+8129.836544 MB
+attempt 0
+chunk size 893874
+Predicting DataLoader 0:   4%|▍         | 42/1000 [02:00<45:39,  2.86s/it]Data(track_edges=[2, 71932], particle_id=[71932], pt=[71932], radius=[71932], nhits=[71932], config=[2], event_id='000021083', num_nodes=97808, x_y=[97808], x_cell_val=[97808], x_ly=[97808], x_gphi=[97808], x_geta=[97808], x_region=[97808], x_lphi=[97808], x_x=[97808], x_lx=[97808], x_weight=[97808], x_hit_id=[97808], x_leta=[97808], x_r=[97808], x_eta=[97808], x_cell_count=[97808], x_module_index=[97808], x_phi=[97808], x_z=[97808], x_lz=[97808], edge_index=[2, 991450], y=[991450], truth_map=[71932], weights=[991450])
+8129.836544 MB
+attempt 0
+chunk size 991450
+Predicting DataLoader 0:   4%|▍         | 43/1000 [02:02<45:24,  2.85s/it]Data(track_edges=[2, 76750], particle_id=[76750], pt=[76750], radius=[76750], nhits=[76750], config=[2], event_id='000021085', num_nodes=102899, x_y=[102899], x_cell_val=[102899], x_ly=[102899], x_gphi=[102899], x_geta=[102899], x_region=[102899], x_lphi=[102899], x_x=[102899], x_lx=[102899], x_weight=[102899], x_hit_id=[102899], x_leta=[102899], x_r=[102899], x_eta=[102899], x_cell_count=[102899], x_module_index=[102899], x_phi=[102899], x_z=[102899], x_lz=[102899], edge_index=[2, 1129890], y=[1129890], truth_map=[76750], weights=[1129890])
+8272.347648 MB
+attempt 0
+chunk size 1129890
+attempt 1
+chunk size 564945
+Predicting DataLoader 0:   4%|▍         | 44/1000 [02:05<45:18,  2.84s/it]Data(track_edges=[2, 88986], particle_id=[88986], pt=[88986], radius=[88986], nhits=[88986], config=[2], event_id='000021089', num_nodes=116693, x_y=[116693], x_cell_val=[116693], x_ly=[116693], x_gphi=[116693], x_geta=[116693], x_region=[116693], x_lphi=[116693], x_x=[116693], x_lx=[116693], x_weight=[116693], x_hit_id=[116693], x_leta=[116693], x_r=[116693], x_eta=[116693], x_cell_count=[116693], x_module_index=[116693], x_phi=[116693], x_z=[116693], x_lz=[116693], edge_index=[2, 1398942], y=[1398942], truth_map=[88986], weights=[1398942])
+8272.347648 MB
+attempt 0
+chunk size 1398942
+attempt 1
+chunk size 699471
+Predicting DataLoader 0:   4%|▍         | 45/1000 [02:09<45:50,  2.88s/it]Data(track_edges=[2, 90605], particle_id=[90605], pt=[90605], radius=[90605], nhits=[90605], config=[2], event_id='000021090', num_nodes=118639, x_y=[118639], x_cell_val=[118639], x_ly=[118639], x_gphi=[118639], x_geta=[118639], x_region=[118639], x_lphi=[118639], x_x=[118639], x_lx=[118639], x_weight=[118639], x_hit_id=[118639], x_leta=[118639], x_r=[118639], x_eta=[118639], x_cell_count=[118639], x_module_index=[118639], x_phi=[118639], x_z=[118639], x_lz=[118639], edge_index=[2, 1429232], y=[1429232], truth_map=[90605], weights=[1429232])
+8272.347648 MB
+attempt 0
+chunk size 1429232
+attempt 1
+chunk size 714616
+Predicting DataLoader 0:   5%|▍         | 46/1000 [02:14<46:26,  2.92s/it]Data(track_edges=[2, 94668], particle_id=[94668], pt=[94668], radius=[94668], nhits=[94668], config=[2], event_id='000021091', num_nodes=123088, x_y=[123088], x_cell_val=[123088], x_ly=[123088], x_gphi=[123088], x_geta=[123088], x_region=[123088], x_lphi=[123088], x_x=[123088], x_lx=[123088], x_weight=[123088], x_hit_id=[123088], x_leta=[123088], x_r=[123088], x_eta=[123088], x_cell_count=[123088], x_module_index=[123088], x_phi=[123088], x_z=[123088], x_lz=[123088], edge_index=[2, 1570400], y=[1570400], truth_map=[94668], weights=[1570400])
+8272.347648 MB
+attempt 0
+chunk size 1570400
+attempt 1
+chunk size 785200
+Predicting DataLoader 0:   5%|▍         | 47/1000 [02:17<46:37,  2.94s/it]Data(track_edges=[2, 96456], particle_id=[96456], pt=[96456], radius=[96456], nhits=[96456], config=[2], event_id='000021093', num_nodes=125159, x_y=[125159], x_cell_val=[125159], x_ly=[125159], x_gphi=[125159], x_geta=[125159], x_region=[125159], x_lphi=[125159], x_x=[125159], x_lx=[125159], x_weight=[125159], x_hit_id=[125159], x_leta=[125159], x_r=[125159], x_eta=[125159], x_cell_count=[125159], x_module_index=[125159], x_phi=[125159], x_z=[125159], x_lz=[125159], edge_index=[2, 1597510], y=[1597510], truth_map=[96456], weights=[1597510])
+8272.347648 MB
+attempt 0
+chunk size 1597510
+attempt 1
+chunk size 798755
+Predicting DataLoader 0:   5%|▍         | 48/1000 [02:21<46:47,  2.95s/it]Data(track_edges=[2, 89422], particle_id=[89422], pt=[89422], radius=[89422], nhits=[89422], config=[2], event_id='000021095', num_nodes=117212, x_y=[117212], x_cell_val=[117212], x_ly=[117212], x_gphi=[117212], x_geta=[117212], x_region=[117212], x_lphi=[117212], x_x=[117212], x_lx=[117212], x_weight=[117212], x_hit_id=[117212], x_leta=[117212], x_r=[117212], x_eta=[117212], x_cell_count=[117212], x_module_index=[117212], x_phi=[117212], x_z=[117212], x_lz=[117212], edge_index=[2, 1404716], y=[1404716], truth_map=[89422], weights=[1404716])
+8272.347648 MB
+attempt 0
+chunk size 1404716
+attempt 1
+chunk size 702358
+Predicting DataLoader 0:   5%|▍         | 49/1000 [02:24<46:49,  2.95s/it]Data(track_edges=[2, 78309], particle_id=[78309], pt=[78309], radius=[78309], nhits=[78309], config=[2], event_id='000021100', num_nodes=104867, x_y=[104867], x_cell_val=[104867], x_ly=[104867], x_gphi=[104867], x_geta=[104867], x_region=[104867], x_lphi=[104867], x_x=[104867], x_lx=[104867], x_weight=[104867], x_hit_id=[104867], x_leta=[104867], x_r=[104867], x_eta=[104867], x_cell_count=[104867], x_module_index=[104867], x_phi=[104867], x_z=[104867], x_lz=[104867], edge_index=[2, 1121104], y=[1121104], truth_map=[78309], weights=[1121104])
+8272.347648 MB
+attempt 0
+chunk size 1121104
+attempt 1
+chunk size 560552
+Predicting DataLoader 0:   5%|▌         | 50/1000 [02:27<46:39,  2.95s/it]Data(track_edges=[2, 82658], particle_id=[82658], pt=[82658], radius=[82658], nhits=[82658], config=[2], event_id='000021102', num_nodes=109857, x_y=[109857], x_cell_val=[109857], x_ly=[109857], x_gphi=[109857], x_geta=[109857], x_region=[109857], x_lphi=[109857], x_x=[109857], x_lx=[109857], x_weight=[109857], x_hit_id=[109857], x_leta=[109857], x_r=[109857], x_eta=[109857], x_cell_count=[109857], x_module_index=[109857], x_phi=[109857], x_z=[109857], x_lz=[109857], edge_index=[2, 1251392], y=[1251392], truth_map=[82658], weights=[1251392])
+8272.347648 MB
+attempt 0
+chunk size 1251392
+attempt 1
+chunk size 625696
+Predicting DataLoader 0:   5%|▌         | 51/1000 [02:30<46:37,  2.95s/it]Data(track_edges=[2, 96021], particle_id=[96021], pt=[96021], radius=[96021], nhits=[96021], config=[2], event_id='000021105', num_nodes=124601, x_y=[124601], x_cell_val=[124601], x_ly=[124601], x_gphi=[124601], x_geta=[124601], x_region=[124601], x_lphi=[124601], x_x=[124601], x_lx=[124601], x_weight=[124601], x_hit_id=[124601], x_leta=[124601], x_r=[124601], x_eta=[124601], x_cell_count=[124601], x_module_index=[124601], x_phi=[124601], x_z=[124601], x_lz=[124601], edge_index=[2, 1575920], y=[1575920], truth_map=[96021], weights=[1575920])
+8272.347648 MB
+attempt 0
+chunk size 1575920
+attempt 1
+chunk size 787960
+Predicting DataLoader 0:   5%|▌         | 52/1000 [02:34<46:48,  2.96s/it]Data(track_edges=[2, 60337], particle_id=[60337], pt=[60337], radius=[60337], nhits=[60337], config=[2], event_id='000021109', num_nodes=85015, x_y=[85015], x_cell_val=[85015], x_ly=[85015], x_gphi=[85015], x_geta=[85015], x_region=[85015], x_lphi=[85015], x_x=[85015], x_lx=[85015], x_weight=[85015], x_hit_id=[85015], x_leta=[85015], x_r=[85015], x_eta=[85015], x_cell_count=[85015], x_module_index=[85015], x_phi=[85015], x_z=[85015], x_lz=[85015], edge_index=[2, 765040], y=[765040], truth_map=[60337], weights=[765040])
+8272.347648 MB
+attempt 0
+chunk size 765040
+Predicting DataLoader 0:   5%|▌         | 53/1000 [02:36<46:28,  2.94s/it]Data(track_edges=[2, 78850], particle_id=[78850], pt=[78850], radius=[78850], nhits=[78850], config=[2], event_id='000021112', num_nodes=105365, x_y=[105365], x_cell_val=[105365], x_ly=[105365], x_gphi=[105365], x_geta=[105365], x_region=[105365], x_lphi=[105365], x_x=[105365], x_lx=[105365], x_weight=[105365], x_hit_id=[105365], x_leta=[105365], x_r=[105365], x_eta=[105365], x_cell_count=[105365], x_module_index=[105365], x_phi=[105365], x_z=[105365], x_lz=[105365], edge_index=[2, 1143512], y=[1143512], truth_map=[78850], weights=[1143512])
+8272.347648 MB
+attempt 0
+chunk size 1143512
+attempt 1
+chunk size 571756
+Predicting DataLoader 0:   5%|▌         | 54/1000 [02:38<46:21,  2.94s/it]Data(track_edges=[2, 95820], particle_id=[95820], pt=[95820], radius=[95820], nhits=[95820], config=[2], event_id='000021113', num_nodes=124295, x_y=[124295], x_cell_val=[124295], x_ly=[124295], x_gphi=[124295], x_geta=[124295], x_region=[124295], x_lphi=[124295], x_x=[124295], x_lx=[124295], x_weight=[124295], x_hit_id=[124295], x_leta=[124295], x_r=[124295], x_eta=[124295], x_cell_count=[124295], x_module_index=[124295], x_phi=[124295], x_z=[124295], x_lz=[124295], edge_index=[2, 1580770], y=[1580770], truth_map=[95820], weights=[1580770])
+8272.347648 MB
+attempt 0
+chunk size 1580770
+attempt 1
+chunk size 790385
+Predicting DataLoader 0:   6%|▌         | 55/1000 [02:42<46:30,  2.95s/it]Data(track_edges=[2, 88928], particle_id=[88928], pt=[88928], radius=[88928], nhits=[88928], config=[2], event_id='000021114', num_nodes=116622, x_y=[116622], x_cell_val=[116622], x_ly=[116622], x_gphi=[116622], x_geta=[116622], x_region=[116622], x_lphi=[116622], x_x=[116622], x_lx=[116622], x_weight=[116622], x_hit_id=[116622], x_leta=[116622], x_r=[116622], x_eta=[116622], x_cell_count=[116622], x_module_index=[116622], x_phi=[116622], x_z=[116622], x_lz=[116622], edge_index=[2, 1406536], y=[1406536], truth_map=[88928], weights=[1406536])
+8272.347648 MB
+attempt 0
+chunk size 1406536
+attempt 1
+chunk size 703268
+Predicting DataLoader 0:   6%|▌         | 56/1000 [02:45<46:31,  2.96s/it]Data(track_edges=[2, 94466], particle_id=[94466], pt=[94466], radius=[94466], nhits=[94466], config=[2], event_id='000021115', num_nodes=122855, x_y=[122855], x_cell_val=[122855], x_ly=[122855], x_gphi=[122855], x_geta=[122855], x_region=[122855], x_lphi=[122855], x_x=[122855], x_lx=[122855], x_weight=[122855], x_hit_id=[122855], x_leta=[122855], x_r=[122855], x_eta=[122855], x_cell_count=[122855], x_module_index=[122855], x_phi=[122855], x_z=[122855], x_lz=[122855], edge_index=[2, 1559410], y=[1559410], truth_map=[94466], weights=[1559410])
+8272.347648 MB
+attempt 0
+chunk size 1559410
+attempt 1
+chunk size 779705
+Predicting DataLoader 0:   6%|▌         | 57/1000 [02:49<46:38,  2.97s/it]Data(track_edges=[2, 71732], particle_id=[71732], pt=[71732], radius=[71732], nhits=[71732], config=[2], event_id='000021116', num_nodes=97346, x_y=[97346], x_cell_val=[97346], x_ly=[97346], x_gphi=[97346], x_geta=[97346], x_region=[97346], x_lphi=[97346], x_x=[97346], x_lx=[97346], x_weight=[97346], x_hit_id=[97346], x_leta=[97346], x_r=[97346], x_eta=[97346], x_cell_count=[97346], x_module_index=[97346], x_phi=[97346], x_z=[97346], x_lz=[97346], edge_index=[2, 1020124], y=[1020124], truth_map=[71732], weights=[1020124])
+8272.347648 MB
+attempt 0
+chunk size 1020124
+attempt 1
+chunk size 510062
+Predicting DataLoader 0:   6%|▌         | 58/1000 [02:51<46:27,  2.96s/it]Data(track_edges=[2, 79672], particle_id=[79672], pt=[79672], radius=[79672], nhits=[79672], config=[2], event_id='000021117', num_nodes=106225, x_y=[106225], x_cell_val=[106225], x_ly=[106225], x_gphi=[106225], x_geta=[106225], x_region=[106225], x_lphi=[106225], x_x=[106225], x_lx=[106225], x_weight=[106225], x_hit_id=[106225], x_leta=[106225], x_r=[106225], x_eta=[106225], x_cell_count=[106225], x_module_index=[106225], x_phi=[106225], x_z=[106225], x_lz=[106225], edge_index=[2, 1167188], y=[1167188], truth_map=[79672], weights=[1167188])
+8272.347648 MB
+attempt 0
+chunk size 1167188
+attempt 1
+chunk size 583594
+Predicting DataLoader 0:   6%|▌         | 59/1000 [02:54<46:20,  2.95s/it]Data(track_edges=[2, 83816], particle_id=[83816], pt=[83816], radius=[83816], nhits=[83816], config=[2], event_id='000021120', num_nodes=111015, x_y=[111015], x_cell_val=[111015], x_ly=[111015], x_gphi=[111015], x_geta=[111015], x_region=[111015], x_lphi=[111015], x_x=[111015], x_lx=[111015], x_weight=[111015], x_hit_id=[111015], x_leta=[111015], x_r=[111015], x_eta=[111015], x_cell_count=[111015], x_module_index=[111015], x_phi=[111015], x_z=[111015], x_lz=[111015], edge_index=[2, 1275040], y=[1275040], truth_map=[83816], weights=[1275040])
+8272.347648 MB
+attempt 0
+chunk size 1275040
+attempt 1
+chunk size 637520
+Predicting DataLoader 0:   6%|▌         | 60/1000 [02:57<46:17,  2.95s/it]Data(track_edges=[2, 72354], particle_id=[72354], pt=[72354], radius=[72354], nhits=[72354], config=[2], event_id='000021121', num_nodes=98302, x_y=[98302], x_cell_val=[98302], x_ly=[98302], x_gphi=[98302], x_geta=[98302], x_region=[98302], x_lphi=[98302], x_x=[98302], x_lx=[98302], x_weight=[98302], x_hit_id=[98302], x_leta=[98302], x_r=[98302], x_eta=[98302], x_cell_count=[98302], x_module_index=[98302], x_phi=[98302], x_z=[98302], x_lz=[98302], edge_index=[2, 1027774], y=[1027774], truth_map=[72354], weights=[1027774])
+8272.347648 MB
+attempt 0
+chunk size 1027774
+attempt 1
+chunk size 513887
+Predicting DataLoader 0:   6%|▌         | 61/1000 [02:59<46:05,  2.95s/it]Data(track_edges=[2, 79560], particle_id=[79560], pt=[79560], radius=[79560], nhits=[79560], config=[2], event_id='000021122', num_nodes=106122, x_y=[106122], x_cell_val=[106122], x_ly=[106122], x_gphi=[106122], x_geta=[106122], x_region=[106122], x_lphi=[106122], x_x=[106122], x_lx=[106122], x_weight=[106122], x_hit_id=[106122], x_leta=[106122], x_r=[106122], x_eta=[106122], x_cell_count=[106122], x_module_index=[106122], x_phi=[106122], x_z=[106122], x_lz=[106122], edge_index=[2, 1193318], y=[1193318], truth_map=[79560], weights=[1193318])
+8272.347648 MB
+attempt 0
+chunk size 1193318
+attempt 1
+chunk size 596659
+Predicting DataLoader 0:   6%|▌         | 62/1000 [03:02<45:59,  2.94s/it]Data(track_edges=[2, 74131], particle_id=[74131], pt=[74131], radius=[74131], nhits=[74131], config=[2], event_id='000021123', num_nodes=100302, x_y=[100302], x_cell_val=[100302], x_ly=[100302], x_gphi=[100302], x_geta=[100302], x_region=[100302], x_lphi=[100302], x_x=[100302], x_lx=[100302], x_weight=[100302], x_hit_id=[100302], x_leta=[100302], x_r=[100302], x_eta=[100302], x_cell_count=[100302], x_module_index=[100302], x_phi=[100302], x_z=[100302], x_lz=[100302], edge_index=[2, 1037734], y=[1037734], truth_map=[74131], weights=[1037734])
+8272.347648 MB
+attempt 0
+chunk size 1037734
+attempt 1
+chunk size 518867
+Predicting DataLoader 0:   6%|▋         | 63/1000 [03:04<45:49,  2.93s/it]Data(track_edges=[2, 82002], particle_id=[82002], pt=[82002], radius=[82002], nhits=[82002], config=[2], event_id='000021126', num_nodes=109042, x_y=[109042], x_cell_val=[109042], x_ly=[109042], x_gphi=[109042], x_geta=[109042], x_region=[109042], x_lphi=[109042], x_x=[109042], x_lx=[109042], x_weight=[109042], x_hit_id=[109042], x_leta=[109042], x_r=[109042], x_eta=[109042], x_cell_count=[109042], x_module_index=[109042], x_phi=[109042], x_z=[109042], x_lz=[109042], edge_index=[2, 1268340], y=[1268340], truth_map=[82002], weights=[1268340])
+8272.347648 MB
+attempt 0
+chunk size 1268340
+attempt 1
+chunk size 634170
+Predicting DataLoader 0:   6%|▋         | 64/1000 [03:08<45:54,  2.94s/it]Data(track_edges=[2, 66051], particle_id=[66051], pt=[66051], radius=[66051], nhits=[66051], config=[2], event_id='000021129', num_nodes=91076, x_y=[91076], x_cell_val=[91076], x_ly=[91076], x_gphi=[91076], x_geta=[91076], x_region=[91076], x_lphi=[91076], x_x=[91076], x_lx=[91076], x_weight=[91076], x_hit_id=[91076], x_leta=[91076], x_r=[91076], x_eta=[91076], x_cell_count=[91076], x_module_index=[91076], x_phi=[91076], x_z=[91076], x_lz=[91076], edge_index=[2, 887820], y=[887820], truth_map=[66051], weights=[887820])
+8272.347648 MB
+attempt 0
+chunk size 887820
+Predicting DataLoader 0:   6%|▋         | 65/1000 [03:15<46:52,  3.01s/it]Data(track_edges=[2, 83612], particle_id=[83612], pt=[83612], radius=[83612], nhits=[83612], config=[2], event_id='000021133', num_nodes=110431, x_y=[110431], x_cell_val=[110431], x_ly=[110431], x_gphi=[110431], x_geta=[110431], x_region=[110431], x_lphi=[110431], x_x=[110431], x_lx=[110431], x_weight=[110431], x_hit_id=[110431], x_leta=[110431], x_r=[110431], x_eta=[110431], x_cell_count=[110431], x_module_index=[110431], x_phi=[110431], x_z=[110431], x_lz=[110431], edge_index=[2, 1254636], y=[1254636], truth_map=[83612], weights=[1254636])
+8272.347648 MB
+attempt 0
+chunk size 1254636
+attempt 1
+chunk size 627318
+Predicting DataLoader 0:   7%|▋         | 66/1000 [03:21<47:34,  3.06s/it]Data(track_edges=[2, 87291], particle_id=[87291], pt=[87291], radius=[87291], nhits=[87291], config=[2], event_id='000021135', num_nodes=114771, x_y=[114771], x_cell_val=[114771], x_ly=[114771], x_gphi=[114771], x_geta=[114771], x_region=[114771], x_lphi=[114771], x_x=[114771], x_lx=[114771], x_weight=[114771], x_hit_id=[114771], x_leta=[114771], x_r=[114771], x_eta=[114771], x_cell_count=[114771], x_module_index=[114771], x_phi=[114771], x_z=[114771], x_lz=[114771], edge_index=[2, 1355342], y=[1355342], truth_map=[87291], weights=[1355342])
+8272.347648 MB
+attempt 0
+chunk size 1355342
+attempt 1
+chunk size 677671
+Predicting DataLoader 0:   7%|▋         | 67/1000 [03:24<47:32,  3.06s/it]Data(track_edges=[2, 76748], particle_id=[76748], pt=[76748], radius=[76748], nhits=[76748], config=[2], event_id='000021136', num_nodes=102990, x_y=[102990], x_cell_val=[102990], x_ly=[102990], x_gphi=[102990], x_geta=[102990], x_region=[102990], x_lphi=[102990], x_x=[102990], x_lx=[102990], x_weight=[102990], x_hit_id=[102990], x_leta=[102990], x_r=[102990], x_eta=[102990], x_cell_count=[102990], x_module_index=[102990], x_phi=[102990], x_z=[102990], x_lz=[102990], edge_index=[2, 1105348], y=[1105348], truth_map=[76748], weights=[1105348])
+8272.347648 MB
+attempt 0
+chunk size 1105348
+attempt 1
+chunk size 552674
+Predicting DataLoader 0:   7%|▋         | 68/1000 [03:27<47:23,  3.05s/it]Data(track_edges=[2, 68914], particle_id=[68914], pt=[68914], radius=[68914], nhits=[68914], config=[2], event_id='000021137', num_nodes=94575, x_y=[94575], x_cell_val=[94575], x_ly=[94575], x_gphi=[94575], x_geta=[94575], x_region=[94575], x_lphi=[94575], x_x=[94575], x_lx=[94575], x_weight=[94575], x_hit_id=[94575], x_leta=[94575], x_r=[94575], x_eta=[94575], x_cell_count=[94575], x_module_index=[94575], x_phi=[94575], x_z=[94575], x_lz=[94575], edge_index=[2, 923136], y=[923136], truth_map=[68914], weights=[923136])
+8272.347648 MB
+attempt 0
+chunk size 923136
+Predicting DataLoader 0:   7%|▋         | 69/1000 [03:29<47:08,  3.04s/it]Data(track_edges=[2, 81455], particle_id=[81455], pt=[81455], radius=[81455], nhits=[81455], config=[2], event_id='000021140', num_nodes=108504, x_y=[108504], x_cell_val=[108504], x_ly=[108504], x_gphi=[108504], x_geta=[108504], x_region=[108504], x_lphi=[108504], x_x=[108504], x_lx=[108504], x_weight=[108504], x_hit_id=[108504], x_leta=[108504], x_r=[108504], x_eta=[108504], x_cell_count=[108504], x_module_index=[108504], x_phi=[108504], x_z=[108504], x_lz=[108504], edge_index=[2, 1241798], y=[1241798], truth_map=[81455], weights=[1241798])
+8272.347648 MB
+attempt 0
+chunk size 1241798
+attempt 1
+chunk size 620899
+Predicting DataLoader 0:   7%|▋         | 70/1000 [03:32<47:03,  3.04s/it]Data(track_edges=[2, 98424], particle_id=[98424], pt=[98424], radius=[98424], nhits=[98424], config=[2], event_id='000021141', num_nodes=126906, x_y=[126906], x_cell_val=[126906], x_ly=[126906], x_gphi=[126906], x_geta=[126906], x_region=[126906], x_lphi=[126906], x_x=[126906], x_lx=[126906], x_weight=[126906], x_hit_id=[126906], x_leta=[126906], x_r=[126906], x_eta=[126906], x_cell_count=[126906], x_module_index=[126906], x_phi=[126906], x_z=[126906], x_lz=[126906], edge_index=[2, 1635166], y=[1635166], truth_map=[98424], weights=[1635166])
+8272.347648 MB
+attempt 0
+chunk size 1635166
+attempt 1
+chunk size 817583
+Predicting DataLoader 0:   7%|▋         | 71/1000 [03:36<47:09,  3.05s/it]Data(track_edges=[2, 81601], particle_id=[81601], pt=[81601], radius=[81601], nhits=[81601], config=[2], event_id='000021142', num_nodes=108480, x_y=[108480], x_cell_val=[108480], x_ly=[108480], x_gphi=[108480], x_geta=[108480], x_region=[108480], x_lphi=[108480], x_x=[108480], x_lx=[108480], x_weight=[108480], x_hit_id=[108480], x_leta=[108480], x_r=[108480], x_eta=[108480], x_cell_count=[108480], x_module_index=[108480], x_phi=[108480], x_z=[108480], x_lz=[108480], edge_index=[2, 1214286], y=[1214286], truth_map=[81601], weights=[1214286])
+8272.347648 MB
+attempt 0
+chunk size 1214286
+attempt 1
+chunk size 607143
+Predicting DataLoader 0:   7%|▋         | 72/1000 [03:39<47:03,  3.04s/it]Data(track_edges=[2, 76304], particle_id=[76304], pt=[76304], radius=[76304], nhits=[76304], config=[2], event_id='000021144', num_nodes=102739, x_y=[102739], x_cell_val=[102739], x_ly=[102739], x_gphi=[102739], x_geta=[102739], x_region=[102739], x_lphi=[102739], x_x=[102739], x_lx=[102739], x_weight=[102739], x_hit_id=[102739], x_leta=[102739], x_r=[102739], x_eta=[102739], x_cell_count=[102739], x_module_index=[102739], x_phi=[102739], x_z=[102739], x_lz=[102739], edge_index=[2, 1093692], y=[1093692], truth_map=[76304], weights=[1093692])
+8272.347648 MB
+attempt 0
+chunk size 1093692
+attempt 1
+chunk size 546846
+Predicting DataLoader 0:   7%|▋         | 73/1000 [03:41<46:53,  3.04s/it]Data(track_edges=[2, 61885], particle_id=[61885], pt=[61885], radius=[61885], nhits=[61885], config=[2], event_id='000021147', num_nodes=86502, x_y=[86502], x_cell_val=[86502], x_ly=[86502], x_gphi=[86502], x_geta=[86502], x_region=[86502], x_lphi=[86502], x_x=[86502], x_lx=[86502], x_weight=[86502], x_hit_id=[86502], x_leta=[86502], x_r=[86502], x_eta=[86502], x_cell_count=[86502], x_module_index=[86502], x_phi=[86502], x_z=[86502], x_lz=[86502], edge_index=[2, 795912], y=[795912], truth_map=[61885], weights=[795912])
+8272.347648 MB
+attempt 0
+chunk size 795912
+Predicting DataLoader 0:   7%|▋         | 74/1000 [03:43<46:36,  3.02s/it]Data(track_edges=[2, 83349], particle_id=[83349], pt=[83349], radius=[83349], nhits=[83349], config=[2], event_id='000021148', num_nodes=110528, x_y=[110528], x_cell_val=[110528], x_ly=[110528], x_gphi=[110528], x_geta=[110528], x_region=[110528], x_lphi=[110528], x_x=[110528], x_lx=[110528], x_weight=[110528], x_hit_id=[110528], x_leta=[110528], x_r=[110528], x_eta=[110528], x_cell_count=[110528], x_module_index=[110528], x_phi=[110528], x_z=[110528], x_lz=[110528], edge_index=[2, 1262246], y=[1262246], truth_map=[83349], weights=[1262246])
+8272.347648 MB
+attempt 0
+chunk size 1262246
+attempt 1
+chunk size 631123
+Predicting DataLoader 0:   8%|▊         | 75/1000 [03:46<46:31,  3.02s/it]Data(track_edges=[2, 87862], particle_id=[87862], pt=[87862], radius=[87862], nhits=[87862], config=[2], event_id='000021150', num_nodes=115871, x_y=[115871], x_cell_val=[115871], x_ly=[115871], x_gphi=[115871], x_geta=[115871], x_region=[115871], x_lphi=[115871], x_x=[115871], x_lx=[115871], x_weight=[115871], x_hit_id=[115871], x_leta=[115871], x_r=[115871], x_eta=[115871], x_cell_count=[115871], x_module_index=[115871], x_phi=[115871], x_z=[115871], x_lz=[115871], edge_index=[2, 1353140], y=[1353140], truth_map=[87862], weights=[1353140])
+8272.347648 MB
+attempt 0
+chunk size 1353140
+attempt 1
+chunk size 676570
+Predicting DataLoader 0:   8%|▊         | 76/1000 [03:50<46:41,  3.03s/it]Data(track_edges=[2, 76461], particle_id=[76461], pt=[76461], radius=[76461], nhits=[76461], config=[2], event_id='000021151', num_nodes=102762, x_y=[102762], x_cell_val=[102762], x_ly=[102762], x_gphi=[102762], x_geta=[102762], x_region=[102762], x_lphi=[102762], x_x=[102762], x_lx=[102762], x_weight=[102762], x_hit_id=[102762], x_leta=[102762], x_r=[102762], x_eta=[102762], x_cell_count=[102762], x_module_index=[102762], x_phi=[102762], x_z=[102762], x_lz=[102762], edge_index=[2, 1083364], y=[1083364], truth_map=[76461], weights=[1083364])
+8272.347648 MB
+attempt 0
+chunk size 1083364
+attempt 1
+chunk size 541682
+Predicting DataLoader 0:   8%|▊         | 77/1000 [03:52<46:32,  3.03s/it]Data(track_edges=[2, 88358], particle_id=[88358], pt=[88358], radius=[88358], nhits=[88358], config=[2], event_id='000021152', num_nodes=115920, x_y=[115920], x_cell_val=[115920], x_ly=[115920], x_gphi=[115920], x_geta=[115920], x_region=[115920], x_lphi=[115920], x_x=[115920], x_lx=[115920], x_weight=[115920], x_hit_id=[115920], x_leta=[115920], x_r=[115920], x_eta=[115920], x_cell_count=[115920], x_module_index=[115920], x_phi=[115920], x_z=[115920], x_lz=[115920], edge_index=[2, 1379126], y=[1379126], truth_map=[88358], weights=[1379126])
+8272.347648 MB
+attempt 0
+chunk size 1379126
+attempt 1
+chunk size 689563
+Predicting DataLoader 0:   8%|▊         | 78/1000 [03:56<46:30,  3.03s/it]Data(track_edges=[2, 89639], particle_id=[89639], pt=[89639], radius=[89639], nhits=[89639], config=[2], event_id='000021153', num_nodes=117686, x_y=[117686], x_cell_val=[117686], x_ly=[117686], x_gphi=[117686], x_geta=[117686], x_region=[117686], x_lphi=[117686], x_x=[117686], x_lx=[117686], x_weight=[117686], x_hit_id=[117686], x_leta=[117686], x_r=[117686], x_eta=[117686], x_cell_count=[117686], x_module_index=[117686], x_phi=[117686], x_z=[117686], x_lz=[117686], edge_index=[2, 1417454], y=[1417454], truth_map=[89639], weights=[1417454])
+8272.347648 MB
+attempt 0
+chunk size 1417454
+attempt 1
+chunk size 708727
+Predicting DataLoader 0:   8%|▊         | 79/1000 [03:59<46:30,  3.03s/it]Data(track_edges=[2, 87934], particle_id=[87934], pt=[87934], radius=[87934], nhits=[87934], config=[2], event_id='000021154', num_nodes=115618, x_y=[115618], x_cell_val=[115618], x_ly=[115618], x_gphi=[115618], x_geta=[115618], x_region=[115618], x_lphi=[115618], x_x=[115618], x_lx=[115618], x_weight=[115618], x_hit_id=[115618], x_leta=[115618], x_r=[115618], x_eta=[115618], x_cell_count=[115618], x_module_index=[115618], x_phi=[115618], x_z=[115618], x_lz=[115618], edge_index=[2, 1388094], y=[1388094], truth_map=[87934], weights=[1388094])
+8272.347648 MB
+attempt 0
+chunk size 1388094
+attempt 1
+chunk size 694047
+Predicting DataLoader 0:   8%|▊         | 80/1000 [04:02<46:29,  3.03s/it]Data(track_edges=[2, 82622], particle_id=[82622], pt=[82622], radius=[82622], nhits=[82622], config=[2], event_id='000021155', num_nodes=109559, x_y=[109559], x_cell_val=[109559], x_ly=[109559], x_gphi=[109559], x_geta=[109559], x_region=[109559], x_lphi=[109559], x_x=[109559], x_lx=[109559], x_weight=[109559], x_hit_id=[109559], x_leta=[109559], x_r=[109559], x_eta=[109559], x_cell_count=[109559], x_module_index=[109559], x_phi=[109559], x_z=[109559], x_lz=[109559], edge_index=[2, 1251432], y=[1251432], truth_map=[82622], weights=[1251432])
+8272.347648 MB
+attempt 0
+chunk size 1251432
+attempt 1
+chunk size 625716
+Predicting DataLoader 0:   8%|▊         | 81/1000 [04:05<46:25,  3.03s/it]Data(track_edges=[2, 90736], particle_id=[90736], pt=[90736], radius=[90736], nhits=[90736], config=[2], event_id='000021156', num_nodes=118532, x_y=[118532], x_cell_val=[118532], x_ly=[118532], x_gphi=[118532], x_geta=[118532], x_region=[118532], x_lphi=[118532], x_x=[118532], x_lx=[118532], x_weight=[118532], x_hit_id=[118532], x_leta=[118532], x_r=[118532], x_eta=[118532], x_cell_count=[118532], x_module_index=[118532], x_phi=[118532], x_z=[118532], x_lz=[118532], edge_index=[2, 1464896], y=[1464896], truth_map=[90736], weights=[1464896])
+8272.347648 MB
+attempt 0
+chunk size 1464896
+attempt 1
+chunk size 732448
+Predicting DataLoader 0:   8%|▊         | 82/1000 [04:08<46:26,  3.04s/it]Data(track_edges=[2, 88212], particle_id=[88212], pt=[88212], radius=[88212], nhits=[88212], config=[2], event_id='000021157', num_nodes=115800, x_y=[115800], x_cell_val=[115800], x_ly=[115800], x_gphi=[115800], x_geta=[115800], x_region=[115800], x_lphi=[115800], x_x=[115800], x_lx=[115800], x_weight=[115800], x_hit_id=[115800], x_leta=[115800], x_r=[115800], x_eta=[115800], x_cell_count=[115800], x_module_index=[115800], x_phi=[115800], x_z=[115800], x_lz=[115800], edge_index=[2, 1383580], y=[1383580], truth_map=[88212], weights=[1383580])
+8272.347648 MB
+attempt 0
+chunk size 1383580
+attempt 1
+chunk size 691790
+Predicting DataLoader 0:   8%|▊         | 83/1000 [04:16<47:14,  3.09s/it]Data(track_edges=[2, 85292], particle_id=[85292], pt=[85292], radius=[85292], nhits=[85292], config=[2], event_id='000021158', num_nodes=112602, x_y=[112602], x_cell_val=[112602], x_ly=[112602], x_gphi=[112602], x_geta=[112602], x_region=[112602], x_lphi=[112602], x_x=[112602], x_lx=[112602], x_weight=[112602], x_hit_id=[112602], x_leta=[112602], x_r=[112602], x_eta=[112602], x_cell_count=[112602], x_module_index=[112602], x_phi=[112602], x_z=[112602], x_lz=[112602], edge_index=[2, 1273214], y=[1273214], truth_map=[85292], weights=[1273214])
+8272.347648 MB
+attempt 0
+chunk size 1273214
+attempt 1
+chunk size 636607
+Predicting DataLoader 0:   8%|▊         | 84/1000 [04:19<47:09,  3.09s/it]Data(track_edges=[2, 74804], particle_id=[74804], pt=[74804], radius=[74804], nhits=[74804], config=[2], event_id='000021159', num_nodes=100721, x_y=[100721], x_cell_val=[100721], x_ly=[100721], x_gphi=[100721], x_geta=[100721], x_region=[100721], x_lphi=[100721], x_x=[100721], x_lx=[100721], x_weight=[100721], x_hit_id=[100721], x_leta=[100721], x_r=[100721], x_eta=[100721], x_cell_count=[100721], x_module_index=[100721], x_phi=[100721], x_z=[100721], x_lz=[100721], edge_index=[2, 1066954], y=[1066954], truth_map=[74804], weights=[1066954])
+8272.347648 MB
+attempt 0
+chunk size 1066954
+attempt 1
+chunk size 533477
+Predicting DataLoader 0:   8%|▊         | 85/1000 [04:25<47:40,  3.13s/it]Data(track_edges=[2, 73179], particle_id=[73179], pt=[73179], radius=[73179], nhits=[73179], config=[2], event_id='000021160', num_nodes=99163, x_y=[99163], x_cell_val=[99163], x_ly=[99163], x_gphi=[99163], x_geta=[99163], x_region=[99163], x_lphi=[99163], x_x=[99163], x_lx=[99163], x_weight=[99163], x_hit_id=[99163], x_leta=[99163], x_r=[99163], x_eta=[99163], x_cell_count=[99163], x_module_index=[99163], x_phi=[99163], x_z=[99163], x_lz=[99163], edge_index=[2, 1017654], y=[1017654], truth_map=[73179], weights=[1017654])
+8272.347648 MB
+attempt 0
+chunk size 1017654
+attempt 1
+chunk size 508827
+Predicting DataLoader 0:   9%|▊         | 86/1000 [04:28<47:30,  3.12s/it]Data(track_edges=[2, 94586], particle_id=[94586], pt=[94586], radius=[94586], nhits=[94586], config=[2], event_id='000021162', num_nodes=122940, x_y=[122940], x_cell_val=[122940], x_ly=[122940], x_gphi=[122940], x_geta=[122940], x_region=[122940], x_lphi=[122940], x_x=[122940], x_lx=[122940], x_weight=[122940], x_hit_id=[122940], x_leta=[122940], x_r=[122940], x_eta=[122940], x_cell_count=[122940], x_module_index=[122940], x_phi=[122940], x_z=[122940], x_lz=[122940], edge_index=[2, 1533572], y=[1533572], truth_map=[94586], weights=[1533572])
+8272.347648 MB
+attempt 0
+chunk size 1533572
+attempt 1
+chunk size 766786
+Predicting DataLoader 0:   9%|▊         | 87/1000 [04:31<47:31,  3.12s/it]Data(track_edges=[2, 85099], particle_id=[85099], pt=[85099], radius=[85099], nhits=[85099], config=[2], event_id='000021163', num_nodes=112123, x_y=[112123], x_cell_val=[112123], x_ly=[112123], x_gphi=[112123], x_geta=[112123], x_region=[112123], x_lphi=[112123], x_x=[112123], x_lx=[112123], x_weight=[112123], x_hit_id=[112123], x_leta=[112123], x_r=[112123], x_eta=[112123], x_cell_count=[112123], x_module_index=[112123], x_phi=[112123], x_z=[112123], x_lz=[112123], edge_index=[2, 1305886], y=[1305886], truth_map=[85099], weights=[1305886])
+8272.347648 MB
+attempt 0
+chunk size 1305886
+attempt 1
+chunk size 652943
+Predicting DataLoader 0:   9%|▉         | 88/1000 [04:34<47:27,  3.12s/it]Data(track_edges=[2, 66460], particle_id=[66460], pt=[66460], radius=[66460], nhits=[66460], config=[2], event_id='000021166', num_nodes=91822, x_y=[91822], x_cell_val=[91822], x_ly=[91822], x_gphi=[91822], x_geta=[91822], x_region=[91822], x_lphi=[91822], x_x=[91822], x_lx=[91822], x_weight=[91822], x_hit_id=[91822], x_leta=[91822], x_r=[91822], x_eta=[91822], x_cell_count=[91822], x_module_index=[91822], x_phi=[91822], x_z=[91822], x_lz=[91822], edge_index=[2, 897512], y=[897512], truth_map=[66460], weights=[897512])
+8272.347648 MB
+attempt 0
+chunk size 897512
+Predicting DataLoader 0:   9%|▉         | 89/1000 [04:36<47:14,  3.11s/it]Data(track_edges=[2, 70282], particle_id=[70282], pt=[70282], radius=[70282], nhits=[70282], config=[2], event_id='000021168', num_nodes=95936, x_y=[95936], x_cell_val=[95936], x_ly=[95936], x_gphi=[95936], x_geta=[95936], x_region=[95936], x_lphi=[95936], x_x=[95936], x_lx=[95936], x_weight=[95936], x_hit_id=[95936], x_leta=[95936], x_r=[95936], x_eta=[95936], x_cell_count=[95936], x_module_index=[95936], x_phi=[95936], x_z=[95936], x_lz=[95936], edge_index=[2, 948810], y=[948810], truth_map=[70282], weights=[948810])
+8272.347648 MB
+attempt 0
+chunk size 948810
+Predicting DataLoader 0:   9%|▉         | 90/1000 [04:39<47:10,  3.11s/it]Data(track_edges=[2, 82508], particle_id=[82508], pt=[82508], radius=[82508], nhits=[82508], config=[2], event_id='000021169', num_nodes=109300, x_y=[109300], x_cell_val=[109300], x_ly=[109300], x_gphi=[109300], x_geta=[109300], x_region=[109300], x_lphi=[109300], x_x=[109300], x_lx=[109300], x_weight=[109300], x_hit_id=[109300], x_leta=[109300], x_r=[109300], x_eta=[109300], x_cell_count=[109300], x_module_index=[109300], x_phi=[109300], x_z=[109300], x_lz=[109300], edge_index=[2, 1238562], y=[1238562], truth_map=[82508], weights=[1238562])
+8272.347648 MB
+attempt 0
+chunk size 1238562
+attempt 1
+chunk size 619281
+Predicting DataLoader 0:   9%|▉         | 91/1000 [04:42<47:04,  3.11s/it]Data(track_edges=[2, 75165], particle_id=[75165], pt=[75165], radius=[75165], nhits=[75165], config=[2], event_id='000021170', num_nodes=101355, x_y=[101355], x_cell_val=[101355], x_ly=[101355], x_gphi=[101355], x_geta=[101355], x_region=[101355], x_lphi=[101355], x_x=[101355], x_lx=[101355], x_weight=[101355], x_hit_id=[101355], x_leta=[101355], x_r=[101355], x_eta=[101355], x_cell_count=[101355], x_module_index=[101355], x_phi=[101355], x_z=[101355], x_lz=[101355], edge_index=[2, 1063222], y=[1063222], truth_map=[75165], weights=[1063222])
+8272.347648 MB
+attempt 0
+chunk size 1063222
+attempt 1
+chunk size 531611
+Predicting DataLoader 0:   9%|▉         | 92/1000 [04:45<46:55,  3.10s/it]Data(track_edges=[2, 89394], particle_id=[89394], pt=[89394], radius=[89394], nhits=[89394], config=[2], event_id='000021171', num_nodes=117081, x_y=[117081], x_cell_val=[117081], x_ly=[117081], x_gphi=[117081], x_geta=[117081], x_region=[117081], x_lphi=[117081], x_x=[117081], x_lx=[117081], x_weight=[117081], x_hit_id=[117081], x_leta=[117081], x_r=[117081], x_eta=[117081], x_cell_count=[117081], x_module_index=[117081], x_phi=[117081], x_z=[117081], x_lz=[117081], edge_index=[2, 1398994], y=[1398994], truth_map=[89394], weights=[1398994])
+8272.347648 MB
+attempt 0
+chunk size 1398994
+attempt 1
+chunk size 699497
+Predicting DataLoader 0:   9%|▉         | 93/1000 [04:48<46:53,  3.10s/it]Data(track_edges=[2, 64854], particle_id=[64854], pt=[64854], radius=[64854], nhits=[64854], config=[2], event_id='000021173', num_nodes=90086, x_y=[90086], x_cell_val=[90086], x_ly=[90086], x_gphi=[90086], x_geta=[90086], x_region=[90086], x_lphi=[90086], x_x=[90086], x_lx=[90086], x_weight=[90086], x_hit_id=[90086], x_leta=[90086], x_r=[90086], x_eta=[90086], x_cell_count=[90086], x_module_index=[90086], x_phi=[90086], x_z=[90086], x_lz=[90086], edge_index=[2, 876710], y=[876710], truth_map=[64854], weights=[876710])
+8272.347648 MB
+attempt 0
+chunk size 876710
+Predicting DataLoader 0:   9%|▉         | 94/1000 [04:50<46:41,  3.09s/it]Data(track_edges=[2, 96626], particle_id=[96626], pt=[96626], radius=[96626], nhits=[96626], config=[2], event_id='000021174', num_nodes=124950, x_y=[124950], x_cell_val=[124950], x_ly=[124950], x_gphi=[124950], x_geta=[124950], x_region=[124950], x_lphi=[124950], x_x=[124950], x_lx=[124950], x_weight=[124950], x_hit_id=[124950], x_leta=[124950], x_r=[124950], x_eta=[124950], x_cell_count=[124950], x_module_index=[124950], x_phi=[124950], x_z=[124950], x_lz=[124950], edge_index=[2, 1600548], y=[1600548], truth_map=[96626], weights=[1600548])
+8272.347648 MB
+attempt 0
+chunk size 1600548
+attempt 1
+chunk size 800274
+Predicting DataLoader 0:  10%|▉         | 95/1000 [04:54<46:43,  3.10s/it]Data(track_edges=[2, 109343], particle_id=[109343], pt=[109343], radius=[109343], nhits=[109343], config=[2], event_id='000021176', num_nodes=139267, x_y=[139267], x_cell_val=[139267], x_ly=[139267], x_gphi=[139267], x_geta=[139267], x_region=[139267], x_lphi=[139267], x_x=[139267], x_lx=[139267], x_weight=[139267], x_hit_id=[139267], x_leta=[139267], x_r=[139267], x_eta=[139267], x_cell_count=[139267], x_module_index=[139267], x_phi=[139267], x_z=[139267], x_lz=[139267], edge_index=[2, 1948558], y=[1948558], truth_map=[109343], weights=[1948558])
+8272.347648 MB
+attempt 0
+chunk size 1948558
+attempt 1
+chunk size 974279
+Predicting DataLoader 0:  10%|▉         | 96/1000 [04:58<46:55,  3.11s/it]Data(track_edges=[2, 76268], particle_id=[76268], pt=[76268], radius=[76268], nhits=[76268], config=[2], event_id='000021178', num_nodes=102546, x_y=[102546], x_cell_val=[102546], x_ly=[102546], x_gphi=[102546], x_geta=[102546], x_region=[102546], x_lphi=[102546], x_x=[102546], x_lx=[102546], x_weight=[102546], x_hit_id=[102546], x_leta=[102546], x_r=[102546], x_eta=[102546], x_cell_count=[102546], x_module_index=[102546], x_phi=[102546], x_z=[102546], x_lz=[102546], edge_index=[2, 1099240], y=[1099240], truth_map=[76268], weights=[1099240])
+8272.347648 MB
+attempt 0
+chunk size 1099240
+attempt 1
+chunk size 549620
+Predicting DataLoader 0:  10%|▉         | 97/1000 [05:01<46:46,  3.11s/it]Data(track_edges=[2, 72321], particle_id=[72321], pt=[72321], radius=[72321], nhits=[72321], config=[2], event_id='000021179', num_nodes=98103, x_y=[98103], x_cell_val=[98103], x_ly=[98103], x_gphi=[98103], x_geta=[98103], x_region=[98103], x_lphi=[98103], x_x=[98103], x_lx=[98103], x_weight=[98103], x_hit_id=[98103], x_leta=[98103], x_r=[98103], x_eta=[98103], x_cell_count=[98103], x_module_index=[98103], x_phi=[98103], x_z=[98103], x_lz=[98103], edge_index=[2, 1012952], y=[1012952], truth_map=[72321], weights=[1012952])
+8272.347648 MB
+attempt 0
+chunk size 1012952
+attempt 1
+chunk size 506476
+Predicting DataLoader 0:  10%|▉         | 98/1000 [05:04<46:38,  3.10s/it]Data(track_edges=[2, 90056], particle_id=[90056], pt=[90056], radius=[90056], nhits=[90056], config=[2], event_id='000021182', num_nodes=117818, x_y=[117818], x_cell_val=[117818], x_ly=[117818], x_gphi=[117818], x_geta=[117818], x_region=[117818], x_lphi=[117818], x_x=[117818], x_lx=[117818], x_weight=[117818], x_hit_id=[117818], x_leta=[117818], x_r=[117818], x_eta=[117818], x_cell_count=[117818], x_module_index=[117818], x_phi=[117818], x_z=[117818], x_lz=[117818], edge_index=[2, 1419668], y=[1419668], truth_map=[90056], weights=[1419668])
+8272.347648 MB
+attempt 0
+chunk size 1419668
+attempt 1
+chunk size 709834
+Predicting DataLoader 0:  10%|▉         | 99/1000 [05:07<46:36,  3.10s/it]Data(track_edges=[2, 91568], particle_id=[91568], pt=[91568], radius=[91568], nhits=[91568], config=[2], event_id='000021187', num_nodes=119771, x_y=[119771], x_cell_val=[119771], x_ly=[119771], x_gphi=[119771], x_geta=[119771], x_region=[119771], x_lphi=[119771], x_x=[119771], x_lx=[119771], x_weight=[119771], x_hit_id=[119771], x_leta=[119771], x_r=[119771], x_eta=[119771], x_cell_count=[119771], x_module_index=[119771], x_phi=[119771], x_z=[119771], x_lz=[119771], edge_index=[2, 1467540], y=[1467540], truth_map=[91568], weights=[1467540])
+8272.347648 MB
+attempt 0
+chunk size 1467540
+attempt 1
+chunk size 733770
+Predicting DataLoader 0:  10%|█         | 100/1000 [05:10<46:35,  3.11s/it]Data(track_edges=[2, 72615], particle_id=[72615], pt=[72615], radius=[72615], nhits=[72615], config=[2], event_id='000021191', num_nodes=98571, x_y=[98571], x_cell_val=[98571], x_ly=[98571], x_gphi=[98571], x_geta=[98571], x_region=[98571], x_lphi=[98571], x_x=[98571], x_lx=[98571], x_weight=[98571], x_hit_id=[98571], x_leta=[98571], x_r=[98571], x_eta=[98571], x_cell_count=[98571], x_module_index=[98571], x_phi=[98571], x_z=[98571], x_lz=[98571], edge_index=[2, 1029888], y=[1029888], truth_map=[72615], weights=[1029888])
+8272.347648 MB
+attempt 0
+chunk size 1029888
+attempt 1
+chunk size 514944
+Predicting DataLoader 0:  10%|█         | 101/1000 [05:12<46:25,  3.10s/it]Data(track_edges=[2, 82617], particle_id=[82617], pt=[82617], radius=[82617], nhits=[82617], config=[2], event_id='000021194', num_nodes=109785, x_y=[109785], x_cell_val=[109785], x_ly=[109785], x_gphi=[109785], x_geta=[109785], x_region=[109785], x_lphi=[109785], x_x=[109785], x_lx=[109785], x_weight=[109785], x_hit_id=[109785], x_leta=[109785], x_r=[109785], x_eta=[109785], x_cell_count=[109785], x_module_index=[109785], x_phi=[109785], x_z=[109785], x_lz=[109785], edge_index=[2, 1248694], y=[1248694], truth_map=[82617], weights=[1248694])
+8272.347648 MB
+attempt 0
+chunk size 1248694
+attempt 1
+chunk size 624347
+Predicting DataLoader 0:  10%|█         | 102/1000 [05:15<46:20,  3.10s/it]Data(track_edges=[2, 83413], particle_id=[83413], pt=[83413], radius=[83413], nhits=[83413], config=[2], event_id='000021195', num_nodes=110490, x_y=[110490], x_cell_val=[110490], x_ly=[110490], x_gphi=[110490], x_geta=[110490], x_region=[110490], x_lphi=[110490], x_x=[110490], x_lx=[110490], x_weight=[110490], x_hit_id=[110490], x_leta=[110490], x_r=[110490], x_eta=[110490], x_cell_count=[110490], x_module_index=[110490], x_phi=[110490], x_z=[110490], x_lz=[110490], edge_index=[2, 1281736], y=[1281736], truth_map=[83413], weights=[1281736])
+8272.347648 MB
+attempt 0
+chunk size 1281736
+attempt 1
+chunk size 640868
+Predicting DataLoader 0:  10%|█         | 103/1000 [05:18<46:15,  3.09s/it]Data(track_edges=[2, 83427], particle_id=[83427], pt=[83427], radius=[83427], nhits=[83427], config=[2], event_id='000021198', num_nodes=110516, x_y=[110516], x_cell_val=[110516], x_ly=[110516], x_gphi=[110516], x_geta=[110516], x_region=[110516], x_lphi=[110516], x_x=[110516], x_lx=[110516], x_weight=[110516], x_hit_id=[110516], x_leta=[110516], x_r=[110516], x_eta=[110516], x_cell_count=[110516], x_module_index=[110516], x_phi=[110516], x_z=[110516], x_lz=[110516], edge_index=[2, 1252100], y=[1252100], truth_map=[83427], weights=[1252100])
+8272.347648 MB
+attempt 0
+chunk size 1252100
+attempt 1
+chunk size 626050
+Predicting DataLoader 0:  10%|█         | 104/1000 [05:21<46:11,  3.09s/it]Data(track_edges=[2, 67814], particle_id=[67814], pt=[67814], radius=[67814], nhits=[67814], config=[2], event_id='000021199', num_nodes=92979, x_y=[92979], x_cell_val=[92979], x_ly=[92979], x_gphi=[92979], x_geta=[92979], x_region=[92979], x_lphi=[92979], x_x=[92979], x_lx=[92979], x_weight=[92979], x_hit_id=[92979], x_leta=[92979], x_r=[92979], x_eta=[92979], x_cell_count=[92979], x_module_index=[92979], x_phi=[92979], x_z=[92979], x_lz=[92979], edge_index=[2, 906150], y=[906150], truth_map=[67814], weights=[906150])
+8272.347648 MB
+attempt 0
+chunk size 906150
+Predicting DataLoader 0:  10%|█         | 105/1000 [05:23<45:59,  3.08s/it]Data(track_edges=[2, 94509], particle_id=[94509], pt=[94509], radius=[94509], nhits=[94509], config=[2], event_id='000021200', num_nodes=123004, x_y=[123004], x_cell_val=[123004], x_ly=[123004], x_gphi=[123004], x_geta=[123004], x_region=[123004], x_lphi=[123004], x_x=[123004], x_lx=[123004], x_weight=[123004], x_hit_id=[123004], x_leta=[123004], x_r=[123004], x_eta=[123004], x_cell_count=[123004], x_module_index=[123004], x_phi=[123004], x_z=[123004], x_lz=[123004], edge_index=[2, 1556070], y=[1556070], truth_map=[94509], weights=[1556070])
+8272.347648 MB
+attempt 0
+chunk size 1556070
+attempt 1
+chunk size 778035
+Predicting DataLoader 0:  11%|█         | 106/1000 [05:27<46:00,  3.09s/it]Data(track_edges=[2, 80347], particle_id=[80347], pt=[80347], radius=[80347], nhits=[80347], config=[2], event_id='000021203', num_nodes=107250, x_y=[107250], x_cell_val=[107250], x_ly=[107250], x_gphi=[107250], x_geta=[107250], x_region=[107250], x_lphi=[107250], x_x=[107250], x_lx=[107250], x_weight=[107250], x_hit_id=[107250], x_leta=[107250], x_r=[107250], x_eta=[107250], x_cell_count=[107250], x_module_index=[107250], x_phi=[107250], x_z=[107250], x_lz=[107250], edge_index=[2, 1198316], y=[1198316], truth_map=[80347], weights=[1198316])
+8272.347648 MB
+attempt 0
+chunk size 1198316
+attempt 1
+chunk size 599158
+Predicting DataLoader 0:  11%|█         | 107/1000 [05:30<45:54,  3.08s/it]Data(track_edges=[2, 86669], particle_id=[86669], pt=[86669], radius=[86669], nhits=[86669], config=[2], event_id='000021206', num_nodes=113897, x_y=[113897], x_cell_val=[113897], x_ly=[113897], x_gphi=[113897], x_geta=[113897], x_region=[113897], x_lphi=[113897], x_x=[113897], x_lx=[113897], x_weight=[113897], x_hit_id=[113897], x_leta=[113897], x_r=[113897], x_eta=[113897], x_cell_count=[113897], x_module_index=[113897], x_phi=[113897], x_z=[113897], x_lz=[113897], edge_index=[2, 1354094], y=[1354094], truth_map=[86669], weights=[1354094])
+8272.347648 MB
+attempt 0
+chunk size 1354094
+attempt 1
+chunk size 677047
+Predicting DataLoader 0:  11%|█         | 108/1000 [05:33<45:52,  3.09s/it]Data(track_edges=[2, 101448], particle_id=[101448], pt=[101448], radius=[101448], nhits=[101448], config=[2], event_id='000021208', num_nodes=130383, x_y=[130383], x_cell_val=[130383], x_ly=[130383], x_gphi=[130383], x_geta=[130383], x_region=[130383], x_lphi=[130383], x_x=[130383], x_lx=[130383], x_weight=[130383], x_hit_id=[130383], x_leta=[130383], x_r=[130383], x_eta=[130383], x_cell_count=[130383], x_module_index=[130383], x_phi=[130383], x_z=[130383], x_lz=[130383], edge_index=[2, 1752154], y=[1752154], truth_map=[101448], weights=[1752154])
+8272.347648 MB
+attempt 0
+chunk size 1752154
+attempt 1
+chunk size 876077
+Predicting DataLoader 0:  11%|█         | 109/1000 [05:37<45:55,  3.09s/it]Data(track_edges=[2, 79550], particle_id=[79550], pt=[79550], radius=[79550], nhits=[79550], config=[2], event_id='000021209', num_nodes=106083, x_y=[106083], x_cell_val=[106083], x_ly=[106083], x_gphi=[106083], x_geta=[106083], x_region=[106083], x_lphi=[106083], x_x=[106083], x_lx=[106083], x_weight=[106083], x_hit_id=[106083], x_leta=[106083], x_r=[106083], x_eta=[106083], x_cell_count=[106083], x_module_index=[106083], x_phi=[106083], x_z=[106083], x_lz=[106083], edge_index=[2, 1170570], y=[1170570], truth_map=[79550], weights=[1170570])
+8272.347648 MB
+attempt 0
+chunk size 1170570
+attempt 1
+chunk size 585285
+Predicting DataLoader 0:  11%|█         | 110/1000 [05:39<45:49,  3.09s/it]Data(track_edges=[2, 74234], particle_id=[74234], pt=[74234], radius=[74234], nhits=[74234], config=[2], event_id='000021210', num_nodes=100493, x_y=[100493], x_cell_val=[100493], x_ly=[100493], x_gphi=[100493], x_geta=[100493], x_region=[100493], x_lphi=[100493], x_x=[100493], x_lx=[100493], x_weight=[100493], x_hit_id=[100493], x_leta=[100493], x_r=[100493], x_eta=[100493], x_cell_count=[100493], x_module_index=[100493], x_phi=[100493], x_z=[100493], x_lz=[100493], edge_index=[2, 1035590], y=[1035590], truth_map=[74234], weights=[1035590])
+8272.347648 MB
+attempt 0
+chunk size 1035590
+attempt 1
+chunk size 517795
+Predicting DataLoader 0:  11%|█         | 111/1000 [05:42<45:41,  3.08s/it]Data(track_edges=[2, 90906], particle_id=[90906], pt=[90906], radius=[90906], nhits=[90906], config=[2], event_id='000021214', num_nodes=118724, x_y=[118724], x_cell_val=[118724], x_ly=[118724], x_gphi=[118724], x_geta=[118724], x_region=[118724], x_lphi=[118724], x_x=[118724], x_lx=[118724], x_weight=[118724], x_hit_id=[118724], x_leta=[118724], x_r=[118724], x_eta=[118724], x_cell_count=[118724], x_module_index=[118724], x_phi=[118724], x_z=[118724], x_lz=[118724], edge_index=[2, 1479618], y=[1479618], truth_map=[90906], weights=[1479618])
+8272.347648 MB
+attempt 0
+chunk size 1479618
+attempt 1
+chunk size 739809
+Predicting DataLoader 0:  11%|█         | 112/1000 [05:45<45:42,  3.09s/it]Data(track_edges=[2, 82064], particle_id=[82064], pt=[82064], radius=[82064], nhits=[82064], config=[2], event_id='000021215', num_nodes=109218, x_y=[109218], x_cell_val=[109218], x_ly=[109218], x_gphi=[109218], x_geta=[109218], x_region=[109218], x_lphi=[109218], x_x=[109218], x_lx=[109218], x_weight=[109218], x_hit_id=[109218], x_leta=[109218], x_r=[109218], x_eta=[109218], x_cell_count=[109218], x_module_index=[109218], x_phi=[109218], x_z=[109218], x_lz=[109218], edge_index=[2, 1235726], y=[1235726], truth_map=[82064], weights=[1235726])
+8272.347648 MB
+attempt 0
+chunk size 1235726
+attempt 1
+chunk size 617863
+Predicting DataLoader 0:  11%|█▏        | 113/1000 [05:48<45:38,  3.09s/it]Data(track_edges=[2, 105471], particle_id=[105471], pt=[105471], radius=[105471], nhits=[105471], config=[2], event_id='000021217', num_nodes=135073, x_y=[135073], x_cell_val=[135073], x_ly=[135073], x_gphi=[135073], x_geta=[135073], x_region=[135073], x_lphi=[135073], x_x=[135073], x_lx=[135073], x_weight=[135073], x_hit_id=[135073], x_leta=[135073], x_r=[135073], x_eta=[135073], x_cell_count=[135073], x_module_index=[135073], x_phi=[135073], x_z=[135073], x_lz=[135073], edge_index=[2, 1837150], y=[1837150], truth_map=[105471], weights=[1837150])
+8272.347648 MB
+attempt 0
+chunk size 1837150
+attempt 1
+chunk size 918575
+Predicting DataLoader 0:  11%|█▏        | 114/1000 [05:53<45:43,  3.10s/it]Data(track_edges=[2, 71622], particle_id=[71622], pt=[71622], radius=[71622], nhits=[71622], config=[2], event_id='000021219', num_nodes=97397, x_y=[97397], x_cell_val=[97397], x_ly=[97397], x_gphi=[97397], x_geta=[97397], x_region=[97397], x_lphi=[97397], x_x=[97397], x_lx=[97397], x_weight=[97397], x_hit_id=[97397], x_leta=[97397], x_r=[97397], x_eta=[97397], x_cell_count=[97397], x_module_index=[97397], x_phi=[97397], x_z=[97397], x_lz=[97397], edge_index=[2, 996458], y=[996458], truth_map=[71622], weights=[996458])
+8272.347648 MB
+attempt 0
+chunk size 996458
+attempt 1
+chunk size 498229
+Predicting DataLoader 0:  12%|█▏        | 115/1000 [05:55<45:35,  3.09s/it]Data(track_edges=[2, 66861], particle_id=[66861], pt=[66861], radius=[66861], nhits=[66861], config=[2], event_id='000021220', num_nodes=92061, x_y=[92061], x_cell_val=[92061], x_ly=[92061], x_gphi=[92061], x_geta=[92061], x_region=[92061], x_lphi=[92061], x_x=[92061], x_lx=[92061], x_weight=[92061], x_hit_id=[92061], x_leta=[92061], x_r=[92061], x_eta=[92061], x_cell_count=[92061], x_module_index=[92061], x_phi=[92061], x_z=[92061], x_lz=[92061], edge_index=[2, 879734], y=[879734], truth_map=[66861], weights=[879734])
+8272.347648 MB
+attempt 0
+chunk size 879734
+Predicting DataLoader 0:  12%|█▏        | 116/1000 [05:58<45:30,  3.09s/it]Data(track_edges=[2, 87988], particle_id=[87988], pt=[87988], radius=[87988], nhits=[87988], config=[2], event_id='000021222', num_nodes=115532, x_y=[115532], x_cell_val=[115532], x_ly=[115532], x_gphi=[115532], x_geta=[115532], x_region=[115532], x_lphi=[115532], x_x=[115532], x_lx=[115532], x_weight=[115532], x_hit_id=[115532], x_leta=[115532], x_r=[115532], x_eta=[115532], x_cell_count=[115532], x_module_index=[115532], x_phi=[115532], x_z=[115532], x_lz=[115532], edge_index=[2, 1364312], y=[1364312], truth_map=[87988], weights=[1364312])
+8272.347648 MB
+attempt 0
+chunk size 1364312
+attempt 1
+chunk size 682156
+Predicting DataLoader 0:  12%|█▏        | 117/1000 [06:09<46:28,  3.16s/it]Data(track_edges=[2, 83500], particle_id=[83500], pt=[83500], radius=[83500], nhits=[83500], config=[2], event_id='000021223', num_nodes=110526, x_y=[110526], x_cell_val=[110526], x_ly=[110526], x_gphi=[110526], x_geta=[110526], x_region=[110526], x_lphi=[110526], x_x=[110526], x_lx=[110526], x_weight=[110526], x_hit_id=[110526], x_leta=[110526], x_r=[110526], x_eta=[110526], x_cell_count=[110526], x_module_index=[110526], x_phi=[110526], x_z=[110526], x_lz=[110526], edge_index=[2, 1258138], y=[1258138], truth_map=[83500], weights=[1258138])
+8272.347648 MB
+attempt 0
+chunk size 1258138
+attempt 1
+chunk size 629069
+Predicting DataLoader 0:  12%|█▏        | 118/1000 [06:12<46:23,  3.16s/it]Data(track_edges=[2, 80026], particle_id=[80026], pt=[80026], radius=[80026], nhits=[80026], config=[2], event_id='000021224', num_nodes=106646, x_y=[106646], x_cell_val=[106646], x_ly=[106646], x_gphi=[106646], x_geta=[106646], x_region=[106646], x_lphi=[106646], x_x=[106646], x_lx=[106646], x_weight=[106646], x_hit_id=[106646], x_leta=[106646], x_r=[106646], x_eta=[106646], x_cell_count=[106646], x_module_index=[106646], x_phi=[106646], x_z=[106646], x_lz=[106646], edge_index=[2, 1182192], y=[1182192], truth_map=[80026], weights=[1182192])
+8272.347648 MB
+attempt 0
+chunk size 1182192
+attempt 1
+chunk size 591096
+Predicting DataLoader 0:  12%|█▏        | 119/1000 [06:15<46:19,  3.15s/it]Data(track_edges=[2, 96792], particle_id=[96792], pt=[96792], radius=[96792], nhits=[96792], config=[2], event_id='000021225', num_nodes=125162, x_y=[125162], x_cell_val=[125162], x_ly=[125162], x_gphi=[125162], x_geta=[125162], x_region=[125162], x_lphi=[125162], x_x=[125162], x_lx=[125162], x_weight=[125162], x_hit_id=[125162], x_leta=[125162], x_r=[125162], x_eta=[125162], x_cell_count=[125162], x_module_index=[125162], x_phi=[125162], x_z=[125162], x_lz=[125162], edge_index=[2, 1623366], y=[1623366], truth_map=[96792], weights=[1623366])
+8272.347648 MB
+attempt 0
+chunk size 1623366
+attempt 1
+chunk size 811683
+Predicting DataLoader 0:  12%|█▏        | 120/1000 [06:19<46:20,  3.16s/it]Predicting DataLoader 0:  12%|█▏        | 120/1000 [06:21<46:39,  3.18s/it]
