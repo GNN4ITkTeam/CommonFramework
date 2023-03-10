@@ -2,20 +2,26 @@
 
 ## Setup
 
-Assuming the CommonFramework repo requirements have been installed, the only other requirements are the data files. An example dataset can be downloaded to a data directory `MY_DATA_DIR`. This is around 2.3Gb, so ensure you download to a location with sufficient space. Define this dir with
+Assuming the CommonFramework repo requirements have been installed, the only other requirements are the data files. An example dataset can be downloaded to a data directory `MY_DATA_DIR`. This is around 2.3Gb, so ensure you download to a location with sufficient space. Define this dir and your CERN username with
 ```bash
-data_dir=MY_DATA_DIR
+data_dir=[insert your data directory here]
+my_username=[insert your CERN username here]
 ```
 Assuming you have EOS ATLAS group access, download the data (not necessary if you have already downloaded the data for Example 1):
 ```bash
 mkdir $data_dir/Example_2
-scp MY_USERNAME@lxplus.cern.ch:/eos/user/d/dmurnane/GNN4ITk/FrameworkExamples/Example_1/Example_1_Data.zip $data_dir/Example_2/
+scp $my_username@lxplus.cern.ch:/eos/user/d/dmurnane/GNN4ITk/FrameworkExamples/Example_1/Example_1_Data.zip $data_dir/Example_2/
 unzip $data_dir/Example_2/Example_1_Data.zip -d $data_dir/Example_2
+```
+Some necessary files used to read the Athena events can be downloaded with
+```bash
+scp $my_username@lxplus.cern.ch:/eos/user/d/dmurnane/GNN4ITk/FrameworkExamples/Example_1/Example_1_Artifacts.zip $data_dir/Example_2/
+unzip $data_dir/Example_1/Example_1_Artifacts.zip -d $data_dir/Example_2
 ```
 
 The location of this data, as well as all parameters controlling the GNN4ITk reconstruction chain, is specified in `yaml` config files. The data directory currently has a placeholder MY_DATA_DIR. Replace this with the actual data directory with
 ```bash
-sed -i "s/MY_DATA_DIR/$data_dir/g" *.yaml
+sed -i "s|MY_DATA_DIR|$data_dir|g" *.yaml
 ```
 
 ## Running the Example

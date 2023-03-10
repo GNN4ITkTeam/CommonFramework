@@ -19,7 +19,7 @@ unzip $data_dir/Example_1/Example_1_Artifacts.zip -d $data_dir/Example_1
 ```
 The location of this data, as well as all parameters controlling the GNN4ITk reconstruction chain, is specified in `yaml` config files. The data directory currently has a placeholder MY_DATA_DIR. Replace this with the actual data directory with
 ```bash
-sed -i "s/MY_DATA_DIR/$data_dir/g" *.yaml
+sed -i "s|MY_DATA_DIR|$data_dir|g" *.yaml
 ```
  
 ## Running the Example
