@@ -57,7 +57,7 @@ class Filter(EdgeClassifierStage):
         return output.squeeze(-1)
 
     def training_step(self, batch, batch_idx):
-        
+
         if self.hparams["ratio"] not in [0, None]:
             with torch.no_grad():
                 no_grad_output = self.memory_robust_eval(batch)
