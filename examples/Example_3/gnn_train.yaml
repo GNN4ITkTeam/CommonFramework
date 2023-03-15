@@ -8,7 +8,7 @@ nodes: 1
 
 # Dataset parameters
 data_split: [80, 10, 10] # Number of [training, validation, testing] examples
-input_cut: 0.5
+# input_cut: 0.2
 
 # Truth and weighting parameters. Syntax is...
 # Single value: track[key] == value
@@ -16,7 +16,7 @@ input_cut: 0.5
 # List with a string as the first value: First value defines the boolean test, the second value is a list or value. Boolean tests are: (in, not_in, is, is_not, within, not_within)
 # All other tracks follow the default: If a true edge, weight=0. If a fake edge, weight=1.
 weighting:
-  - weight: 2.
+  - weight: 1.
     conditions:
       y: True
       pt: [1., .inf]
@@ -29,21 +29,23 @@ hard_cuts:
 
 # Model parameters
 edge_cut: 0.5
-node_features: [x_r,  x_phi, x_z,  x_cell_count, x_cell_val, x_leta, x_lphi, x_lx, x_ly, x_lz, x_geta, x_gphi]
-node_scales:   [1000, 3.14,  1000, 1,            1,          1,      1,      0.1,  1,    0.1,  1,      3.14]
+node_features: [r,  phi, z]
+node_scales: [1000, 3.14,  1000]
 hidden: 128
 n_graph_iters: 8
-nb_node_layer: 3
-nb_edge_layer: 3
+nb_node_layer: 2
+nb_edge_layer: 2
 layernorm: True
 batchnorm: False
-aggregation: sum_mean_max
+aggregation: [sum, mean, max, std]
 hidden_activation: SiLU
 output_activation: Tanh
 
 # Training parameters
-warmup: 30
-lr: 0.0005
+warmup: 5
+ratio: 5
+scheduler: StepLR
+lr: 0.001
 factor: 0.9
-patience: 30
-max_epochs: 200
+patience: 10
+max_epochs: 100

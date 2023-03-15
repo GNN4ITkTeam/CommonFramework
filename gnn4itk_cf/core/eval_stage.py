@@ -35,7 +35,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning import LightningModule
 import torch
 
-from gnn4itk_cf.utils import str_to_class, find_latest_checkpoint
+from .core_utils import str_to_class, find_latest_checkpoint
 
 @click.command()
 @click.argument("config_file")
@@ -70,7 +70,7 @@ def evaluate(config_file):
             print("No checkpoint found")
             sys.exit(1)
         print(f"Loading checkpoint: {checkpoint_path}")
-        checkpoint_config = torch.load(checkpoint_path)["hyper_parameters"]
+        checkpoint_config = torch.load(checkpoint_path, map_location=torch.device("cpu"))["hyper_parameters"]
         config = {**checkpoint_config, **config}
 
     stage_module.evaluate(config)

@@ -29,10 +29,10 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#device = torch.device("cuda:1")
 
 from gnn4itk_cf.utils import load_datafiles_in_dir, run_data_tests, handle_weighting, handle_hard_cuts, remap_from_mask, get_ratio, handle_edge_features, get_optimizers, plot_eff_pur_region
 
+# TODO: What is this for??
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 
@@ -91,37 +91,40 @@ class EdgeClassifierStage(LightningModule):
         run_data_tests([self.trainset, self.valset, self.testset], required_features, optional_features)
 
     def train_dataloader(self):
-        if self.trainset is not None:
-            return DataLoader(
-                self.trainset, batch_size=1, num_workers=0
-            )  
-        else:
+        if self.trainset is None:
             return None
+        num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][0]
+        return DataLoader(
+            self.trainset, batch_size=1, num_workers=num_workers
+        )
 
     def val_dataloader(self):
-        if self.valset is not None:
-            return DataLoader(
-                self.valset, batch_size=1, num_workers=0
-            )  
-        else:
+        if self.valset is None:
             return None
+        num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][1]
+        return DataLoader(
+            self.valset, batch_size=1, num_workers=num_workers
+        )
 
     def test_dataloader(self):
-        if self.testset is not None:
-            return DataLoader(
-                self.testset, batch_size=1, num_workers=0
-            )  
-        else:
+        if self.testset is None:
             return None
+        num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][2]
+        return DataLoader(
+            self.testset, batch_size=1, num_workers=num_workers
+        )
 
     def predict_dataloader(self):
 
-        datasets = []
-        for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
+        self.datasets = []
+        dataloaders = []
+        for i, (data_name, data_num) in enumerate(zip(["trainset", "valset", "testset"], self.hparams["data_split"])):
             if data_num > 0:
                 dataset = self.dataset_class(self.hparams["input_dir"], data_name, data_num, "predict", self.hparams)
-                datasets.append(dataset) 
-        return datasets
+                self.datasets.append(dataset) 
+                num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][i]
+                dataloaders.append(DataLoader(dataset, batch_size=1, num_workers=num_workers))
+        return dataloaders
 
     def configure_optimizers(self):
         optimizer, scheduler = get_optimizers(self.parameters(), self.hparams)
@@ -132,7 +135,7 @@ class EdgeClassifierStage(LightningModule):
         output = self(batch)
         loss = self.loss_function(output, batch)     
 
-        self.log("train_loss", loss, on_step=False, on_epoch=True)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
 
         return loss
 
@@ -219,6 +222,7 @@ class EdgeClassifierStage(LightningModule):
                 "auc": target_auc,
             },  # type: ignore
             sync_dist=True,
+            batch_size=1,
         )
 
         return preds
@@ -245,17 +249,16 @@ class EdgeClassifierStage(LightningModule):
         2. Add the scored edges to the graph, as `scores` attribute
         3. Append the stage config to the `config` attribute of the graph
         """
-            
-        output = self(batch)
-        dataset = self.predict_dataloader()[dataloader_idx]
+
+        dataset = self.datasets[dataloader_idx]
+        if os.path.exists(os.path.join(self.hparams["stage_dir"], dataset.data_name , f"event{batch.event_id}.pyg")):
+            return
+        output = self(batch)        
         self.save_edge_scores(batch, output, dataset)
 
     def save_edge_scores(self, event, output, dataset):
 
         event.scores = torch.sigmoid(output)
-        if "undirected" in self.hparams and self.hparams["undirected"]:
-            self.remove_duplicated_edges(event)
-
         dataset.unscale_features(event)
 
         event.config.append(self.hparams)
@@ -263,22 +266,6 @@ class EdgeClassifierStage(LightningModule):
         datatype = dataset.data_name    
         os.makedirs(os.path.join(self.hparams["stage_dir"], datatype), exist_ok=True)
         torch.save(event.cpu(), os.path.join(self.hparams["stage_dir"], datatype, f"event{event.event_id}.pyg"))
-
-    def remove_duplicate_edges(self, event):
-        """
-        Remove duplicate edges, since we only need an undirected graph. Randomly flip the remaining edges to remove
-        any training biases downstream
-        """
-
-        event.edge_index[:, event.edge_index[0] > event.edge_index[1]] = event.edge_index[:, event.edge_index[0] > event.edge_index[1]].flip(0)
-        event.edge_index, edge_inverse = event.edge_index.unique(return_inverse=True, dim=-1)
-        event.y = torch.zeros_like(event.edge_index[0], dtype=event.y.dtype).scatter(0, edge_inverse, event.y)
-        event.scores = torch.zeros_like(event.edge_index[0], dtype=event.scores.dtype).scatter(0, edge_inverse, event.scores)
-        event.truth_map[event.truth_map >= 0] = edge_inverse[event.truth_map[event.truth_map >= 0]]
-        event.truth_map = event.truth_map[:event.track_edges.shape[1]]
-
-        random_flip = torch.randint(2, (event.edge_index.shape[1],), dtype=torch.bool)
-        event.edge_index[:, random_flip] = event.edge_index[:, random_flip].flip(0)
 
     @classmethod
     def evaluate(cls, config):
@@ -498,7 +485,7 @@ class GraphDataset(Dataset):
 
         if self.hparams is not None and "weighting" in self.hparams.keys():
             assert isinstance(self.hparams["weighting"], list) & isinstance(self.hparams["weighting"][0], dict), "Weighting must be a list of dictionaries"
-            handle_weighting(event, self.hparams["weighting"])
+            event.weights = handle_weighting(event, self.hparams["weighting"])
         else:
             event.weights = torch.ones_like(event.y, dtype=torch.float32)
             
@@ -508,19 +495,33 @@ class GraphDataset(Dataset):
             # Apply a score cut to the event
             self.apply_score_cut(event, self.hparams["input_cut"])
 
-        if "undirected" in self.hparams.keys() and self.hparams["undirected"]:
-            # Flip event.edge_index and concat together
-            event.edge_index = torch.cat([event.edge_index, event.edge_index.flip(0)], dim=1)
-            event.y = torch.cat([event.y, event.y], dim=0)
-            event.weights = torch.cat([event.weights, event.weights], dim=0)
+        # if "undirected" in self.hparams.keys() and self.hparams["undirected"]:
+        #     # Flip event.edge_index and concat together
+        #     self.to_undirected(event)
+            
+    
+    def to_undirected(self, event):
+        """
+        Add the reverse of the edge_index to the event. This then requires all edge features to be duplicated.
+        Additionally, the truth map must be duplicated.
+        """
 
-            # Remove duplicate edges
-            event.edge_index, unique_edge_indices = torch.unique(event.edge_index, dim=1, return_inverse=True)
-            event.y = torch.zeros_like(event.edge_index[0], dtype=event.y.dtype).scatter(0, unique_edge_indices, event.y)
-            event.weights = torch.zeros_like(event.edge_index[0], dtype=event.weights.dtype).scatter(0, unique_edge_indices, event.weights)
+        num_edges = event.edge_index.shape[1]
+        # Flip event.edge_index and concat together
+        event.edge_index = torch.cat([event.edge_index, event.edge_index.flip(0)], dim=1)
+        # event.edge_index, unique_edge_indices = torch.unique(event.edge_index, dim=1, return_inverse=True)
+
+        # Concat all edge-like features together
+        for key in event.keys:
+            if isinstance(event[key], torch.Tensor) and ((event[key].shape[0] == num_edges)):
+                event[key] = torch.cat([event[key], event[key]], dim=0)
+                # event[key] = torch.zeros_like(event.edge_index[0], dtype=event[key].dtype).scatter(0, unique_edge_indices, event[key])
+
 
     def add_edge_features(self, event):
-        handle_edge_features(event, self.hparams["edge_features"])
+        if "edge_features" in self.hparams.keys():
+            assert isinstance(self.hparams["edge_features"], list), "Edge features must be a list of strings"
+            handle_edge_features(event, self.hparams["edge_features"])
 
     def scale_features(self, event):
         """
@@ -532,7 +533,7 @@ class GraphDataset(Dataset):
             for i, feature in enumerate(self.hparams["node_features"]):
                 assert feature in event.keys, f"Feature {feature} not found in event"
                 event[feature] = event[feature] / self.hparams["node_scales"][i]
-
+ 
     def unscale_features(self, event):
         """
         Unscale features when doing prediction
@@ -551,8 +552,7 @@ class GraphDataset(Dataset):
         passing_edges_mask = event.scores >= score_cut
         num_edges = event.edge_index.shape[1]
         for key in event.keys:
-            if (event[key].shape[0] == num_edges) or (event["key"].shape[1] == num_edges):
+            if isinstance(event[key], torch.Tensor) and event[key].shape and (event[key].shape[0] == num_edges or event[key].shape[-1] == num_edges):
                 event[key] = event[key][..., passing_edges_mask]
 
         remap_from_mask(event, passing_edges_mask)
-

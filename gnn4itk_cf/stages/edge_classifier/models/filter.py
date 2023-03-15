@@ -57,16 +57,16 @@ class Filter(EdgeClassifierStage):
         return output.squeeze(-1)
 
     def training_step(self, batch, batch_idx):
-        
+
         if self.hparams["ratio"] not in [0, None]:
             with torch.no_grad():
                 no_grad_output = self.memory_robust_eval(batch)
                 batch = self.subsample(batch, torch.sigmoid(no_grad_output), self.hparams["ratio"])
 
-        output = self(batch)
+        output = self.memory_robust_eval(batch)
         loss = self.loss_function(output, batch)     
 
-        self.log("train_loss", loss, on_step=False, on_epoch=True)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
 
         return loss
 
@@ -124,22 +124,33 @@ class Filter(EdgeClassifierStage):
         """
         A recursive function that splits the batch into smaller batches and evaluates them one by one. If there is a memory error, it splits the batch in half and tries again.
         """
-        try:
-            return self(batch)
-        except RuntimeError as e:
-            if "out of memory" in str(e):
-                return self.split_batch(batch)
-            else:
-                raise e
+        n = 1
+        if hasattr(self, "cached_n"):
+            n = self.cached_n
 
-    def split_batch(self, batch):
-        warnings.warn("Splitting batch due to memory error")
+        while n <= 128:
+            try:
+                output = self.split_batch(batch, n)
+                self.cached_n = n
+                return output
+            except RuntimeError as e:
+                if "out of memory" in str(e):
+                    n *= 2
+                else:
+                    raise e
+
+        raise RuntimeError("Splitting into 128 parts was not enough")
+
+    def split_batch(self, batch, n):
+        warnings.warn(f"Splitting batch due to memory error in {n} parts")
         if hasattr(torch.cuda, "empty_cache"):
             torch.cuda.empty_cache()
-        # Deep copy the batch into two smaller batches
-        batch_split_a = batch.clone()
-        batch_split_b = batch.clone()
-        batch_split_a.edge_index = batch.edge_index[:, :batch.edge_index.shape[1]//2]
-        batch_split_b.edge_index = batch.edge_index[:, batch.edge_index.shape[1]//2:]
-        # Evaluate and combine the two smaller batches
-        return torch.cat([self.memory_robust_eval(batch_split_a), self.memory_robust_eval(batch_split_b)])
+
+        outputs = []
+        for edge_index in torch.tensor_split(batch.edge_index, n, dim=1):
+            subbatch = batch.clone()
+            subbatch.edge_index = edge_index.clone()
+            outputs.append(self(subbatch))
+            del subbatch
+
+        return torch.cat(outputs)

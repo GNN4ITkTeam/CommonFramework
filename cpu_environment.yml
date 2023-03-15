@@ -8,12 +8,12 @@ channels:
     
 dependencies:
     - pip
-    - numpy
+    - numpy<=1.22
     - pandas
     - scipy
     - matplotlib
     - cpuonly
     - pytorch==1.10.2
-    - pytorch-lightning
+    - pytorch-lightning=1.9.2
     - pyg
     - faiss-cpu

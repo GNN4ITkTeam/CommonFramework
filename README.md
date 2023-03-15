@@ -20,6 +20,7 @@ To get started, run the setup commands (Install instructions section below), the
 To install the GNN4ITK common framework, assuming GPU capability, run
 
 ```
+git checkout dev
 conda env create -f gpu_environment.yml
 conda activate gnn4itk
 pip install -e .

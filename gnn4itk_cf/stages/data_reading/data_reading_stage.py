@@ -188,6 +188,9 @@ class EventReader:
         assert all(vertex in particles.columns for vertex in ["vx", "vy", "vz"]), "Particles must have vertex information!"
         particle_features = self.config["feature_sets"]["track_features"] + ["vx", "vy", "vz"]
 
+        # Get intersection of particle features and the columns in particles
+        particle_features = [feature for feature in particle_features if feature in particles.columns]
+
         assert "particle_id" in hits.columns and "particle_id" in particles.columns, "Hits and particles must have a particle_id column!"
         hits = hits.merge(
             particles[particle_features],

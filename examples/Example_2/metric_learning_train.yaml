@@ -37,7 +37,8 @@ hard_cuts:
 
 # Model parameters
 undirected: True
-node_features: [r, phi, z]
+node_features: [r,    phi,  z]
+node_scales:   [1000, 3.14, 1000]
 emb_hidden: 1024
 nb_layer: 4
 emb_dim: 12
@@ -53,7 +54,7 @@ warmup: 5
 margin: 0.1
 lr: 0.01
 factor: 0.7
-patience: 20
-max_epochs: 150
+patience: 10
+max_epochs: 100
 metric_to_monitor: f1
 metric_mode: max
