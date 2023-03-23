@@ -219,6 +219,17 @@ def get_truth_spacepoints(pixel_spacepoints, strip_spacepoints, clusters, spacep
 
     return truth_spacepoints
 
+def remove_undetectable_particles(truth, particles):
+    """
+    This method is opinionated, so we place it in the AthenaReader, rather than the core DataReader
+    The idea is to set truth particle ID to 0 for particles that are undetectable by the detector
+    """
+    
+    unreconstructable_hits = truth[~truth.particle_id.isin(particles.particle_id)]
+    truth.loc[unreconstructable_hits.index, "particle_id"] = 0
+
+    return truth
+
 def add_module_id(hits, module_lookup):
     """
     Add the module ID to the hits dataframe

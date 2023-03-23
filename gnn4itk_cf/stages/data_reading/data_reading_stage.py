@@ -109,8 +109,9 @@ class EventReader:
             self._build_all_pyg(dataset_name)
 
     def _build_single_pyg_event(self, event, output_dir=None):
-
+        
         event_id = event["event_id"]
+        
         if os.path.exists(os.path.join(output_dir, f"event{event_id}-graph.pyg")):
             print(f"Graph {event_id} already exists, skipping...")
             return
@@ -280,7 +281,7 @@ class EventReader:
     def _get_track_features(self, hits, track_index_edges, track_edges):
         track_features = {}
         for track_feature in self.config["feature_sets"]["track_features"]:
-            assert (hits[track_feature].values[track_index_edges][0] == hits[track_feature].values[track_index_edges][1]).all(), "Track features must be the same for each side of edge"
+            assert (hits[track_feature].values[track_index_edges][0] == hits[track_feature].values[track_index_edges][1]).all(), f"Track features must be the same for each side of edge: {track_feature}"
             track_features[track_feature] = hits[track_feature].values[track_index_edges[0]]
     
         if "redundant_split_edges" in self.config["feature_sets"]["track_features"]:
