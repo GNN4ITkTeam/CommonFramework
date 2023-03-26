@@ -17,7 +17,6 @@ import logging
 from pathlib import Path
 
 import torch
-import glob
 import yaml
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -39,7 +38,7 @@ def str_to_class(stage, model):
     """
     Convert a string to a class in the stages directory
     """
-    
+
     return getattr(getattr(stages, stage), model)
 
 def get_default_root_dir():
@@ -77,9 +76,9 @@ def get_trainer(config, default_root_dir):
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.path.join(config["stage_dir"], "artifacts"),
         filename='best',
-        monitor=metric_to_monitor, 
-        mode=metric_mode, 
-        save_top_k=1, 
+        monitor=metric_to_monitor,
+        mode=metric_mode,
+        save_top_k=1,
         save_last=True
     )
 
