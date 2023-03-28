@@ -280,7 +280,8 @@ class EventReader:
 
     def _get_track_features(self, hits, track_index_edges, track_edges):
         track_features = {}
-        for track_feature in self.config["feature_sets"]["track_features"]:
+        # There may be track_features in the config that are not in the hits dataframe, so loop over the intersection of the two
+        for track_feature in set(self.config["feature_sets"]["track_features"]).intersection(set(hits.columns)):
             assert (hits[track_feature].values[track_index_edges][0] == hits[track_feature].values[track_index_edges][1]).all(), f"Track features must be the same for each side of edge: {track_feature}"
             track_features[track_feature] = hits[track_feature].values[track_index_edges[0]]
     

@@ -15,6 +15,7 @@
 import pandas as pd
 import numpy as np
 import csv
+import warnings
 
 def read_particles(filename):
     """
@@ -71,8 +72,8 @@ def get_detectable_particles(particles, clusters):
     particles = pd.merge(particles, num_clusters, on='particle_id').fillna(method='ffill')
 
     cut1 = particles[particles.charge.abs() > 0]  # Keep charged particles
-    cut2 = cut1[cut1.num_clusters > 0]  # Keep particles which are leaved at least one cluster
-    return cut2
+    return cut1[cut1.num_clusters > 0]  # Keep particles which are leaved at least one cluster
+    
 
 def read_spacepoints(filename):
     
@@ -82,10 +83,15 @@ def read_spacepoints(filename):
         names=["hit_id", "x", "y", "z", "cluster_index_1", "cluster_index_2"],
     )
 
-    pixel_hits = hits[pd.isna(hits["cluster_index_2"])]
-    strip_hits = hits[~pd.isna(hits["cluster_index_2"])]
+    # Wherever cluster_index_2 is NaN (i.e. for pixel hits), replace with cluster_index_1
+    hits["cluster_index_2"] = hits["cluster_index_2"].fillna(hits["cluster_index_1"]).astype("int64")
 
-    return pixel_hits, strip_hits
+    # Check that hit_ids are a sequential list, if they're not, set them as such and return a warning
+    if not hits.hit_id.equals(pd.Series(range(len(hits)))):
+        warnings.warn("Hit IDs are not sequential, fixing")
+        hits["hit_id"] = range(len(hits)) 
+
+    return hits
 
 def split_particle_entries(cluster_df, particles):
     
@@ -170,51 +176,49 @@ def split_cluster_entries(clusters_raw, particles, column_lookup):
 
     return clusters_processed
 
-def truth_match_clusters(pixel_hits, strip_hits, clusters):
+def truth_match_clusters(spacepoints, clusters):
     """
     Here we handle the case where a pixel spacepoint belongs to exactly one cluster, but
     a strip spacepoint belongs to 0, 1, or 2 clusters, and we only accept the case of 2 clusters
     with shared truth particle_id
     """
-    pixel_clusters = pixel_hits.merge(clusters[['cluster_id', 'particle_id']], left_on='cluster_index_1', right_on='cluster_id', how='left').drop("cluster_id", axis=1)
-    pixel_clusters["particle_id_1"] = pixel_clusters["particle_id"] 
-    pixel_clusters["particle_id_2"] = -1
-    strip_clusters = strip_hits.merge(clusters[['cluster_id', 'particle_id']], left_on='cluster_index_1', right_on='cluster_id', how='left')
-    strip_clusters = strip_clusters.merge(clusters[['cluster_id', 'particle_id']], left_on='cluster_index_2', right_on='cluster_id', how='left', suffixes=('_1', '_2')).drop(['cluster_id_1', 'cluster_id_2'], axis=1)
-    
+    spacepoints = spacepoints.merge(clusters, left_on='cluster_index_1', right_on='cluster_id', how='left')
+    spacepointlike_fields = ['hardware', 'barrel_endcap', 'layer_disk', 'eta_module', 'phi_module']
+    spacepoints = spacepoints.merge(clusters.drop(spacepointlike_fields, axis=1), left_on='cluster_index_2', right_on='cluster_id', how='left', suffixes=("_1", "_2")).drop(['cluster_id_1', 'cluster_id_2'], axis=1)
+
     # Get clusters that share particle ID
-    matching_clusters = strip_clusters.particle_id_1 == strip_clusters.particle_id_2
-    strip_clusters['particle_id'] = strip_clusters["particle_id_1"].where(matching_clusters, other=0)
-    strip_clusters["particle_id_1"].astype('int64')
-    strip_clusters["particle_id_2"].astype('int64')
-    truth_spacepoints = pd.concat([pixel_clusters, strip_clusters], ignore_index=True)
-    return truth_spacepoints
+    matching_clusters = spacepoints.particle_id_1 == spacepoints.particle_id_2
+    spacepoints['particle_id'] = spacepoints["particle_id_1"].where(matching_clusters, other=0)
+    spacepoints.astype({'particle_id': 'int64', 'particle_id_1': 'int64', 'particle_id_2': 'int64'})
+    return spacepoints
 
-def merge_spacepoints_clusters(spacepoints, clusters):
+def clean_spacepoints(spacepoints):
     """
-    Finally, we merge the features of each cluster with the spacepoints - where a spacepoint may
-    own 1 or 2 signal clusters, and thus we give the suffixes _1, _2
+    Remove the duplicate occurences of spacepoints with the same particle ID, or where a spacepoint
+    belongs to both a true particle and noise
     """
 
-    spacepoints = spacepoints.merge(clusters.drop(["particle_id", "side"], axis=1), left_on='cluster_index_1', right_on='cluster_id', how='left').drop("cluster_id", axis=1)
-    
-    unique_cluster_fields = ['cluster_id', 'cluster_x', 'cluster_y', 'cluster_z', 'eta_angle', 'phi_angle', 'norm_z'] # These are fields that is unique to each cluster (therefore they need the _1, _2 suffix)
-    spacepoints = spacepoints.merge(clusters[unique_cluster_fields], left_on='cluster_index_2', right_on='cluster_id', how='left', suffixes=("_1", "_2")).drop("cluster_id", axis=1)
-    
     # Ignore duplicate entries (possible if a particle has duplicate hits in the same clusters)
     spacepoints = spacepoints.drop_duplicates(["hit_id", "cluster_index_1", "cluster_index_2", "particle_id"]).fillna(-1)
     
-    return spacepoints
+    # Handle the case where a spacepoint belongs to both a true particle AND noise - we should remove the noise row
+    noise_hits = spacepoints[spacepoints.particle_id == 0].drop_duplicates(subset="hit_id")
+    signal_hits = spacepoints[spacepoints.particle_id != 0]
+    non_duplicate_noise_hits = noise_hits[~noise_hits.hit_id.isin(signal_hits.hit_id)]
+    cleaned_hits = pd.concat([signal_hits, non_duplicate_noise_hits], ignore_index=True)
 
-def get_truth_spacepoints(pixel_spacepoints, strip_spacepoints, clusters, spacepoints_datatypes):
+    # Sort hits by hit_id for ease of processing
+    cleaned_hits = cleaned_hits.sort_values("hit_id").reset_index(drop=True)
+    return cleaned_hits
 
-    # # Build truth list of spacepoints by handling matching clusters
-    truth_spacepoints = truth_match_clusters(pixel_spacepoints, strip_spacepoints, clusters)
-    # # Tidy up the truth dataframe and add in all cluster information
-    truth_spacepoints["cluster_index_2"] = truth_spacepoints["cluster_index_2"].fillna(-1)
-    truth_spacepoints = merge_spacepoints_clusters(truth_spacepoints, clusters)
+def get_truth_spacepoints(spacepoints, clusters, spacepoints_datatypes):
 
-    # # Fix spacepoint datatypes
+    # Build truth list of spacepoints by handling matching clusters
+    truth_spacepoints = truth_match_clusters(spacepoints, clusters)
+    # Tidy up the truth dataframe and add in all cluster information
+    truth_spacepoints = clean_spacepoints(truth_spacepoints)
+
+    # Fix spacepoint datatypes
     truth_spacepoints = truth_spacepoints.astype(spacepoints_datatypes)
 
     return truth_spacepoints
@@ -241,7 +245,7 @@ def add_module_id(hits, module_lookup):
     merged_hits = merged_hits.rename(columns={"ID": "module_id"})
 
     assert hits.shape[0] == merged_hits.shape[0], "Merged hits dataframe has different number of rows - possibly missing modules from lookup"
-    assert hits.shape[1] + 1 == merged_hits.shape[1], "Merged hits dataframe has different number of columns"
+    assert merged_hits.shape[1] - hits.shape[1] == 1, "Merged hits dataframe has different number of columns; should only have added module_id column"
 
     return merged_hits
 
