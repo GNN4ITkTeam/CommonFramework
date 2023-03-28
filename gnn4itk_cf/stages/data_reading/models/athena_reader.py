@@ -13,16 +13,13 @@
 # limitations under the License.
 
 import os
-import numpy as np
 from torch.utils.data import random_split
 import torch
-from tqdm import tqdm
-from tqdm.contrib.concurrent import process_map
-from functools import partial
 import pandas as pd
 
 from ..data_reading_stage import EventReader
 from . import athena_utils
+from .athena_datatypes import SPACEPOINTS_DATATYPES, PARTICLES_DATATYPES
 
 class AthenaReader(EventReader):
     def __init__(self, config):
@@ -61,10 +58,10 @@ class AthenaReader(EventReader):
         # Read particles
         particles = athena_utils.read_particles(particles_file)
         particles = athena_utils.convert_barcodes(particles)
-        particles = particles.astype(self.config["particles_datatypes"])
+        particles = particles.astype(PARTICLES_DATATYPES)
 
         # Read spacepoints
-        pixel_spacepoints, strip_spacepoints = athena_utils.read_spacepoints(spacepoints_file)
+        spacepoints = athena_utils.read_spacepoints(spacepoints_file)
 
         # Read clusters
         clusters = athena_utils.read_clusters(clusters_file, particles, self.config["column_lookup"])
@@ -73,7 +70,7 @@ class AthenaReader(EventReader):
         detectable_particles = athena_utils.get_detectable_particles(particles, clusters)
 
         # Get truth spacepoints
-        truth = athena_utils.get_truth_spacepoints(pixel_spacepoints, strip_spacepoints, clusters, self.config["spacepoints_datatypes"])
+        truth = athena_utils.get_truth_spacepoints(spacepoints, clusters, SPACEPOINTS_DATATYPES)
         truth = athena_utils.remove_undetectable_particles(truth, detectable_particles)
         truth = athena_utils.add_region_labels(truth, self.config["region_labels"])
         truth = athena_utils.add_module_id(truth, self.module_lookup)
