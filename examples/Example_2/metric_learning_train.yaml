@@ -4,8 +4,8 @@ model: MetricLearning
 input_dir: MY_DATA_DIR/Example_2/feature_store/ # Should contain the files used in training and inference
 stage_dir: MY_DATA_DIR/Example_2/metric_learning/ # A directory to be created that will store logs, artifacts, and output data
 project: CF_Example_2_MetricLearning # Used in logging
-gpus: 4
-nodes: 4
+gpus: 1
+nodes: 1
 
 # Dataset parameters
 data_split: [80, 10, 10] # Number of [training, validation, testing] examples
@@ -33,14 +33,11 @@ weighting:
 # A list of hard cut conditions. Any hits not passing these conditions will be removed from the training and validation dataset.
 # By definition, noise will not pass any of these cuts, so any hard cuts will remove noise.
 hard_cuts:
-  # pt: [1000, .inf]
+  pt: [1000, .inf]
 
 # Model parameters
 undirected: True
-node_features: [r,    phi,  z,  cluster_x_1, cluster_y_1, cluster_z_1, cluster_x_2, cluster_y_2, cluster_z_2, 
-                norm_x_1, norm_x_2, norm_y_1, norm_y_2, norm_z_1, norm_z_2,
-                count_1, charge_count_1, loc_eta_1, loc_phi_1, localDir0_1, localDir1_1, localDir2_1, lengthDir0_1, lengthDir1_1, lengthDir2_1, glob_eta_1, glob_phi_1, eta_angle_1, phi_angle_1,
-                count_2, charge_count_2, loc_eta_2, loc_phi_2, localDir0_2, localDir1_2, localDir2_2, lengthDir0_2, lengthDir1_2, lengthDir2_2, glob_eta_2, glob_phi_2, eta_angle_2, phi_angle_2]
+node_features: [r,    phi,  z]
 node_scales:   [1000, 3.14, 1000]
 emb_hidden: 1024
 nb_layer: 4
