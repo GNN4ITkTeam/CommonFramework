@@ -9,7 +9,7 @@ module_lookup_path: MY_DATA_DIR/Example_2/example_1_module_ids.txt
 feature_sets:
     hit_features: [hit_id, x, y, z, r, phi, eta, region, module_id,
                 cluster_x_1, cluster_y_1, cluster_z_1, cluster_x_2, cluster_y_2, cluster_z_2, 
-                norm_x, norm_y, norm_z_1, eta_angle_1, phi_angle_1, eta_angle_2, phi_angle_2, norm_z_2]
+                norm_x_1, norm_y_1, norm_x_2, norm_y_2, norm_z_1, eta_angle_1, phi_angle_1, eta_angle_2, phi_angle_2, norm_z_2]
     track_features: [particle_id, pt, radius, primary, nhits, pdgId]
 
 region_labels:
@@ -21,52 +21,6 @@ region_labels:
     6: {hardware: STRIP, barrel_endcap: 2}
 
 hard_cuts:
-
-# Datatypes and Column Names (TODO: Move this into Python code, doesn't need to be configurable)
-spacepoints_datatypes:
-    cluster_index_1: int64
-    cluster_index_2: int64
-    hardware: str
-    cluster_x_1: float32
-    cluster_y_1: float32
-    cluster_z_1: float32
-    cluster_x_2: float32 
-    cluster_y_2: float32 
-    cluster_z_2: float32
-    barrel_endcap: int32
-    layer_disk: int32 
-    eta_module: int32 
-    phi_module: int32
-    eta_angle_1: float32 
-    phi_angle_1: float32 
-    eta_angle_2: float32 
-    phi_angle_2: float32
-    norm_x: float32
-    norm_y: float32
-    norm_z_1: float32
-    norm_z_2: float32
-    
-particles_datatypes:
-    particle_id: int64
-    subevent: int64
-    barcode: int64
-    px: float32
-    py: float32
-    pz: float32
-    pt: float32
-    eta: float32
-    vx: float32
-    vy: float32
-    vz: float32
-    radius: float32
-    status: int32
-    charge: float32
-    pdgId: int32
-    pass: str
-    vProdNIn: int32
-    vProdNOut: int32
-    vProdStatus: int32
-    vProdBarcode: int64
 
 column_lookup:
     coordinates: [cluster_id, hardware, cluster_x, cluster_y, cluster_z]

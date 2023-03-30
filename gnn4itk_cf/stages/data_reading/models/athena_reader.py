@@ -58,7 +58,7 @@ class AthenaReader(EventReader):
         # Read particles
         particles = athena_utils.read_particles(particles_file)
         particles = athena_utils.convert_barcodes(particles)
-        particles = particles.astype(PARTICLES_DATATYPES)
+        particles = particles.astype({k: v for k, v in PARTICLES_DATATYPES.items() if k in particles.columns})
 
         # Read spacepoints
         spacepoints = athena_utils.read_spacepoints(spacepoints_file)

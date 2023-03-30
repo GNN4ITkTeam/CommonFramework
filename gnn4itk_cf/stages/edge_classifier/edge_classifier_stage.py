@@ -293,7 +293,6 @@ class EdgeClassifierStage(LightningModule):
         all_y_truth, all_pt  = [], []
 
         for event in tqdm(self.testset):
-
             # Need to apply score cut and remap the truth_map 
             if "score_cut" in config:
                 self.apply_score_cut(event, config["score_cut"])

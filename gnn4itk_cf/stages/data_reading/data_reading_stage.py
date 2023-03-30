@@ -149,11 +149,11 @@ class EventReader:
         """
         
         graph = Data()
-        for feature in self.config["feature_sets"]["hit_features"]:
+        for feature in set(self.config["feature_sets"]["hit_features"]).intersection(set(hits.columns)):
             graph[feature] = torch.from_numpy(hits[feature].values)
         
         graph.track_edges = torch.from_numpy(tracks)
-        for feature in self.config["feature_sets"]["track_features"]:
+        for feature in set(self.config["feature_sets"]["track_features"]).intersection(set(track_features.keys())):
             graph[feature] = torch.from_numpy(track_features[feature])
 
         # Add config dictionary to the graph object, so every data has a record of how it was built

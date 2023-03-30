@@ -218,8 +218,8 @@ def get_truth_spacepoints(spacepoints, clusters, spacepoints_datatypes):
     # Tidy up the truth dataframe and add in all cluster information
     truth_spacepoints = clean_spacepoints(truth_spacepoints)
 
-    # Fix spacepoint datatypes
-    truth_spacepoints = truth_spacepoints.astype(spacepoints_datatypes)
+    # Set spacepoint datatypes
+    truth_spacepoints = truth_spacepoints.astype({k: v for k, v in spacepoints_datatypes.items() if k in truth_spacepoints.columns})
 
     return truth_spacepoints
 
