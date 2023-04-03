@@ -76,7 +76,7 @@ def get_detectable_particles(particles, clusters):
     
 
 def read_spacepoints(filename):
-    
+
     hits = pd.read_csv(
         filename,
         header=None,
@@ -124,16 +124,16 @@ def split_particle_entries(cluster_df, particles):
     return split_pids
 
 def read_clusters(clusters_file, particles, column_lookup):
-    
+
     """
     Read the cluster CSV files by splitting into sections around the #'s
     """
     column_sets = ["coordinates", "region", "barcodes", "cells", "shape", "norms", "covariance"]
-                    
+
     clusters_raw = pd.read_csv(clusters_file, header=None, sep=r",#,|#,|,#", engine='python')
     clusters_raw.columns = column_sets
     
-    clusters_processed = split_cluster_entries(clusters_raw, particles, column_lookup)
+    clusters_processed, shape_list = split_cluster_entries(clusters_raw, particles, column_lookup)
 
     split_pids = split_particle_entries(clusters_processed, particles)
     
@@ -144,7 +144,7 @@ def read_clusters(clusters_file, particles, column_lookup):
     # Fix indexing mismatch in DumpObjects - is this still necessary????
     clusters_processed["cluster_id"] = clusters_processed["cluster_id"] - 1
     
-    return clusters_processed
+    return clusters_processed, shape_list
 
 def split_cluster_entries(clusters_raw, particles, column_lookup):
     """
@@ -165,16 +165,17 @@ def split_cluster_entries(clusters_raw, particles, column_lookup):
     # Handle the two versions of dumpObjects - one with more shape information
     cluster_shape = clusters_raw["shape"].str.split(",", expand=True)
     if cluster_shape.shape[1] == 2:
-        clusters_processed[column_lookup["shape_b"]] = cluster_shape
+        shape_list = column_lookup["shape_b"]
     elif cluster_shape.shape[1] == 14:
-        clusters_processed[column_lookup["shape_a"]] = cluster_shape
+        shape_list = column_lookup["shape_a"]
     else:
         raise ValueError("Unknown shape information")
+    clusters_processed[shape_list] = cluster_shape
 
     # Split the particle IDs
     clusters_processed[["particle_id"]] = clusters_raw[["barcodes"]]
 
-    return clusters_processed
+    return clusters_processed, shape_list
 
 def truth_match_clusters(spacepoints, clusters):
     """

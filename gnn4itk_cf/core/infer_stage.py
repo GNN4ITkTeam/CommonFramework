@@ -28,6 +28,7 @@ from pathlib import Path
 import yaml
 import click
 import logging
+import torch
 
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -86,7 +87,8 @@ def lightning_infer(config, stage_module):
         num_nodes=config["nodes"],
     )
 
-    trainer.predict(stage_module)
+    with torch.inference_mode():
+        trainer.predict(stage_module)
 
 
 if __name__ == "__main__":

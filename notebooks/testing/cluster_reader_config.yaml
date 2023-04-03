@@ -1,0 +1,70 @@
+# CommonFramework configuration
+stage: data_reading
+model: AthenaClusterReader
+input_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_1_Dev/athena_100_events
+stage_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_6_Dev/feature_store/
+module_lookup_path: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_1_Dev/Modules_geo_10events.txt
+max_workers: 1
+
+# Feature Configurations
+feature_sets:
+    hit_features: [hit_id, x, y, z, r, phi, eta, region, module_id,
+                norm_x, norm_y, norm_z, 
+                eta_angle, phi_angle]
+                # count, charge_count, loc_eta, loc_phi, localDir0, localDir1, localDir2, lengthDir0, lengthDir1, lengthDir2, glob_eta, glob_phi, eta_angle, phi_angle]
+    track_features: [particle_id, pt, radius, primary, nhits, pdgId, redundant_split_edges]
+
+region_labels:
+    1: {hardware: PIXEL, barrel_endcap: -2}
+    2: {hardware: STRIP, barrel_endcap: -2}
+    3: {hardware: PIXEL, barrel_endcap: 0}
+    4: {hardware: STRIP, barrel_endcap: 0}
+    5: {hardware: PIXEL, barrel_endcap: 2}
+    6: {hardware: STRIP, barrel_endcap: 2}
+
+hard_cuts:
+
+# Datatypes and Column Names (TODO: Move this into Python code, doesn't need to be configurable)
+spacepoints_datatypes:
+    hardware: str
+    x: float32 
+    y: float32
+    z: float32
+    barrel_endcap: int32
+    layer_disk: int32 
+    eta_module: int32 
+    phi_module: int32
+    eta_angle: float32 
+    phi_angle: float32 
+    norm_x: float32
+    norm_y: float32
+    norm_z: float32
+    
+particles_datatypes:
+    particle_id: int64
+    subevent: int64
+    barcode: int64
+    px: float32
+    py: float32
+    pz: float32
+    pt: float32
+    eta: float32
+    vx: float32
+    vy: float32
+    vz: float32
+    radius: float32
+    status: int32
+    charge: float32
+    pdgId: int32
+    pass: str
+    vProdNIn: int32
+    vProdNOut: int32
+    vProdStatus: int32
+    vProdBarcode: int64
+
+column_lookup:
+    coordinates: [cluster_id, hardware, x, y, z]
+    region: [barrel_endcap, layer_disk, eta_module, phi_module, side]
+    norms: [norm_x, norm_y, norm_z]
+    shape_a: [count, charge_count, loc_eta, loc_phi, localDir0, localDir1, localDir2, lengthDir0, lengthDir1, lengthDir2, glob_eta, glob_phi, eta_angle, phi_angle]
+    shape_b: [eta_angle, phi_angle]

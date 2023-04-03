@@ -30,7 +30,7 @@ class AthenaReader(EventReader):
 
         input_dir = self.config["input_dir"]
         self.raw_events = self.get_file_names(input_dir, filename_terms = ["clusters", "particles", "spacepoints"])
-        
+
         # Very opinionated: We split the data by 80/10/10: train/val/test
         torch.manual_seed(42) # We want the same split every time for convenience
         self.trainset, self.valset, self.testset = random_split(self.raw_events, [int(len(self.raw_events)*0.8), int(len(self.raw_events)*0.1), int(len(self.raw_events)*0.1)])
@@ -64,7 +64,7 @@ class AthenaReader(EventReader):
         spacepoints = athena_utils.read_spacepoints(spacepoints_file)
 
         # Read clusters
-        clusters = athena_utils.read_clusters(clusters_file, particles, self.config["column_lookup"])
+        clusters, self.shape_list = athena_utils.read_clusters(clusters_file, particles, self.config["column_lookup"])
 
         # Get detectable particles
         detectable_particles = athena_utils.get_detectable_particles(particles, clusters)
