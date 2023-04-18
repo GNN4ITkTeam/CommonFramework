@@ -40,13 +40,30 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         # Construct the MLP architecture
         in_channels = len(hparams["node_features"])
 
-        self.network = make_mlp(
-            in_channels,
-            [hparams["emb_hidden"]] * hparams["nb_layer"] + [hparams["emb_dim"]],
-            hidden_activation=hparams["activation"],
-            output_activation=None,
-            layer_norm=True,
-        )
+        
+        if(hparams["quantized_network"]==False):
+            
+            self.network = make_mlp(
+                in_channels,
+                [hparams["emb_hidden"]] * hparams["nb_layer"] + [hparams["emb_dim"]],
+                hidden_activation=hparams["activation"],
+                output_activation=None,
+                layer_norm=True,
+            )
+        else:
+
+            self.network = make_quantized_mlp(
+                in_channels,
+                [hparams["emb_hidden"]] * hparams["nb_layer"] + [hparams["emb_dim"]],
+                weight_bit_width = hparams["weight_bit_width"],
+                activation_qnn = hparams["activation_qnn"],
+                activation_bit_width = hparams["activation_bit_width"],
+                input_layer_quantization = hparams["input_layer_quantization"],
+                layer_norm = True
+
+            )
+
+
 
         self.dataset_class = GraphDataset
         self.use_pyg = True
