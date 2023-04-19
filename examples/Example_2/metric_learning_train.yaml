@@ -47,7 +47,7 @@ randomisation: 1
 points_per_batch: 50000
 r_train: 0.1
 knn: 50
-knn_val: 200
+knn_val: 1000
 
 # Training parameters
 warmup: 5

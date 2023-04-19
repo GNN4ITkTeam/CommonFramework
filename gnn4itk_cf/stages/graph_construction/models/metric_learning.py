@@ -19,7 +19,6 @@ from ..graph_construction_stage import GraphConstructionStage
 import torch.nn.functional as F
 
 from pytorch_lightning import LightningModule
-import torch.nn.functional as F
 from torch_geometric.data import DataLoader, Dataset
 import torch
 
@@ -27,7 +26,7 @@ import logging
 
 # Local imports
 from .utils import make_mlp, build_edges, graph_intersection
-from ..utils import build_signal_edges #handle_weighting
+from ..utils import build_signal_edges  # handle_weighting
 from gnn4itk_cf.utils import load_datafiles_in_dir, handle_hard_node_cuts, handle_weighting
 
 class MetricLearning(GraphConstructionStage, LightningModule):

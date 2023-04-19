@@ -109,8 +109,9 @@ class EventReader:
             self._build_all_pyg(dataset_name)
 
     def _build_single_pyg_event(self, event, output_dir=None):
-
+        
         event_id = event["event_id"]
+        
         if os.path.exists(os.path.join(output_dir, f"event{event_id}-graph.pyg")):
             print(f"Graph {event_id} already exists, skipping...")
             return
@@ -148,11 +149,11 @@ class EventReader:
         """
         
         graph = Data()
-        for feature in self.config["feature_sets"]["hit_features"]:
+        for feature in set(self.config["feature_sets"]["hit_features"]).intersection(set(hits.columns)):
             graph[feature] = torch.from_numpy(hits[feature].values)
         
         graph.track_edges = torch.from_numpy(tracks)
-        for feature in self.config["feature_sets"]["track_features"]:
+        for feature in set(self.config["feature_sets"]["track_features"]).intersection(set(track_features.keys())):
             graph[feature] = torch.from_numpy(track_features[feature])
 
         # Add config dictionary to the graph object, so every data has a record of how it was built
@@ -279,8 +280,9 @@ class EventReader:
 
     def _get_track_features(self, hits, track_index_edges, track_edges):
         track_features = {}
-        for track_feature in self.config["feature_sets"]["track_features"]:
-            assert (hits[track_feature].values[track_index_edges][0] == hits[track_feature].values[track_index_edges][1]).all(), "Track features must be the same for each side of edge"
+        # There may be track_features in the config that are not in the hits dataframe, so loop over the intersection of the two
+        for track_feature in set(self.config["feature_sets"]["track_features"]).intersection(set(hits.columns)):
+            assert (hits[track_feature].values[track_index_edges][0] == hits[track_feature].values[track_index_edges][1]).all(), f"Track features must be the same for each side of edge: {track_feature}"
             track_features[track_feature] = hits[track_feature].values[track_index_edges[0]]
     
         if "redundant_split_edges" in self.config["feature_sets"]["track_features"]:
