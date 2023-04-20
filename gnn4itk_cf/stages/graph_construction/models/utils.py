@@ -177,8 +177,10 @@ def make_quantized_mlp(
     weight_bit_width,  ##providing weights in form of array now
     activation_qnn = True,
     activation_bit_width=4,
+    output_activation = False,
     output_activation_quantization = False,
     input_layer_quantization=False,
+    input_layer_bitwidth = 11,
     layer_norm = True,
 
 ):
@@ -192,7 +194,7 @@ def make_quantized_mlp(
     if(input_layer_quantization):
         ##quantizing the input layer
         layers.append(qnn.QuantIdentity(
-                bit_width=weight_bit_width,return_quant_tensor = True ))
+                bit_width=input_layer_bitwidth,return_quant_tensor = True ))
 
     
     # Hidden layers of a quantized neural network
@@ -204,22 +206,32 @@ def make_quantized_mlp(
         if layer_norm:   ##using batch norm
             layers.append(nn.BatchNorm1d(sizes[i + 1]))
         if activation_qnn:   ##if qnn activation is on , we use QuantReLU else nn.ReLU
-            layers.append(qnn.QuantReLU(bit_width = activation_bit_width,return_quant_tensor = True))
+            if i==0:
+                activation_bit_index = 0
+                print("first quantRelu")
+            elif (i==n_layers-2 and (not output_activation)):
+                activation_bit_index = 2
+                print("last quantRelu")
+            else:
+                activation_bit_index = 1
+                print("hidden quantRelu")
+            layers.append(qnn.QuantReLU(bit_width = activation_bit_width[activation_bit_index],return_quant_tensor = True))
+           
         else:
             layers.append(nn.ReLU())
 
     # Final layer
     layers.append(qnn.QuantLinear(sizes[-2], sizes[-1],bias=False, 
-    weight_bit_width=weight_bit_width[-1],return_quant_tensor = True))
-    # if output_activation is not None:
-    if layer_norm:
-        layers.append(nn.BatchNorm1d(sizes[-1]))
+    weight_bit_width=weight_bit_width[-1],return_quant_tensor = output_activation)) # if no output activation, have to returned not-quant tensor!
 
-    if output_activation_quantization:
-        layers.append(qnn.QuantReLU(bit_width = activation_bit_width,return_quant_tensor = True))
-    else:
-        layers.append(nn.ReLU())
+    if output_activation:
+        #print(f"adding output activation! {output_activation} {output_activation_quantization}")
+        if layer_norm:
+            layers.append(nn.BatchNorm1d(sizes[-1]))
+
+        if output_activation_quantization:
+            layers.append(qnn.QuantReLU(bit_width = activation_bit_width[-1],return_quant_tensor = True))
+        else:
+            layers.append(nn.ReLU())
 
     return nn.Sequential(*layers)
-
-
