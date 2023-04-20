@@ -25,7 +25,7 @@ import torch
 import logging
 
 # Local imports
-from .utils import make_mlp, build_edges, graph_intersection
+from .utils import make_mlp, build_edges, graph_intersection,make_quantized_mlp
 from ..utils import build_signal_edges  # handle_weighting
 from gnn4itk_cf.utils import load_datafiles_in_dir, handle_hard_node_cuts, handle_weighting
 
@@ -50,16 +50,19 @@ class MetricLearning(GraphConstructionStage, LightningModule):
                 layer_norm=True,
             )
         else:
+            print("QUANTIZED NETWORK IS BEING USED")
 
             self.network = make_quantized_mlp(
                 in_channels,
                 [hparams["emb_hidden"]] * hparams["nb_layer"] + [hparams["emb_dim"]],
-                weight_bit_width = hparams["weight_bit_width"],
+                weight_bit_width = [hparams["weight_bit_width_input"], hparams["weight_bit_width_hidden"], hparams["weight_bit_width_output"]],
                 activation_qnn = hparams["activation_qnn"],
-                activation_bit_width = hparams["activation_bit_width"],
-                input_layer_quantization = hparams["input_layer_quantization"],
+                activation_bit_width = [hparams["activation_bit_width_input"], hparams["activation_bit_width_hidden"], hparams["activation_bit_width_output"]],
+                output_activation = hparams["output_activation"],
+                output_activation_quantization = hparams["output_activation_quantization"],
+                input_layer_quantization = hparams["input_quantization"],
+                input_layer_bitwidth = 1 + hparams["integer_part"] + hparams["fractional_part"],
                 layer_norm = True
-
             )
 
 

@@ -1,8 +1,8 @@
 # CommonFramework configuration
 stage: graph_construction
 model: MetricLearning
-input_dir: MY_DATA_DIR/Example_3/feature_store/ # Should contain the files used in training and inference
-stage_dir: MY_DATA_DIR/Example_3/metric_learning/ # A directory to be created that will store logs, artifacts, and output data
+input_dir: /mnt/data0/Trackml_dataset_100_events/Example_3/feature_store/ # Should contain the files used in training and inference
+stage_dir: /mnt/data0/Trackml_dataset_100_events/Example_3/metric_learning/ # A directory to be created that will store logs, artifacts, and output data
 project: CF_Example_3_MetricLearning # Used in logging
 gpus: 1
 nodes: 1
@@ -56,3 +56,19 @@ patience: 10
 max_epochs: 100
 metric_to_monitor: f1
 metric_mode: max
+
+##QNN Parameters
+quantized_network: True
+weight_bit_width_input: 32
+weight_bit_width_hidden: 16
+weight_bit_width_output: 32
+activation_qnn: True ## telling the network to use quantReLU()
+activation_bit_width_input: 8
+activation_bit_width_hidden: 8
+activation_bit_width_output: 8
+output_activation: False
+output_activation_quantization: False
+# Input quantization Parameters, only using fixed point representation
+input_quantization: True # also enables QuantIdentity
+integer_part: 2
+fractional_part: 10
