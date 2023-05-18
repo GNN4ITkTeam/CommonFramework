@@ -7,7 +7,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -15,15 +15,11 @@
 # 3rd party imports
 import os
 import logging
-import pandas as pd
-import numpy as np
 import torch
 import scipy.sparse as sps
 from tqdm import tqdm
-try:
-    import cudf
-except ImportError:
-    logging.warning("cuDF not found, using pandas instead")
+
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Local imports
@@ -37,7 +33,7 @@ class ConnectedComponents(TrackBuildingStage):
         Initialise the PyModuleMap - a python implementation of the Triplet Module Map.
         """
         self.hparams = hparams
-        self.gpu_available = torch.cuda.is_available()        
+        self.gpu_available = torch.cuda.is_available()
 
     def build_tracks(self, dataset, data_name):
         """
@@ -68,10 +64,10 @@ class ConnectedComponents(TrackBuildingStage):
                 num_nodes = graph.edge_index.max().item() + 1
 
             # Convert to sparse scipy array
-            sparse_edges = to_scipy_sparse_matrix(graph.edge_index[:, edge_mask], num_nodes = num_nodes)
+            sparse_edges = to_scipy_sparse_matrix(graph.edge_index[:, edge_mask], num_nodes=num_nodes)
 
             # Run connected components
-            _, candidate_labels = sps.csgraph.connected_components(sparse_edges, directed=False, return_labels=True)  
+            _, candidate_labels = sps.csgraph.connected_components(sparse_edges, directed=False, return_labels=True)
             graph.labels = torch.from_numpy(candidate_labels).long()
             graph.config.append(self.hparams)
 

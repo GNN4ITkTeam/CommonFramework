@@ -7,7 +7,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -16,24 +16,18 @@
 import os
 import logging
 import pandas as pd
-import numpy as np
 import torch
-import scipy.sparse as sps
 from tqdm import tqdm
 from multiprocessing import Pool
 from torch_geometric.utils import to_networkx
 import networkx as nx
 from itertools import chain
 from functools import partial
-try:
-    import cudf
-except ImportError:
-    logging.warning("cuDF not found, using pandas instead")
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Local imports
 from ..track_building_stage import TrackBuildingStage
-from torch_geometric.utils import to_scipy_sparse_matrix
 
 class Walkthrough(TrackBuildingStage):
     def __init__(self, hparams):
@@ -42,7 +36,7 @@ class Walkthrough(TrackBuildingStage):
         Initialise the PyModuleMap - a python implementation of the Triplet Module Map.
         """
         self.hparams = hparams
-        self.gpu_available = torch.cuda.is_available()        
+        self.gpu_available = torch.cuda.is_available()
 
     @staticmethod
     def find_all_paths(start, G=None, ending_nodes=None):
@@ -81,7 +75,7 @@ class Walkthrough(TrackBuildingStage):
             new_graph = graph.clone()
             new_graph.edge_index = new_graph.edge_index[:, edge_mask]
             new_graph.scores = new_graph.scores[edge_mask]
-            
+
             # Convert to networkx graph
             G = to_networkx(new_graph, to_undirected=False)
             G.remove_nodes_from(list(nx.isolates(G)))
@@ -89,7 +83,7 @@ class Walkthrough(TrackBuildingStage):
             starting_nodes = [n for n in G.nodes() if G.in_degree(n) == 0]
             ending_nodes = [n for n in G.nodes() if G.out_degree(n) == 0]
 
-            workers = 32 #TODO: Remove this hardcoded value
+            workers = 32  # TODO: Remove this hardcoded value
 
             # Make partial method for multiprocessing
             find_paths_partial = partial(self.find_shortest_paths, G=G, ending_nodes=ending_nodes)
@@ -107,7 +101,7 @@ class Walkthrough(TrackBuildingStage):
 
             # Remove duplicates on hit_id: TODO: In very near future, handle multiple tracks through the same hit!
             track_df = track_df.drop_duplicates(subset="hit_id")
-            
+
             hit_id = track_df.hit_id
             track_id = track_df.track_id
 

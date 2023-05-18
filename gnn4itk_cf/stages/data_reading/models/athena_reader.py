@@ -7,17 +7,13 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
 import os
-import numpy as np
 from torch.utils.data import random_split
-from tqdm import tqdm
-from tqdm.contrib.concurrent import process_map
-from functools import partial
 import pandas as pd
 
 from ..data_reading_stage import EventReader
@@ -31,18 +27,22 @@ class AthenaReader(EventReader):
         """
 
         input_dir = self.config["input_dir"]
-        self.raw_events = self.get_file_names(input_dir, filename_terms = ["clusters", "particles", "spacepoints"])
-        
+        self.raw_events = self.get_file_names(input_dir, filename_terms=["clusters", "particles", "spacepoints"])
+
         # Very opinionated: We split the data by 80/10/10: train/val/test
-        self.trainset, self.valset, self.testset = random_split(self.raw_events, [int(len(self.raw_events)*0.8), int(len(self.raw_events)*0.1), int(len(self.raw_events)*0.1)])
+        self.trainset, self.valset, self.testset = random_split(self.raw_events,
+                                                                [int(len(self.raw_events) * 0.8),
+                                                                 int(len(self.raw_events) * 0.1),
+                                                                 int(len(self.raw_events) * 0.1)])
         self.module_lookup = self.get_module_lookup()
 
     def get_module_lookup(self):
         # Let's get the module lookup
-        names = ['hardware','barrel_endcap','layer_disk','eta_module','phi_module',"centerMod_z","centerMod_x","centerMod_y","ID","side"]
-        module_lookup = pd.read_csv(self.config["module_lookup_path"],sep = " ",names=names, header=None)
+        names = ['hardware', 'barrel_endcap', 'layer_disk', 'eta_module',
+                 'phi_module', "centerMod_z", "centerMod_x", "centerMod_y", "ID", "side"]
+        module_lookup = pd.read_csv(self.config["module_lookup_path"], sep=" ", names=names, header=None)
         module_lookup = module_lookup.drop_duplicates()
-        return module_lookup[module_lookup.side == 0] #.copy() ??
+        return module_lookup[module_lookup.side == 0]  # .copy() ??
 
     def _build_single_csv(self, event, output_dir=None):
 
@@ -78,5 +78,3 @@ class AthenaReader(EventReader):
         # Save to CSV
         truth.to_csv(os.path.join(output_dir, "event{:09}-truth.csv".format(int(event_id))), index=False)
         detectable_particles.to_csv(os.path.join(output_dir, "event{:09}-particles.csv".format(int(event_id))), index=False)
-
-    

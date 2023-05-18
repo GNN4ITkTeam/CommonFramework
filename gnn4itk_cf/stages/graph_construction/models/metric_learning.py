@@ -7,7 +7,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -16,7 +16,6 @@ import os
 
 # 3rd party imports
 from ..graph_construction_stage import GraphConstructionStage
-import torch.nn.functional as F
 
 from pytorch_lightning import LightningModule
 import torch.nn.functional as F
@@ -27,7 +26,7 @@ import logging
 
 # Local imports
 from .utils import make_mlp, build_edges, graph_intersection
-from ..utils import build_signal_edges #handle_weighting
+from ..utils import build_signal_edges  # handle_weighting
 from gnn4itk_cf.utils import load_datafiles_in_dir, handle_hard_node_cuts, handle_weighting
 
 class MetricLearning(GraphConstructionStage, LightningModule):
@@ -50,7 +49,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         self.dataset_class = GraphDataset
         self.use_pyg = True
-        self.save_hyperparameters(hparams)       
+        self.save_hyperparameters(hparams)
 
     def forward(self, x):
 
@@ -88,7 +87,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         for i, (data_name, data_num) in enumerate(zip(["trainset", "valset", "testset"], self.hparams["data_split"])):
             if data_num > 0:
                 dataset = self.dataset_class(self.hparams["input_dir"], data_name, data_num, "predict", self.hparams)
-                self.datasets.append(dataset) 
+                self.datasets.append(dataset)
                 num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][i]
                 dataloaders.append(DataLoader(dataset, batch_size=1, num_workers=num_workers))
         return dataloaders
@@ -119,7 +118,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
     def get_input_data(self, batch):
 
         input_data = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()
-        input_data[input_data != input_data] = 0 # Replace NaNs with 0s
+        input_data[input_data != input_data] = 0  # Replace NaNs with 0s
 
         return input_data
 
@@ -129,7 +128,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         query_indices = query_indices[torch.randperm(len(query_indices))][
             : self.hparams["points_per_batch"]
         ]
-        query = spatial[query_indices]       
+        query = spatial[query_indices]
 
         return query_indices, query
 
@@ -138,7 +137,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             r_train = self.hparams["r_train"]
         if knn is None:
             knn = self.hparams["knn"]
-        
+
         knn_edges = build_edges(
             query=query,
             database=spatial,
@@ -195,12 +194,12 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         reference = embedding[pred_edges[1]]
         neighbors = embedding[pred_edges[0]]
 
-        try: # This can be resource intensive, so we chunk it if it fails
+        try:  # This can be resource intensive, so we chunk it if it fails
             d = torch.sum((reference - neighbors) ** 2, dim=-1)
         except RuntimeError:
             d = [torch.sum((ref - nei) ** 2, dim=-1) for ref, nei in zip(reference.chunk(10), neighbors.chunk(10))]
             d = torch.cat(d)
-        
+
         return d
 
     def training_step(self, batch, batch_idx):
@@ -218,7 +217,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         self.apply_embedding(batch, embedding, batch.edge_index)
 
         batch.edge_index, batch.y, batch.truth_map, true_edges = self.get_truth(batch, batch.edge_index)
-        weights = self.get_weights(batch)#, true_edges, truth_map)
+        weights = self.get_weights(batch)  # true_edges, truth_map)
 
         loss = self.loss_function(batch, embedding, weights)
 
@@ -227,7 +226,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         return loss
 
     def get_training_edges(self, batch):
-        
+
         # Instantiate empty prediction edge list
         training_edges = torch.empty([2, 0], dtype=torch.int64, device=self.device)
 
@@ -236,7 +235,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             embedding = self.apply_embedding(batch)
 
         query_indices, query = self.get_query_points(batch, embedding)
-        
+
         # Append Hard Negative Mining (hnm) with KNN graph
         training_edges = self.append_hnm_pairs(training_edges, query, query_indices, embedding)
 
@@ -265,9 +264,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         return pred_edges, truth, truth_map, true_edges
 
-    def get_weights(self, batch):#, true_edges, truth_map):
+    def get_weights(self, batch):  # true_edges, truth_map):
 
-        return handle_weighting(batch, self.hparams["weighting"])#, true_edges=true_edges, truth_map=truth_map)
+        return handle_weighting(batch, self.hparams["weighting"])  # true_edges=true_edges, truth_map=truth_map)
 
     def apply_embedding(self, batch, embedding_inplace=None, training_edges=None):
 
@@ -280,7 +279,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         embedding_inplace[included_hits] = self(input_data[included_hits])
 
     def loss_function(self, batch, embedding, weights=None, pred_edges=None, truth=None):
-        
+
         if pred_edges is None:
             assert "edge_index" in batch.keys, "Must provide pred_edges if not in batch"
             pred_edges = batch.edge_index
@@ -300,7 +299,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         """
         Calculates the weighted hinge loss
 
-        Given a set of edges, we partition into signal true (truth=1, weight>0), background true (truth=1, weight=0 or weight<0) and false (truth=0). 
+        Given a set of edges, we partition into signal true (truth=1, weight>0), background true (truth=1, weight=0 or weight<0) and false (truth=0).
         The choice of weights for each set (as specified in the weighting config) defines how these are treated. Weights of 0 are simply masked from the loss function.
         Weights below 0 are treated as false, such that background true edges can be treated as false edges. The same behavior is used in calculating metrics.
 
@@ -311,15 +310,15 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         Returns:
             ``torch.tensor`` The weighted hinge loss mean as a tensor
         """
-        
-        negative_mask = ((truth == 0) & (weights != 0)) | (weights < 0) 
+
+        negative_mask = ((truth == 0) & (weights != 0)) | (weights < 0)
 
         # Handle negative loss, but don't reduce vector
         negative_loss = torch.nn.functional.hinge_embedding_loss(
             d[negative_mask],
-            torch.ones_like(d[negative_mask])*-1,
+            torch.ones_like(d[negative_mask]) * -1,
             margin=self.hparams["margin"]**2,
-            reduction= "none",
+            reduction="none",
         )
 
         # Now reduce the vector with non-zero weights
@@ -332,7 +331,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             d[positive_mask],
             torch.ones_like(d[positive_mask]),
             margin=self.hparams["margin"]**2,
-            reduction= "none",
+            reduction="none",
         )
 
         # Now reduce the vector with non-zero weights
@@ -352,7 +351,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         # Calculate truth from intersection between Prediction graph and Truth graph
         batch.edge_index, batch.y, batch.truth_map, true_edges = self.get_truth(batch, batch.edge_index)
 
-        weights = self.get_weights(batch)#, true_edges, batch.truth_map)
+        weights = self.get_weights(batch)
 
         d = self.get_distances(
             embedding, batch.edge_index
@@ -485,18 +484,18 @@ class GraphDataset(Dataset):
     The custom default GNN dataset to load graphs off the disk
     """
 
-    def __init__(self, input_dir, data_name = None, num_events = None, stage="fit", hparams=None, transform=None, pre_transform=None, pre_filter=None, **kwargs):
+    def __init__(self, input_dir, data_name=None, num_events=None, stage="fit", hparams=None, transform=None, pre_transform=None, pre_filter=None, **kwargs):
         super().__init__(input_dir, transform, pre_transform, pre_filter)
-        
+
         self.input_dir = input_dir
         self.data_name = data_name
         self.hparams = hparams
         self.num_events = num_events
         self.stage = stage
-        
+
         self.input_paths = load_datafiles_in_dir(self.input_dir, self.data_name, self.num_events)
-        self.input_paths.sort() # We sort here for reproducibility
-        
+        self.input_paths.sort()  # We sort here for reproducibility
+
     def len(self):
         return len(self.input_paths)
 
@@ -512,23 +511,23 @@ class GraphDataset(Dataset):
         """
         Process event before it is used in training and validation loops
         """
-        
+
         self.cleaning_and_tests(event)
         self.apply_hard_cuts(event)
         # self.remove_split_cluster_truth(event) TODO: Should handle this at some point
         self.scale_features(event)
-        
+
     def apply_hard_cuts(self, event):
         """
-        Apply hard cuts to the event. This is implemented by 
+        Apply hard cuts to the event. This is implemented by
         1. Finding which true edges are from tracks that pass the hard cut.
         2. Pruning the input graph to only include nodes that are connected to these edges.
         """
-        
+
         if self.hparams is not None and "hard_cuts" in self.hparams.keys() and self.hparams["hard_cuts"]:
             assert isinstance(self.hparams["hard_cuts"], dict), "Hard cuts must be a dictionary"
             handle_hard_node_cuts(event, self.hparams["hard_cuts"])
-            
+
     def cleaning_and_tests(self, event):
         """
         Ensure that data is clean and has the correct shape
@@ -542,18 +541,18 @@ class GraphDataset(Dataset):
         """
         Handle feature scaling for the event
         """
-        
+
         if self.hparams is not None and "node_scales" in self.hparams.keys() and "node_features" in self.hparams.keys():
             assert isinstance(self.hparams["node_scales"], list), "Feature scaling must be a list of ints or floats"
             for i, feature in enumerate(self.hparams["node_features"]):
                 assert feature in event.keys, f"Feature {feature} not found in event"
                 event[feature] = event[feature] / self.hparams["node_scales"][i]
- 
+
     def unscale_features(self, event):
         """
         Unscale features when doing prediction
         """
-        
+
         if self.hparams is not None and "node_scales" in self.hparams.keys() and "node_features" in self.hparams.keys():
             assert isinstance(self.hparams["node_scales"], list), "Feature scaling must be a list of ints or floats"
             for i, feature in enumerate(self.hparams["node_features"]):
@@ -562,6 +561,6 @@ class GraphDataset(Dataset):
 
     def handle_edge_list(self, event):
         """
-        TODO 
-        """ 
+        TODO
+        """
         pass

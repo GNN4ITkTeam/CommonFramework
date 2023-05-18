@@ -7,20 +7,15 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-from functools import partial
 
 import math
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.ticker import AutoMinorLocator
-import itertools
 
 
 # fontsize=16
@@ -70,8 +65,8 @@ import itertools
 #     ax2.xaxis.set_minor_locator(AutoMinorLocator())
 
 def get_ratio(x_vals, y_vals):
-    res = [x/y if y!=0 else 0.0 for x,y in zip(x_vals, y_vals)]
-    err = [x/y * math.sqrt((x+y)/(x*y)) if y!=0 and x!=0 else 0.0 for x,y in zip(x_vals, y_vals)]
+    res = [x / y if y != 0 else 0.0 for x, y in zip(x_vals, y_vals)]
+    err = [x / y * math.sqrt((x + y) / (x * y)) if y != 0 and x != 0 else 0.0 for x, y in zip(x_vals, y_vals)]
     return res, err
 
 
@@ -82,7 +77,7 @@ def get_ratio(x_vals, y_vals):
 #   return zip(a, b)
 
 # def add_mean_std(array, x, y, ax, color='k', dy=0.3, digits=2, fontsize=12, with_std=True):
-#     this_mean, this_std = np.mean(array), np.std(array)
+#     this_mean, this_std =import itertools np.mean(array), np.std(array)
 #     ax.text(x, y, "Mean: {0:.{1}f}".format(this_mean, digits), color=color, fontsize=12)
 #     if with_std:
 #         ax.text(x, y-dy, "Standard Deviation: {0:.{1}f}".format(this_std, digits), color=color, fontsize=12)
@@ -133,7 +128,7 @@ def get_ratio(x_vals, y_vals):
 #     pt = particles.pt.values
 #     eta = particles.eta.values
 
-#     fiducial = (particles.status == 1) & (particles.barcode < 200000) & (particles.eta.abs() < 4) & (particles.radius < 260) & (particles.charge.abs() > 0) 
+#     fiducial = (particles.status == 1) & (particles.barcode < 200000) & (particles.eta.abs() < 4) & (particles.radius < 260) & (particles.charge.abs() > 0)
 #     trackable = particles.is_trackable
 #     matched = particles.is_double_matched
 
@@ -150,7 +145,7 @@ def get_ratio(x_vals, y_vals):
 #         gen_pt = pt[cuts & fiducial]
 #         true_pt = pt[cuts & fiducial & trackable]
 #         reco_pt = pt[cuts & fiducial & trackable & matched]
-#         make_cmp_plot_fn([gen_pt, true_pt, reco_pt], 
+#         make_cmp_plot_fn([gen_pt, true_pt, reco_pt],
 #             configs=default_pt_configs, xlabel="pT [MeV]", ymin=0.6)
 
 #         gen_eta = eta[cuts & fiducial]
@@ -193,7 +188,7 @@ def plot_eff_pur_region(edge_truth, edge_positive, edge_regions, node_r, node_z,
     ax.scatter(node_z[draw_idxs], node_r[draw_idxs], s=1, color='lightgrey')
 
     colors = ['r', 'g', 'b', 'y', 'c', 'm']
-    for region, color in zip(range(1,7), colors):
+    for region, color in zip(range(1, 7), colors):
         edge_mask = (edge_regions == region)
         node_mask = (node_regions == region)
         true = edge_truth[edge_mask]
@@ -211,13 +206,13 @@ def plot_eff_pur_region(edge_truth, edge_positive, edge_regions, node_r, node_z,
 
         fmt_str = "eff: {:.3f} \npur: {:.3f}"
         ax.text(
-            np.mean(z_range)*1.1 - 0.5,
+            np.mean(z_range) * 1.1 - 0.5,
             np.mean(r_range),
             fmt_str.format(eff, pur))
         rectangle_args = {
             "xy": (z_range[0], r_range[0]),
-            "width": (z_range[1]-z_range[0]),
-            "height": (r_range[1]-r_range[0]),
+            "width": (z_range[1] - z_range[0]),
+            "height": (r_range[1] - r_range[0]),
         }
         ax.add_patch(plt.Rectangle(**rectangle_args, alpha=0.1, color=color, linewidth=0))
 

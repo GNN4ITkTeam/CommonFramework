@@ -7,7 +7,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -15,9 +15,7 @@
 import numpy as np
 import pandas as pd
 import logging
-import pickle
 
-import trackml.dataset
 
 
 #####################################################
@@ -228,7 +226,7 @@ def add_region_labels(hits, region_labels: dict):
     """
     Label the 6 detector regions (forward-endcap pixel, forward-endcap strip, etc.)
     """
-        
+
     for region_label, conditions in region_labels.items():
         condition_mask = np.logical_and.reduce([hits[condition_column].isin(condition) if isinstance(condition, list) else hits[condition_column] == condition for condition_column, condition in conditions.items()])
         hits.loc[condition_mask, "region"] = region_label
