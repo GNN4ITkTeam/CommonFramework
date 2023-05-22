@@ -7,7 +7,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -23,7 +23,7 @@ from pathlib import Path
 from .mapping_utils import get_condition_lambda, map_tensor_handler, remap_from_mask
 
 
-def load_datafiles_in_dir(input_dir, data_name = None, data_num = None):
+def load_datafiles_in_dir(input_dir, data_name=None, data_num=None):
 
     if data_name is not None:
         input_dir = os.path.join(input_dir, data_name)
@@ -40,11 +40,11 @@ def load_dataset_from_dir(input_dir, data_name, data_num):
     Load in the PyG Data dataset from the data directory.
     """
     data_files = load_datafiles_in_dir(input_dir, data_name, data_num)
-    
-    return [ torch.load(f, map_location="cpu") for f in data_files ]
+
+    return [torch.load(f, map_location="cpu") for f in data_files]
 
 def run_data_tests(datasets: List, required_features, optional_features):
-    
+
     for dataset in datasets:
         sample_event = dataset[0]
         assert sample_event is not None, "No data loaded"
@@ -60,7 +60,7 @@ def run_data_tests(datasets: List, required_features, optional_features):
         for feature in required_features:
             assert feature in sample_event or f"x_{feature}" in sample_event, f"Feature [{feature}] not found in data, this is REQUIRED. Features found: {sample_event.keys}"
 
-        missing_optional_features = [ feature for feature in optional_features if feature not in sample_event or f"x_{feature}" not in sample_event ]
+        missing_optional_features = [feature for feature in optional_features if feature not in sample_event or f"x_{feature}" not in sample_event]
         for feature in missing_optional_features:
             warnings.warn(f"OPTIONAL feature [{feature}] not found in data")
 
@@ -143,7 +143,7 @@ def handle_hard_node_cuts(event, hard_cuts_config):
         node_mask = node_mask * node_val_mask
 
     logging.info(f"Masking the following number of nodes with the HARD CUT: {node_mask.sum()} / {node_mask.shape[0]}")
-    
+
     # TODO: Refactor the below to use the remap_from_mask function
     num_nodes = event.num_nodes
     for feature in event.keys:
@@ -161,8 +161,8 @@ def handle_hard_node_cuts(event, hard_cuts_config):
     event.num_nodes = node_mask.sum()
 
 def reset_angle(angles):
-    angles[angles > torch.pi] = angles[angles > torch.pi] - 2*torch.pi
-    angles[angles < -torch.pi] = angles[angles < -torch.pi] + 2*torch.pi
+    angles[angles > torch.pi] = angles[angles > torch.pi] - 2 * torch.pi
+    angles[angles < -torch.pi] = angles[angles < -torch.pi] + 2 * torch.pi
     return angles
 
 
@@ -195,6 +195,9 @@ def get_weight_mask(event, weight_conditions):
         assert condition_key in event.keys, f"Condition key {condition_key} not found in event keys {event.keys}"
         condition_lambda = get_condition_lambda(condition_key, condition_val)
         value_mask = condition_lambda(event)
-        graph_mask = graph_mask * map_tensor_handler(value_mask, output_type="edge-like", num_nodes = event.num_nodes, edge_index = event.edge_index, truth_map = event.truth_map)
+        graph_mask = graph_mask * map_tensor_handler(value_mask, output_type="edge-like",
+                                                     num_nodes=event.num_nodes,
+                                                     edge_index=event.edge_index,
+                                                     truth_map=event.truth_map)
 
     return graph_mask

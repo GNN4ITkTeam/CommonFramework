@@ -7,7 +7,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -29,13 +29,13 @@ import torch
 import warnings
 
 class EventReader:
-    """ 
+    """
     A general class for reading simulated particle collision events from a set of files. Several convenience utilities are built in,
     and conversion to CSV and Pytorch Geometric data objects is enforced. However the reading of the input files is left up to the user.
     It is expected that general usage is, e.g.
     AthenaReader(path/to/files), which consists of:
     1. Raw files -> CSV
-    2. CSV -> PyG data objects    
+    2. CSV -> PyG data objects
     """
     def __init__(self, config):
         self.files = None
@@ -48,13 +48,13 @@ class EventReader:
 
     @classmethod
     def infer(cls, config):
-        """ 
+        """
         The gateway for the inference stage. This class method is called from the infer_stage.py script.
         It assumes a set of basic steps. These are:
         1. Convert to CSV - This should be implemented by the user
         2. Convert to PyG
         """
-        
+
         reader = cls(config)
         reader.convert_to_csv()
         reader._test_csv_conversion()
@@ -81,9 +81,9 @@ class EventReader:
         max_workers = self.config["max_workers"] if "max_workers" in self.config else None
         if max_workers != 1:
             process_map(
-                partial(self._build_single_csv, output_dir=output_dir), 
-                dataset, max_workers=max_workers, 
-                chunksize=1, 
+                partial(self._build_single_csv, output_dir=output_dir),
+                dataset, max_workers=max_workers,
+                chunksize=1,
                 desc=f"Building {dataset_name} CSV files"
             )
         else:
@@ -129,7 +129,7 @@ class EventReader:
 
     def _build_all_pyg(self, dataset_name):
         stage_dir = os.path.join(self.config["stage_dir"], dataset_name)
-        csv_events = self.get_file_names(stage_dir, filename_terms = ["particles", "truth"])
+        csv_events = self.get_file_names(stage_dir, filename_terms=["particles", "truth"])
         assert len(csv_events) > 0, "No CSV files found!"
         max_workers = self.config["max_workers"] if "max_workers" in self.config else None
         if max_workers != 1:
@@ -147,11 +147,11 @@ class EventReader:
         """
         Builds a PyG data object from the hits, particles and tracks.
         """
-        
+
         graph = Data()
         for feature in set(self.config["feature_sets"]["hit_features"]).intersection(set(hits.columns)):
             graph[feature] = torch.from_numpy(hits[feature].values)
-        
+
         graph.track_edges = torch.from_numpy(tracks)
         for feature in set(self.config["feature_sets"]["track_features"]).intersection(set(track_features.keys())):
             graph[feature] = torch.from_numpy(track_features[feature])
@@ -171,12 +171,12 @@ class EventReader:
     @staticmethod
     def calc_eta(r, z):
         theta = np.arctan2(r, z)
-        return -1.0 * np.log(np.tan(theta / 2.0))  
+        return -1.0 * np.log(np.tan(theta / 2.0))
 
     def _merge_particles_to_hits(self, hits, particles):
 
         """
-        Merge the particles and hits dataframes, and add some useful columns. These are defined in the config file.        
+        Merge the particles and hits dataframes, and add some useful columns. These are defined in the config file.
         This is a bit messy, since Athena, ACTS and TrackML have a variety of different conventions and features for particles.
         """
 
@@ -185,7 +185,7 @@ class EventReader:
 
         if "nhits" not in particles.columns:
             hits["nhits"] = hits.groupby("particle_id")["particle_id"].transform("count")
-            
+
         assert all(vertex in particles.columns for vertex in ["vx", "vy", "vz"]), "Particles must have vertex information!"
         particle_features = self.config["feature_sets"]["track_features"] + ["vx", "vy", "vz"]
 
@@ -207,7 +207,7 @@ class EventReader:
     @staticmethod
     def _clean_noise_duplicates(hits):
         """
-        This handles the case where a hit is assigned to both a particle and noise (e.g. in a ghost spacepoint). 
+        This handles the case where a hit is assigned to both a particle and noise (e.g. in a ghost spacepoint).
         This is not sensible, so we remove those duplicated noise hits.
         """
 
@@ -244,7 +244,7 @@ class EventReader:
             )
         )
 
-        signal = hits[(hits.particle_id != 0)]     
+        signal = hits[(hits.particle_id != 0)]
         signal = signal.sort_values("R").reset_index(drop=False)
 
         # Group by particle ID
@@ -254,9 +254,7 @@ class EventReader:
             module_columns = self.config["module_columns"]
 
         signal_index_list = (signal.groupby(
-                ["particle_id"] + module_columns,
-                sort=False,
-            )["index"]
+            ["particle_id"] + module_columns, sort=False,)["index"]
             .agg(lambda x: list(x))
             .groupby(level=0)
             .agg(lambda x: list(x)))
@@ -284,7 +282,7 @@ class EventReader:
         for track_feature in set(self.config["feature_sets"]["track_features"]).intersection(set(hits.columns)):
             assert (hits[track_feature].values[track_index_edges][0] == hits[track_feature].values[track_index_edges][1]).all(), f"Track features must be the same for each side of edge: {track_feature}"
             track_features[track_feature] = hits[track_feature].values[track_index_edges[0]]
-    
+
         if "redundant_split_edges" in self.config["feature_sets"]["track_features"]:
             track_features["redundant_split_edges"] = self._get_redundant_split_edges(track_edges, hits, track_features)
 
@@ -310,7 +308,7 @@ class EventReader:
         """
         Here we do two things:
         1. Remove duplicate hits from the hit list (since a hit is a node and therefore only exists once), and remap the corresponding truth track edge indices
-        2. Remove duplicate truth track edges. This is a SMALL simplification for conceptual simplicity, 
+        2. Remove duplicate truth track edges. This is a SMALL simplification for conceptual simplicity,
         but we apply a test to ensure the simplification does not throw away too many duplicate edges.
         """
 
@@ -343,7 +341,7 @@ class EventReader:
         elif filename_terms is None:
             filename_terms = ["*"]
 
-        all_files_in_template = [ glob.glob(os.path.join(inputdir, f"*{template}*")) for template in filename_terms ]
+        all_files_in_template = [glob.glob(os.path.join(inputdir, f"*{template}*")) for template in filename_terms]
         all_files_in_template = list(chain.from_iterable(all_files_in_template))
         all_event_ids = sorted(list({re.findall("[0-9]+", file)[-1] for file in all_files_in_template}))
 
@@ -368,7 +366,7 @@ class EventReader:
         return hits, particles, tracks
 
     def _test_csv_conversion(self):
-        
+
         for data_name in ["trainset", "valset", "testset"]:
             self.csv_events = self.get_file_names(os.path.join(self.config["stage_dir"], data_name), filename_terms=["truth", "particles"])
             assert len(self.csv_events) > 0, "No CSV files found in output directory matching the formats (event[eventID]-truth.csv, event[eventID]-particles.csv). Please check that the conversion to CSV was successful."
@@ -383,15 +381,15 @@ class EventReader:
         for dataset1, dataset2 in combinations(["trainset", "valset", "testset"], 2):
             dataset1_files = {event["event_id"] for event in self.get_file_names(os.path.join(self.config["stage_dir"], dataset1), filename_terms=["truth", "particles"])}
             dataset2_files = {event["event_id"] for event in self.get_file_names(os.path.join(self.config["stage_dir"], dataset2), filename_terms=["truth", "particles"])}
-            if dataset1_files.intersection(dataset2_files): 
+            if dataset1_files.intersection(dataset2_files):
                 warnings.warn(f"There are overlapping files between the {dataset1} and {dataset2}. You should remove these overlapping files from one of the datasets: {dataset1_files.intersection(dataset2_files)}")
 
     def __len__(self):
         return len(self.files)
-    
+
     def __getitem__(self, idx):
         return self.files[idx]
-    
+
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]

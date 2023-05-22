@@ -7,13 +7,12 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
 import torch
-import logging
 
 def build_signal_edges(event, weighting_config, true_edges):
     signal_mask = torch.zeros_like(true_edges[0], dtype=torch.bool)
@@ -36,7 +35,7 @@ def get_weight_mask(event, edges, weight_conditions, true_edges=None, truth_map=
         condition_lambda = get_condition_lambda(condition_key, condition_val)
         value_mask = condition_lambda(event)
         graph_mask &= map_value_to_edges(event, value_mask, edges, true_edges, truth_map)
-        
+
     return graph_mask
 
 def handle_weighting(event, weighting_config, pred_edges=None, truth=None, true_edges=None, truth_map=None):
@@ -57,7 +56,7 @@ def handle_weighting(event, weighting_config, pred_edges=None, truth=None, true_
     - pt < 1 GeV
     - etc. As desired.
     """
-    
+
     if pred_edges is None:
         assert "edge_index" in event.keys, "If pred_edges is not provided, it must be in the event"
         pred_edges = event.edge_index
@@ -76,7 +75,7 @@ def handle_weighting(event, weighting_config, pred_edges=None, truth=None, true_
 
     # Set the default value of weights, which is to mask (weight=0), which will be overwritten if specified in the config
     weights = torch.zeros_like(pred_edges[0], dtype=torch.float)
-    weights[truth == 0] = 1.0 # Default to 1.0 for negative edges - can overwritten in config
+    weights[truth == 0] = 1.0  # Default to 1.0 for negative edges - can overwritten in config
 
     for weight_spec in weighting_config:
         weight_val = weight_spec["weight"]
@@ -107,10 +106,10 @@ def handle_hard_cuts(event, hard_cuts_config):
 
 def map_value_to_edges(event, value_mask, edges, true_edges=None, truth_map=None):
     """
-    Map the value mask to the graph. This is done by testing which dimension the value fits. 
+    Map the value mask to the graph. This is done by testing which dimension the value fits.
     - If it is already equal to the graph size, nothing needs to be done
     - If it is equal to the track edges, it needs to be mapped to the graph edges
-    - If it is equal to node list size, it needs to be mapped to the incoming/outgoing graph edges 
+    - If it is equal to node list size, it needs to be mapped to the incoming/outgoing graph edges
     """
 
     if edges is not None and edges.shape[1] in [value_mask.shape[0], 2 * value_mask.shape[0]]:
@@ -141,7 +140,7 @@ def map_tracks_to_edges(track_mask, edges, truth_map):
 
     edges_mask = torch.zeros_like(edges[0], dtype=torch.bool, device=edges.device)
 
-    if truth_map.shape[0] == 2 * track_mask.shape[0]: # Handle undirected case
+    if truth_map.shape[0] == 2 * track_mask.shape[0]:  # Handle undirected case
         track_mask = torch.cat([track_mask, track_mask], dim=0)
 
     edges_mask[truth_map[truth_map >= 0]] = track_mask[truth_map >= 0]
@@ -174,7 +173,7 @@ def get_condition_lambda(condition_key, condition_val):
         raise ValueError(f"Condition {condition_val} not recognised")
 
 def remap_from_mask(event, edge_mask):
-    """ 
+    """
     Takes a mask applied to the edge_index tensor, and remaps the truth_map tensor indices to match.
     """
 

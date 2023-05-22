@@ -7,7 +7,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -38,10 +38,11 @@ class AthenaReader(EventReader):
 
     def get_module_lookup(self):
         # Let's get the module lookup
-        names = ['hardware','barrel_endcap','layer_disk','eta_module','phi_module',"centerMod_z","centerMod_x","centerMod_y","ID","side"]
-        module_lookup = pd.read_csv(self.config["module_lookup_path"],sep = " ",names=names, header=None)
+        names = ['hardware', 'barrel_endcap', 'layer_disk', 'eta_module',
+                 'phi_module', "centerMod_z", "centerMod_x", "centerMod_y", "ID", "side"]
+        module_lookup = pd.read_csv(self.config["module_lookup_path"], sep=" ", names=names, header=None)
         module_lookup = module_lookup.drop_duplicates()
-        return module_lookup[module_lookup.side == 0] #.copy() ??
+        return module_lookup[module_lookup.side == 0]  # .copy() ??
 
     def _build_single_csv(self, event, output_dir=None):
 
@@ -78,5 +79,3 @@ class AthenaReader(EventReader):
         # Save to CSV
         truth.to_csv(os.path.join(output_dir, "event{:09}-truth.csv".format(int(event_id))), index=False)
         detectable_particles.to_csv(os.path.join(output_dir, "event{:09}-particles.csv".format(int(event_id))), index=False)
-
-    

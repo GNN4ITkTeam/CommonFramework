@@ -7,7 +7,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -26,11 +26,9 @@ TODO: Update structure with the latest Gravnet base class
 import sys
 sys.path.append("../")
 import os
-import warnings
 import re
 
 from pytorch_lightning import LightningModule
-import torch.nn.functional as F
 from torch_geometric.data import Dataset
 import torch
 import numpy as np
@@ -47,10 +45,10 @@ class GraphConstructionStage:
         """
         Initialise the Lightning Module that can scan over different GNN training regimes
         """
-        
+
         self.trainset, self.valset, self.testset = None, None, None
-        self.use_pyg = False # You can set this to True if you want to use the PyG LightningModule
-        self.use_csv = False # You can set this to True if you want to use CSV Reading
+        self.use_pyg = False  # You can set this to True if you want to use the PyG LightningModule
+        self.use_csv = False  # You can set this to True if you want to use CSV Reading
         self.dataset_class = EventDataset
 
     def setup(self, stage="fit"):
@@ -63,23 +61,25 @@ class GraphConstructionStage:
 
         if stage in ["fit", "predict"]:
             self.load_data(self.hparams["input_dir"])
-            
+
             if self.use_pyg and not self.use_csv:
                 self.test_data()
-        
+
         elif stage == "test":
             self.load_data(self.hparams["stage_dir"])
 
-        
+
     def load_data(self, input_dir):
         """
         Load in the data for training, validation and testing.
         """
 
         for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
-            dataset = self.dataset_class(input_dir, data_name, data_num, use_pyg = self.use_pyg, use_csv = self.use_csv, hparams = self.hparams)
+            dataset = self.dataset_class(input_dir, data_name, data_num,
+                                         use_pyg=self.use_pyg, use_csv=self.use_csv,
+                                         hparams=self.hparams)
             setattr(self, data_name, dataset)
-        
+
         print(f"Loaded {len(self.trainset)} training events, {len(self.valset)} validation events and {len(self.testset)} testing events")
 
     def test_data(self):
@@ -98,33 +98,35 @@ class GraphConstructionStage:
 
     @classmethod
     def infer(cls, config):
-        """ 
+        """
         The gateway for the inference stage. This class method is called from the infer_stage.py script.
         """
         if isinstance(cls, LightningModule):
             graph_constructor = cls.load_from_checkpoint(os.path.join(config["input_dir"], "checkpoints", "last.ckpt"))
-            graph_constructor.hparams.update(config) # Update the configs used in training with those to be used in inference
+            graph_constructor.hparams.update(config)  # Update the configs used in training with those to be used in inference
         else:
             graph_constructor = cls(config)
-    
+
         graph_constructor.setup(stage="predict")
 
         for data_name in ["trainset", "valset", "testset"]:
             if hasattr(graph_constructor, data_name):
-                graph_constructor.build_graphs(dataset = getattr(graph_constructor, data_name), data_name = data_name)
+                graph_constructor.build_graphs(
+                    dataset=getattr(graph_constructor, data_name),
+                    data_name=data_name)
 
     def build_graphs(self, dataset, data_name):
         """
         Build the graphs using the trained model. This is the only function that needs to be overwritten by the child class.
         """
         pass
-    
+
     @classmethod
     def evaluate(cls, config):
-        """ 
+        """
         The gateway for the evaluation stage. This class method is called from the eval_stage.py script.
         """
-        
+
         # Load data from testset directory
         graph_constructor = cls(config)
         graph_constructor.use_csv = False
@@ -137,7 +139,7 @@ class GraphConstructionStage:
             if hasattr(graph_constructor, plot_function):
                 getattr(graph_constructor, plot_function)(plot_config, config)
             else:
-                print(f"Plot {plot} not implemented")
+                print(f"Plot {plot_function} not implemented")
 
     def graph_construction_efficiency(self, plot_config, config):
         """
@@ -149,7 +151,7 @@ class GraphConstructionStage:
             if "target_tracks" in config:
                 self.apply_target_conditions(event, config["target_tracks"])
             else:
-                event.target_mask = torch.ones(event.truth_map.shape[0], dtype = torch.bool)
+                event.target_mask = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
 
             all_y_truth.append(event.truth_map[event.target_mask] >= 0)
             all_pt.append(event.pt[event.target_mask])
@@ -165,11 +167,11 @@ class GraphConstructionStage:
             pt_min, pt_max = pt_min * 1000, pt_max * 1000
         pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
 
-        true_pt_hist, _ = np.histogram(all_pt, bins = pt_bins)
-        true_pos_pt_hist, _ = np.histogram(all_pt[all_y_truth], bins = pt_bins)
+        true_pt_hist, _ = np.histogram(all_pt, bins=pt_bins)
+        true_pos_pt_hist, _ = np.histogram(all_pt[all_y_truth], bins=pt_bins)
 
         # Divide the two histograms to get the edgewise efficiency
-        eff, err = get_ratio(true_pos_pt_hist,  true_pt_hist)
+        eff, err = get_ratio(true_pos_pt_hist, true_pt_hist)
         xvals = (pt_bins[1:] + pt_bins[:-1]) / 2
         xerrs = (pt_bins[1:] - pt_bins[:-1]) / 2
 
@@ -182,19 +184,19 @@ class GraphConstructionStage:
         ax.set_xscale('log')
 
         # Save the plot
-        atlasify(atlas="Internal", 
-            subtext=r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
-            r"$p_T > 1$GeV, $|\eta < 4$" + "\n"
-            r"Mean graph size: " + f"{np.mean([event.edge_index.shape[1] for event in self.testset]):.2f}")
+        atlasify(atlas="Internal",
+                 subtext=r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
+                         r"$p_T > 1$GeV, $|\eta < 4$" + "\n"
+                         r"Mean graph size: " + f"{np.mean([event.edge_index.shape[1] for event in self.testset]):.2f}")
         fig.savefig(os.path.join(config["stage_dir"], "edgewise_efficiency.png"))
 
     def graph_region_efficiency_purity(self, plot_config, config):
-        edge_truth, edge_regions  = [], []
+        edge_truth, edge_regions = [], []
         node_r, node_z, node_regions = [], [], []
 
         for event in tqdm(self.testset):
             edge_truth.append(event.y)
-            edge_regions.append(event.x_region[event.edge_index[0]]) # Assign region depending on first node in edge
+            edge_regions.append(event.x_region[event.edge_index[0]])  # Assign region depending on first node in edge
 
             node_r.append(event.x_r)
             node_z.append(event.x_z)
@@ -216,7 +218,7 @@ class GraphConstructionStage:
         Apply the target conditions to the event. This is used for the evaluation stage.
         Target_tracks is a list of dictionaries, each of which contains the conditions to be applied to the event.
         """
-        passing_tracks = torch.ones(event.truth_map.shape[0], dtype = torch.bool)
+        passing_tracks = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
 
         for key, values in target_tracks.items():
             if isinstance(values, list):
@@ -233,7 +235,7 @@ class EventDataset(Dataset):
 
     def __init__(self, input_dir, data_name, num_events, use_pyg=False, use_csv=False, preload=False, hparams=None, transform=None, pre_transform=None, pre_filter=None, **kwargs):
         super().__init__(input_dir, transform, pre_transform, pre_filter)
-        
+
         self.input_dir = input_dir
         self.data_name = data_name
         self.hparams = hparams
@@ -241,9 +243,9 @@ class EventDataset(Dataset):
         self.loaded = False
         self.use_pyg = use_pyg
         self.use_csv = use_csv
-        
+
         self.evt_ids = self.find_evt_ids()
-        
+
     def len(self):
         return len(self.evt_ids)
 
@@ -252,7 +254,7 @@ class EventDataset(Dataset):
         Handles the iteration through the dataset. Depending on how dataset is configured for PyG and CSV file loading,
         will return either PyG events (automatically batched by PyG), CSV files (not batched/concatenated), or both (not batched/concatenated).
         Assumes files are saved correctly from EventReader as: event000...-truth.csv, -particles.csv and -graph.pyg
-        """        
+        """
 
         graph = None
         particles = None

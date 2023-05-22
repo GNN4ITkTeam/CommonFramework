@@ -15,6 +15,8 @@ To get started, run the setup commands (Install instructions section below), the
 
 ## Install
 
+**IMPORTANT! Please use the `dev` branch to run all Examples: it is the latest version and is fully supported!**
+
 To install the GNN4ITK common framework, assuming GPU capability, run
 
 ```

@@ -7,26 +7,17 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, sys
-import logging
+import os
 import random
 
-import torch.nn as nn
 import torch
-import pandas as pd
-import numpy as np
-try:
-    import cupy as cp
-except:
-    pass
 
 from tqdm import tqdm
-
 from torch_geometric.data import Dataset
 
 # ---------------------------- Dataset Processing -------------------------
@@ -48,20 +39,20 @@ def load_dataset(
             all_events = sorted(all_events)
         else:
             random.shuffle(all_events)
-        
-        all_events = [os.path.join(input_subdir, event) for event in all_events]    
+
+        all_events = [os.path.join(input_subdir, event) for event in all_events]
         print(f"Loading events from {input_subdir}")
-        
+
         loaded_events = []
         for event in tqdm(all_events[:num_events]):
             loaded_events.append(torch.load(event, map_location=torch.device("cpu")))
-        
+
         print("Events loaded!")
-        
+
         loaded_events = process_data(
             loaded_events, pt_background_cut, pt_signal_cut, noise, triplets, input_cut
         )
-        
+
         print("Events processed!")
         return loaded_events
     else:
@@ -81,18 +72,18 @@ def process_data(events, pt_background_cut, pt_signal_cut, noise, triplets, inpu
                 event = convert_triplet_graph(event)
 
             else:
-                event = background_cut_event(event, pt_background_cut, pt_signal_cut)                
-                    
+                event = background_cut_event(event, pt_background_cut, pt_signal_cut)
+
     for i, event in tqdm(enumerate(events)):
-        
+
         # Ensure PID definition is correct
         event.y_pid = (event.pid[event.edge_index[0]] == event.pid[event.edge_index[1]]) & event.pid[event.edge_index[0]].bool()
         event.pid_signal = torch.isin(event.edge_index, event.signal_true_edges).all(0) & event.y_pid
-        
+
         if (input_cut is not None) and "scores" in event.keys:
             score_mask = event.scores > input_cut
             for edge_attr in ["edge_index", "y", "y_pid", "pid_signal", "scores"]:
-                event[edge_attr] = event[edge_attr][..., score_mask]            
+                event[edge_attr] = event[edge_attr][..., score_mask]
 
     return events
 
@@ -123,24 +114,24 @@ def background_cut_event(event, pt_background_cut=0, pt_signal_cut=0):
 class LargeDataset(Dataset):
     def __init__(self, root, subdir, num_events, hparams, transform=None, pre_transform=None, pre_filter=None):
         super().__init__(root, transform, pre_transform, pre_filter)
-        
+
         self.subdir = subdir
         self.hparams = hparams
-        
+
         self.input_paths = os.listdir(os.path.join(root, subdir))
         if "sorted_events" in hparams.keys() and hparams["sorted_events"]:
             self.input_paths = sorted(self.input_paths)
         else:
             random.shuffle(self.input_paths)
-        
+
         self.input_paths = [os.path.join(root, subdir, event) for event in self.input_paths][:num_events]
-        
+
     def len(self):
         return len(self.input_paths)
 
     def get(self, idx):
         event = torch.load(self.input_paths[idx], map_location=torch.device("cpu"))
-        
+
         # Process event with pt cuts
         if self.hparams["pt_background_cut"] > 0:
             event = background_cut_event(event, self.hparams["pt_background_cut"], self.hparams["pt_signal_cut"])
@@ -148,19 +139,19 @@ class LargeDataset(Dataset):
         # Ensure PID definition is correct
         event.y_pid = (event.pid[event.edge_index[0]] == event.pid[event.edge_index[1]]) & event.pid[event.edge_index[0]].bool()
         event.pid_signal = torch.isin(event.edge_index, event.signal_true_edges).all(0) & event.y_pid
-        
+
         # if ("delta_eta" in self.hparams.keys()) and ((self.subdir == "train") or (self.subdir == "val" and self.hparams["n_graph_iters"] == 0)):
         if "delta_eta" in self.hparams.keys():
             eta_mask = hard_eta_edge_slice(self.hparams["delta_eta"], event)
             for edge_attr in ["edge_index", "y", "y_pid", "pid_signal", "scores"]:
                 if edge_attr in event.keys:
-                    event[edge_attr] = event[edge_attr][..., eta_mask]   
-            
+                    event[edge_attr] = event[edge_attr][..., eta_mask]
+
         if ("input_cut" in self.hparams.keys()) and (self.hparams["input_cut"] is not None) and "scores" in event.keys:
             score_mask = event.scores > self.hparams["input_cut"]
             for edge_attr in ["edge_index", "y", "y_pid", "pid_signal", "scores"]:
                 if edge_attr in event.keys:
                     event[edge_attr] = event[edge_attr][..., eta_mask]
-                
+
         return event
 

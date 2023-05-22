@@ -7,7 +7,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -17,13 +17,12 @@ import logging
 from pathlib import Path
 
 import torch
-import glob
 import yaml
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from gnn4itk_cf import stages
-from gnn4itk_cf.stages import *
+from gnn4itk_cf.stages import *   # noqa
 from pytorch_lightning.strategies import DDPStrategy
 
 try:
@@ -39,7 +38,7 @@ def str_to_class(stage, model):
     """
     Convert a string to a class in the stages directory
     """
-    
+
     return getattr(getattr(stages, stage), model)
 
 def get_default_root_dir():
@@ -77,9 +76,9 @@ def get_trainer(config, default_root_dir):
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.path.join(config["stage_dir"], "artifacts"),
         filename='best',
-        monitor=metric_to_monitor, 
-        mode=metric_mode, 
-        save_top_k=1, 
+        monitor=metric_to_monitor,
+        mode=metric_mode,
+        save_top_k=1,
         save_last=True
     )
 
