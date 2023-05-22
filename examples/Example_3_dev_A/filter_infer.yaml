@@ -1,9 +1,0 @@
-stage: edge_classifier
-model: Filter
-input_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev_A/metric_learning/ # Should contain the files used in training and inference
-stage_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/CommonFrameworkExamples/Example_3_Dev_A/filter/ # A directory to be created that will store logs, artifacts, and output data
-project: CF_Example_3_Filter # Used in logging
-gpus: 1
-nodes: 1
-
-data_split: [80, 10, 10] # Number of [training, validation, testing] examples

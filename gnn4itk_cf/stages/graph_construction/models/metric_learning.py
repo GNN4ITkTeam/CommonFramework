@@ -18,7 +18,6 @@ import os
 from ..graph_construction_stage import GraphConstructionStage
 
 from pytorch_lightning import LightningModule
-import torch.nn.functional as F
 from torch_geometric.data import DataLoader, Dataset
 import torch
 
