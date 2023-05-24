@@ -1,5 +1,5 @@
 build_docker:
-  stage: builds
+  stage: build
   needs: []
   variables:
     TO: $CI_REGISTRY_IMAGE:latest
@@ -16,7 +16,7 @@ build_docker:
         TO: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
 
 build_docker_test:
-  stage: builds
+  stage: build
   needs: []
   variables:
     TO: '$CI_REGISTRY_IMAGE/temporary_images:${CI_COMMIT_REF_SLUG}-test'
