@@ -1,5 +1,5 @@
 # base image
-FROM pytorch/pytorch:1.13.1-cuda11.6-cudnn8-runtime
+FROM pytorch/pytorch:pytorch:1.12.1-cuda11.3-cudnn8-runtime
 
 # local and envs
 ENV LANG C.UTF-8
