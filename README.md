@@ -136,3 +136,13 @@ title = {gnn4itk},
 url = {https://github.com/GNN4ITkTeam/CommonFramework}
 }
 ```
+
+## Developing
+
+(Optional)
+
+Pre-commit hooks are available for running linting and code formatting. To set them up, run
+```
+pre-commit install
+pre-commit run
+``

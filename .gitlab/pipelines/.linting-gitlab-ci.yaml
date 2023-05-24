@@ -1,0 +1,27 @@
+.flake8_check_template: &flake8_check_template
+  stage: linting
+  image: python:3.8-slim
+  before_script:
+    - pip install flake8
+  script:
+    # Ignore some more annoying flake8 problems:
+    #  E231: missing whitespace after comma, semicolon, colon
+    #  W503: line break before binary operator
+    - flake8 --ignore=E231,W503 .
+  needs: []
+
+.black_check_template: &black_check_template
+  stage: linting
+  image: python:3.8-slim
+  before_script:
+    - pip install black==22.3.0
+  script:
+    - black --check .
+  needs: []
+
+
+flake8:
+  <<: *flake8_check_template
+
+# black:
+#   <<: *black_check_template
