@@ -16,10 +16,6 @@ RUN python -m pip install --upgrade pip
 RUN python --version
 RUN python -m pip --version
 
-# install dependencies (make use of caching)
-COPY requirements.txt .
-RUN python -m pip install -r requirements.txt
-
 # copy and install package
 COPY . .
 RUN python -m pip install -e .
