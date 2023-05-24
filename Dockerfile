@@ -16,7 +16,7 @@ RUN python -m pip install --upgrade pip
 RUN python --version
 RUN python -m pip --version
 
-RUN pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-1.13.0+cu116.html
+RUN pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
 
 # copy and install package
 COPY . .
