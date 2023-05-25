@@ -30,10 +30,20 @@ from sklearn.metrics import roc_curve, auc
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-from gnn4itk_cf.utils import load_datafiles_in_dir, run_data_tests, handle_weighting, handle_hard_cuts, remap_from_mask, get_ratio, handle_edge_features, get_optimizers, plot_eff_pur_region
+from gnn4itk_cf.utils import (
+    load_datafiles_in_dir,
+    run_data_tests,
+    handle_weighting,
+    handle_hard_cuts,
+    remap_from_mask,
+    get_ratio,
+    handle_edge_features,
+    get_optimizers,
+    plot_eff_pur_region,
+)
 
 # TODO: What is this for??
-torch.multiprocessing.set_sharing_strategy('file_system')
+torch.multiprocessing.set_sharing_strategy("file_system")
 
 
 class EdgeClassifierStage(LightningModule):
@@ -65,10 +75,12 @@ class EdgeClassifierStage(LightningModule):
 
         try:
             print("Defining figures of merit")
-            self.logger.experiment.define_metric("val_loss" , summary="min")
-            self.logger.experiment.define_metric("auc" , summary="max")
+            self.logger.experiment.define_metric("val_loss", summary="min")
+            self.logger.experiment.define_metric("auc", summary="max")
         except Exception:
-            warnings.warn("Failed to define figures of merit, due to logger unavailable")
+            warnings.warn(
+                "Failed to define figures of merit, due to logger unavailable"
+            )
 
     def load_data(self, stage, input_dir):
         """
@@ -76,9 +88,13 @@ class EdgeClassifierStage(LightningModule):
         """
 
         # if stage == "fit":
-        for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
+        for data_name, data_num in zip(
+            ["trainset", "valset", "testset"], self.hparams["data_split"]
+        ):
             if data_num > 0:
-                dataset = self.dataset_class(input_dir, data_name, data_num, stage, self.hparams)
+                dataset = self.dataset_class(
+                    input_dir, data_name, data_num, stage, self.hparams
+                )
                 setattr(self, data_name, dataset)
 
     def test_data(self, stage):
@@ -86,44 +102,87 @@ class EdgeClassifierStage(LightningModule):
         Test the data to ensure it is of the right format and loaded correctly.
         """
         required_features = ["x", "edge_index", "track_edges", "truth_map", "y"]
-        optional_features = ["particle_id", "nhits", "primary", "pdgId", "ghost", "shared", "module_id", "region", "hit_id", "pt"]
+        optional_features = [
+            "particle_id",
+            "nhits",
+            "primary",
+            "pdgId",
+            "ghost",
+            "shared",
+            "module_id",
+            "region",
+            "hit_id",
+            "pt",
+        ]
 
-        run_data_tests([self.trainset, self.valset, self.testset], required_features, optional_features)
+        run_data_tests(
+            [self.trainset, self.valset, self.testset],
+            required_features,
+            optional_features,
+        )
 
     def train_dataloader(self):
         if self.trainset is None:
             return None
-        num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][0]
-        return DataLoader(
-            self.trainset, batch_size=1, num_workers=num_workers
+        num_workers = (
+            16
+            if (
+                "num_workers" not in self.hparams or self.hparams["num_workers"] is None
+            )
+            else self.hparams["num_workers"][0]
         )
+        return DataLoader(self.trainset, batch_size=1, num_workers=num_workers)
 
     def val_dataloader(self):
         if self.valset is None:
             return None
-        num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][1]
-        return DataLoader(
-            self.valset, batch_size=1, num_workers=num_workers
+        num_workers = (
+            16
+            if (
+                "num_workers" not in self.hparams or self.hparams["num_workers"] is None
+            )
+            else self.hparams["num_workers"][1]
         )
+        return DataLoader(self.valset, batch_size=1, num_workers=num_workers)
 
     def test_dataloader(self):
         if self.testset is None:
             return None
-        num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][2]
-        return DataLoader(
-            self.testset, batch_size=1, num_workers=num_workers
+        num_workers = (
+            16
+            if (
+                "num_workers" not in self.hparams or self.hparams["num_workers"] is None
+            )
+            else self.hparams["num_workers"][2]
         )
+        return DataLoader(self.testset, batch_size=1, num_workers=num_workers)
 
     def predict_dataloader(self):
-
         self.datasets = []
         dataloaders = []
-        for i, (data_name, data_num) in enumerate(zip(["trainset", "valset", "testset"], self.hparams["data_split"])):
+        for i, (data_name, data_num) in enumerate(
+            zip(["trainset", "valset", "testset"], self.hparams["data_split"])
+        ):
             if data_num > 0:
-                dataset = self.dataset_class(self.hparams["input_dir"], data_name, data_num, "predict", self.hparams)
+                dataset = self.dataset_class(
+                    self.hparams["input_dir"],
+                    data_name,
+                    data_num,
+                    "predict",
+                    self.hparams,
+                )
                 self.datasets.append(dataset)
-                num_workers = 16 if ("num_workers" not in self.hparams or self.hparams["num_workers"] is None) else self.hparams["num_workers"][i]
-                dataloaders.append(DataLoader(dataset, batch_size=1, num_workers=num_workers))
+                num_workers = (
+                    16
+                    if (
+                        "num_workers" not in self.hparams
+                        or self.hparams["num_workers"] is None
+                    )
+                    else self.hparams["num_workers"][i]
+                )
+                dataloaders.append(
+                    DataLoader(dataset, batch_size=1, num_workers=num_workers)
+                )
         return dataloaders
 
     def configure_optimizers(self):
@@ -131,7 +190,6 @@ class EdgeClassifierStage(LightningModule):
         return optimizer, scheduler
 
     def training_step(self, batch, batch_idx):
-
         output = self(batch)
         loss = self.loss_function(output, batch)
 
@@ -147,42 +205,53 @@ class EdgeClassifierStage(LightningModule):
         with the `weighting` config option.
         """
 
-        assert hasattr(batch, "y"), "The batch does not have a truth label. Please ensure the batch has a `y` attribute."
-        assert hasattr(batch, "weights"), "The batch does not have a weighting label. Please ensure the batch weighting is handled in preprocessing."
+        assert hasattr(batch, "y"), (
+            "The batch does not have a truth label. Please ensure the batch has a `y`"
+            " attribute."
+        )
+        assert hasattr(batch, "weights"), (
+            "The batch does not have a weighting label. Please ensure the batch"
+            " weighting is handled in preprocessing."
+        )
 
         negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
 
         negative_loss = F.binary_cross_entropy_with_logits(
-            output[negative_mask], torch.zeros_like(output[negative_mask]), weight=batch.weights[negative_mask].abs()
+            output[negative_mask],
+            torch.zeros_like(output[negative_mask]),
+            weight=batch.weights[negative_mask].abs(),
         )
 
         positive_mask = (batch.y == 1) & (batch.weights > 0)
         positive_loss = F.binary_cross_entropy_with_logits(
-            output[positive_mask], torch.ones_like(output[positive_mask]), weight=batch.weights[positive_mask].abs()
+            output[positive_mask],
+            torch.ones_like(output[positive_mask]),
+            weight=batch.weights[positive_mask].abs(),
         )
 
         return positive_loss + negative_loss
 
     def shared_evaluation(self, batch, batch_idx):
-
         output = self(batch)
         loss = self.loss_function(output, batch)
 
         all_truth = batch.y.bool()
         target_truth = (batch.weights > 0) & all_truth
 
-        return {"loss": loss, "all_truth": all_truth, "target_truth": target_truth, "output": output}
+        return {
+            "loss": loss,
+            "all_truth": all_truth,
+            "target_truth": target_truth,
+            "output": output,
+        }
 
     def validation_step(self, batch, batch_idx):
-
         return self.shared_evaluation(batch, batch_idx)
 
     def test_step(self, batch, batch_idx):
-
         return self.shared_evaluation(batch, batch_idx)
 
     def validation_epoch_end(self, outputs):
-
         if len(outputs) > 0:
             loss = torch.stack([x["loss"] for x in outputs]).mean()
             output = torch.cat([x["output"] for x in outputs])
@@ -192,7 +261,6 @@ class EdgeClassifierStage(LightningModule):
             self.log_metrics(output, all_truth, target_truth, loss)
 
     def log_metrics(self, output, all_truth, target_truth, loss):
-
         preds = torch.sigmoid(output) > self.hparams["edge_cut"]
 
         # Positives
@@ -227,13 +295,27 @@ class EdgeClassifierStage(LightningModule):
 
         return preds
 
-    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_idx, optimizer_closure=None, on_tpu=False, using_native_amp=False, using_lbfgs=False):
+    def optimizer_step(
+        self,
+        epoch,
+        batch_idx,
+        optimizer,
+        optimizer_idx,
+        optimizer_closure=None,
+        on_tpu=False,
+        using_native_amp=False,
+        using_lbfgs=False,
+    ):
         """
         Use this to manually enforce warm-up. In the future, this may become built-into PyLightning
         """
         # warm up lr
-        if (self.hparams["warmup"] is not None) and (self.trainer.current_epoch < self.hparams["warmup"]):
-            lr_scale = min(1.0, float(self.trainer.current_epoch + 1) / self.hparams["warmup"])
+        if (self.hparams["warmup"] is not None) and (
+            self.trainer.current_epoch < self.hparams["warmup"]
+        ):
+            lr_scale = min(
+                1.0, float(self.trainer.current_epoch + 1) / self.hparams["warmup"]
+            )
             for pg in optimizer.param_groups:
                 pg["lr"] = lr_scale * self.hparams["lr"]
 
@@ -251,13 +333,18 @@ class EdgeClassifierStage(LightningModule):
         """
 
         dataset = self.datasets[dataloader_idx]
-        if os.path.exists(os.path.join(self.hparams["stage_dir"], dataset.data_name , f"event{batch.event_id}.pyg")):
+        if os.path.exists(
+            os.path.join(
+                self.hparams["stage_dir"],
+                dataset.data_name,
+                f"event{batch.event_id}.pyg",
+            )
+        ):
             return
         output = self(batch)
         self.save_edge_scores(batch, output, dataset)
 
     def save_edge_scores(self, event, output, dataset):
-
         event.scores = torch.sigmoid(output)
         dataset.unscale_features(event)
 
@@ -265,7 +352,12 @@ class EdgeClassifierStage(LightningModule):
 
         datatype = dataset.data_name
         os.makedirs(os.path.join(self.hparams["stage_dir"], datatype), exist_ok=True)
-        torch.save(event.cpu(), os.path.join(self.hparams["stage_dir"], datatype, f"event{event.event_id}.pyg"))
+        torch.save(
+            event.cpu(),
+            os.path.join(
+                self.hparams["stage_dir"], datatype, f"event{event.event_id}.pyg"
+            ),
+        )
 
     @classmethod
     def evaluate(cls, config):
@@ -293,13 +385,15 @@ class EdgeClassifierStage(LightningModule):
         all_y_truth, all_pt = [], []
 
         for event in tqdm(self.testset):
-            # Need to apply score cut and remap the truth_map 
+            # Need to apply score cut and remap the truth_map
             if "score_cut" in config:
                 self.apply_score_cut(event, config["score_cut"])
             if "target_tracks" in config:
                 self.apply_target_conditions(event, config["target_tracks"])
             else:
-                event.target_mask = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
+                event.target_mask = torch.ones(
+                    event.truth_map.shape[0], dtype=torch.bool
+                )
             all_y_truth.append(event.truth_map[event.target_mask] >= 0)
             all_pt.append(event.pt[event.target_mask])
 
@@ -324,15 +418,20 @@ class EdgeClassifierStage(LightningModule):
         # Plot the edgewise efficiency
         pt_units = "GeV" if "pt_units" not in plot_config else plot_config["pt_units"]
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.errorbar(xvals, eff, xerr=xerrs, yerr=err, fmt='o', color='black', label='Efficiency')
-        ax.set_xlabel(f'$p_T [{pt_units}]$', ha='right', x=0.95, fontsize=14)
-        ax.set_ylabel(plot_config["title"], ha='right', y=0.95, fontsize=14)
-        ax.set_xscale('log')
+        ax.errorbar(
+            xvals, eff, xerr=xerrs, yerr=err, fmt="o", color="black", label="Efficiency"
+        )
+        ax.set_xlabel(f"$p_T [{pt_units}]$", ha="right", x=0.95, fontsize=14)
+        ax.set_ylabel(plot_config["title"], ha="right", y=0.95, fontsize=14)
+        ax.set_xscale("log")
 
         # Save the plot
-        atlasify("Internal",
-                 r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
-                 r"$p_T > 1$GeV, $|\eta < 4$")
+        atlasify(
+            "Internal",
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+            r" \bar{t}$ and soft interactions) " + "\n"
+            r"$p_T > 1$GeV, $|\eta < 4$",
+        )
         fig.savefig(os.path.join(config["stage_dir"], "edgewise_efficiency.png"))
 
     def graph_roc_curve(self, plot_config, config):
@@ -342,7 +441,6 @@ class EdgeClassifierStage(LightningModule):
         all_y_truth, all_scores = [], []
 
         for event in tqdm(self.testset):
-
             # Need to apply score cut and remap the truth_map
             if "weights" in event.keys:
                 target_y = event.weights.bool() & event.y.bool()
@@ -361,20 +459,33 @@ class EdgeClassifierStage(LightningModule):
 
         # Plot the ROC curve
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.plot(fpr, tpr, color='black', label='ROC curve')
-        ax.plot([0, 1], [0, 1], color='black', linestyle='--', label='Random classifier')
-        ax.set_xlabel('False Positive Rate', ha='right', x=0.95, fontsize=14)
-        ax.set_ylabel('True Positive Rate', ha='right', y=0.95, fontsize=14)
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-        ax.legend(loc='lower right', fontsize=14)
-        ax.text(0.95, 0.20, f"AUC: {auc_score:.3f}", ha='right', va='bottom', transform=ax.transAxes, fontsize=14)
+        ax.plot(fpr, tpr, color="black", label="ROC curve")
+        ax.plot(
+            [0, 1], [0, 1], color="black", linestyle="--", label="Random classifier"
+        )
+        ax.set_xlabel("False Positive Rate", ha="right", x=0.95, fontsize=14)
+        ax.set_ylabel("True Positive Rate", ha="right", y=0.95, fontsize=14)
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.legend(loc="lower right", fontsize=14)
+        ax.text(
+            0.95,
+            0.20,
+            f"AUC: {auc_score:.3f}",
+            ha="right",
+            va="bottom",
+            transform=ax.transAxes,
+            fontsize=14,
+        )
 
         # Save the plot
-        atlasify("Internal",
-                 f"{plot_config['title']} \n"
-                 r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
-                 r"$p_T > 1$GeV, $|\eta < 4$")
+        atlasify(
+            "Internal",
+            f"{plot_config['title']} \n"
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+            r" \bar{t}$ and soft interactions) " + "\n"
+            r"$p_T > 1$GeV, $|\eta < 4$",
+        )
         fig.savefig(os.path.join(config["stage_dir"], "roc_curve.png"))
 
     def graph_region_efficiency_purity(self, plot_config, config):
@@ -383,7 +494,9 @@ class EdgeClassifierStage(LightningModule):
 
         for event in tqdm(self.testset):
             edge_truth.append(event.y)
-            edge_regions.append(event.x_region[event.edge_index[0]])  # Assign region depending on first node in edge
+            edge_regions.append(
+                event.x_region[event.edge_index[0]]
+            )  # Assign region depending on first node in edge
             edge_positive.append(event.scores > config["edge_cut"])
 
             node_r.append(event.x_r)
@@ -398,9 +511,16 @@ class EdgeClassifierStage(LightningModule):
         node_z = torch.cat(node_z).cpu().numpy()
         node_regions = torch.cat(node_regions).cpu().numpy()
 
-        fig, ax = plot_eff_pur_region(edge_truth, edge_positive, edge_regions, node_r, node_z, node_regions, plot_config)
+        fig, ax = plot_eff_pur_region(
+            edge_truth,
+            edge_positive,
+            edge_regions,
+            node_r,
+            node_z,
+            node_regions,
+            plot_config,
+        )
         fig.savefig(os.path.join(config["stage_dir"], "region_eff_pur.png"))
-
 
     def apply_score_cut(self, event, score_cut):
         """
@@ -418,18 +538,33 @@ class EdgeClassifierStage(LightningModule):
 
         for key, values in target_tracks.items():
             if isinstance(values, list):
-                passing_tracks = passing_tracks * (values[0] <= event[key].float()) * (event[key].float() <= values[1])
+                passing_tracks = (
+                    passing_tracks
+                    * (values[0] <= event[key].float())
+                    * (event[key].float() <= values[1])
+                )
             else:
                 passing_tracks = passing_tracks * (event[key] == values)
 
         event.target_mask = passing_tracks
+
 
 class GraphDataset(Dataset):
     """
     The custom default GNN dataset to load graphs off the disk
     """
 
-    def __init__(self, input_dir, data_name=None, num_events=None, stage="fit", hparams=None, transform=None, pre_transform=None, pre_filter=None):
+    def __init__(
+        self,
+        input_dir,
+        data_name=None,
+        num_events=None,
+        stage="fit",
+        hparams=None,
+        transform=None,
+        pre_transform=None,
+        pre_filter=None,
+    ):
         super().__init__(input_dir, transform, pre_transform, pre_filter)
 
         self.input_dir = input_dir
@@ -438,14 +573,15 @@ class GraphDataset(Dataset):
         self.num_events = num_events
         self.stage = stage
 
-        self.input_paths = load_datafiles_in_dir(self.input_dir, self.data_name, self.num_events)
+        self.input_paths = load_datafiles_in_dir(
+            self.input_dir, self.data_name, self.num_events
+        )
         self.input_paths.sort()  # We sort here for reproducibility
 
     def len(self):
         return len(self.input_paths)
 
     def get(self, idx):
-
         event_path = self.input_paths[idx]
         event = torch.load(event_path, map_location=torch.device("cpu"))
         self.preprocess_event(event)
@@ -471,8 +607,14 @@ class GraphDataset(Dataset):
         2. Pruning the input graph to only include nodes that are connected to these edges.
         """
 
-        if self.hparams is not None and "hard_cuts" in self.hparams.keys() and self.hparams["hard_cuts"]:
-            assert isinstance(self.hparams["hard_cuts"], dict), "Hard cuts must be a dictionary"
+        if (
+            self.hparams is not None
+            and "hard_cuts" in self.hparams.keys()
+            and self.hparams["hard_cuts"]
+        ):
+            assert isinstance(
+                self.hparams["hard_cuts"], dict
+            ), "Hard cuts must be a dictionary"
             handle_hard_cuts(event, self.hparams["hard_cuts"])
 
     def construct_weighting(self, event):
@@ -480,24 +622,31 @@ class GraphDataset(Dataset):
         Construct the weighting for the event
         """
 
-        assert event.y.shape[0] == event.edge_index.shape[1], f"Input graph has {event.edge_index.shape[1]} edges, but {event.y.shape[0]} truth labels"
+        assert event.y.shape[0] == event.edge_index.shape[1], (
+            f"Input graph has {event.edge_index.shape[1]} edges, but"
+            f" {event.y.shape[0]} truth labels"
+        )
 
         if self.hparams is not None and "weighting" in self.hparams.keys():
-            assert isinstance(self.hparams["weighting"], list) & isinstance(self.hparams["weighting"][0], dict), "Weighting must be a list of dictionaries"
+            assert isinstance(self.hparams["weighting"], list) & isinstance(
+                self.hparams["weighting"][0], dict
+            ), "Weighting must be a list of dictionaries"
             event.weights = handle_weighting(event, self.hparams["weighting"])
         else:
             event.weights = torch.ones_like(event.y, dtype=torch.float32)
 
     def handle_edge_list(self, event):
-
-        if "input_cut" in self.hparams.keys() and self.hparams["input_cut"] and "scores" in event.keys:
+        if (
+            "input_cut" in self.hparams.keys()
+            and self.hparams["input_cut"]
+            and "scores" in event.keys
+        ):
             # Apply a score cut to the event
             self.apply_score_cut(event, self.hparams["input_cut"])
 
         # if "undirected" in self.hparams.keys() and self.hparams["undirected"]:
         #     # Flip event.edge_index and concat together
         #     self.to_undirected(event)
-
 
     def to_undirected(self, event):
         """
@@ -507,19 +656,24 @@ class GraphDataset(Dataset):
 
         num_edges = event.edge_index.shape[1]
         # Flip event.edge_index and concat together
-        event.edge_index = torch.cat([event.edge_index, event.edge_index.flip(0)], dim=1)
+        event.edge_index = torch.cat(
+            [event.edge_index, event.edge_index.flip(0)], dim=1
+        )
         # event.edge_index, unique_edge_indices = torch.unique(event.edge_index, dim=1, return_inverse=True)
 
         # Concat all edge-like features together
         for key in event.keys:
-            if isinstance(event[key], torch.Tensor) and ((event[key].shape[0] == num_edges)):
+            if isinstance(event[key], torch.Tensor) and (
+                (event[key].shape[0] == num_edges)
+            ):
                 event[key] = torch.cat([event[key], event[key]], dim=0)
                 # event[key] = torch.zeros_like(event.edge_index[0], dtype=event[key].dtype).scatter(0, unique_edge_indices, event[key])
 
-
     def add_edge_features(self, event):
         if "edge_features" in self.hparams.keys():
-            assert isinstance(self.hparams["edge_features"], list), "Edge features must be a list of strings"
+            assert isinstance(
+                self.hparams["edge_features"], list
+            ), "Edge features must be a list of strings"
             handle_edge_features(event, self.hparams["edge_features"])
 
     def scale_features(self, event):
@@ -527,8 +681,14 @@ class GraphDataset(Dataset):
         Handle feature scaling for the event
         """
 
-        if self.hparams is not None and "node_scales" in self.hparams.keys() and "node_features" in self.hparams.keys():
-            assert isinstance(self.hparams["node_scales"], list), "Feature scaling must be a list of ints or floats"
+        if (
+            self.hparams is not None
+            and "node_scales" in self.hparams.keys()
+            and "node_features" in self.hparams.keys()
+        ):
+            assert isinstance(
+                self.hparams["node_scales"], list
+            ), "Feature scaling must be a list of ints or floats"
             for i, feature in enumerate(self.hparams["node_features"]):
                 assert feature in event.keys, f"Feature {feature} not found in event"
                 event[feature] = event[feature] / self.hparams["node_scales"][i]
@@ -538,8 +698,14 @@ class GraphDataset(Dataset):
         Unscale features when doing prediction
         """
 
-        if self.hparams is not None and "node_scales" in self.hparams.keys() and "node_features" in self.hparams.keys():
-            assert isinstance(self.hparams["node_scales"], list), "Feature scaling must be a list of ints or floats"
+        if (
+            self.hparams is not None
+            and "node_scales" in self.hparams.keys()
+            and "node_features" in self.hparams.keys()
+        ):
+            assert isinstance(
+                self.hparams["node_scales"], list
+            ), "Feature scaling must be a list of ints or floats"
             for i, feature in enumerate(self.hparams["node_features"]):
                 assert feature in event.keys, f"Feature {feature} not found in event"
                 event[feature] = event[feature] * self.hparams["node_scales"][i]
@@ -551,7 +717,14 @@ class GraphDataset(Dataset):
         passing_edges_mask = event.scores >= score_cut
         num_edges = event.edge_index.shape[1]
         for key in event.keys:
-            if isinstance(event[key], torch.Tensor) and event[key].shape and (event[key].shape[0] == num_edges or event[key].shape[-1] == num_edges):
+            if (
+                isinstance(event[key], torch.Tensor)
+                and event[key].shape
+                and (
+                    event[key].shape[0] == num_edges
+                    or event[key].shape[-1] == num_edges
+                )
+            ):
                 event[key] = event[key][..., passing_edges_mask]
 
         remap_from_mask(event, passing_edges_mask)

@@ -37,4 +37,5 @@ exclude =
     ./torch/include,
     ./torch/lib,
     ./venv,
-    *.pyi
+    *.pyi,
+    ./notebooks

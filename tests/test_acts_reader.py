@@ -2,7 +2,6 @@ import sys
 
 sys.path.append("../gnn4itk_cf")
 
-import yaml
 import pytest
 from pathlib import Path
 
@@ -40,10 +39,14 @@ def test_reader_positions(tmp_path, true_hits, tol):
     reader = ActsReader(config)
     reader.convert_to_csv()
 
-    test_particles = pd.read_csv(Path(tmp_path) / "trainset/event000000000-particles.csv")
+    test_particles = pd.read_csv(
+        Path(tmp_path) / "trainset/event000000000-particles.csv"
+    )
     test_truth = pd.read_csv(Path(tmp_path) / "trainset/event000000000-truth.csv")
 
-    ref_particles = pd.read_csv("test_acts_reader/exact/event000000000-particles_initial.csv")
+    ref_particles = pd.read_csv(
+        "test_acts_reader/exact/event000000000-particles_initial.csv"
+    )
     ref_truth = pd.read_csv("test_acts_reader/exact/event000000000-hits.csv")
     ref_meas = pd.read_csv("test_acts_reader/exact/event000000000-measurements.csv")
 
@@ -53,7 +56,11 @@ def test_reader_positions(tmp_path, true_hits, tol):
     assert (ref_truth.geometry_id == test_truth.geometry_id).all()
 
     assert (
-        abs(ref_truth[["tx", "ty", "tz"]].to_numpy() - test_truth[["x", "y", "z"]].to_numpy()) < tol
+        abs(
+            ref_truth[["tx", "ty", "tz"]].to_numpy()
+            - test_truth[["x", "y", "z"]].to_numpy()
+        )
+        < tol
     ).all()
 
 
@@ -85,7 +92,9 @@ def test_cell_information(tmp_path, true_hits):
     for feat in cell_features:
         assert feat in test_truth
 
-    test_particles = pd.read_csv(Path(tmp_path) / "trainset/event000000000-particles.csv")
+    test_particles = pd.read_csv(
+        Path(tmp_path) / "trainset/event000000000-particles.csv"
+    )
     test_truth = pd.read_csv(Path(tmp_path) / "trainset/event000000000-truth.csv")
 
     ref_meas = pd.read_csv("test_acts_reader/geometric/event000000000-measurements.csv")

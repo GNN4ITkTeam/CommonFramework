@@ -1,8 +1,10 @@
 import sys
+
 sys.path.append("../")
 
 import yaml
 import pytest
+
 
 def test_model_load():
     """
@@ -17,7 +19,8 @@ def test_model_load():
     model = GNNStage(config)
 
     assert model is not None
-    assert model.model is not None 
+    assert model.model is not None
+
 
 def test_data_load():
     """
@@ -70,5 +73,5 @@ def test_construct_weighting():
     """
     TODO
     """
-    
+
     pass

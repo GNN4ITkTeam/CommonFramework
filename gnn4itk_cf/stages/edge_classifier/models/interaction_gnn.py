@@ -97,12 +97,14 @@ class InteractionGNN(EdgeClassifierStage):
         )
 
     def message_step(self, x, start, end, e):
-
         # Compute new node features
-        edge_messages = torch.cat([
-            self.aggregation(e, end, dim_size=x.shape[0]),
-            self.aggregation(e, start, dim_size=x.shape[0]),
-        ], dim=-1)
+        edge_messages = torch.cat(
+            [
+                self.aggregation(e, end, dim_size=x.shape[0]),
+                self.aggregation(e, start, dim_size=x.shape[0]),
+            ],
+            dim=-1,
+        )
 
         node_inputs = torch.cat([x, edge_messages], dim=-1)
 
@@ -115,18 +117,23 @@ class InteractionGNN(EdgeClassifierStage):
         return x_out, e_out
 
     def output_step(self, x, start, end, e):
-
         classifier_inputs = torch.cat([x[start], x[end], e], dim=1)
         classifier_output = self.output_edge_classifier(classifier_inputs).squeeze(-1)
 
-        if "undirected" in self.hparams and self.hparams["undirected"]:  # Take mean of outgoing edges and incoming edges
-            classifier_output = (classifier_output[:classifier_output.shape[0] // 2] + classifier_output[classifier_output.shape[0] // 2:]) / 2
+        if (
+            "undirected" in self.hparams and self.hparams["undirected"]
+        ):  # Take mean of outgoing edges and incoming edges
+            classifier_output = (
+                classifier_output[: classifier_output.shape[0] // 2]
+                + classifier_output[classifier_output.shape[0] // 2 :]
+            ) / 2
 
         return classifier_output
 
     def forward(self, batch, **kwargs):
-
-        x = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()
+        x = torch.stack(
+            [batch[feature] for feature in self.hparams["node_features"]], dim=-1
+        ).float()
         start, end = batch.edge_index
         if "undirected" in self.hparams and self.hparams["undirected"]:
             start, end = torch.cat([start, end]), torch.cat([end, start])
@@ -143,7 +150,6 @@ class InteractionGNN(EdgeClassifierStage):
         return self.output_step(x, start, end, e)
 
     def setup_aggregation(self):
-
         if "aggregation" not in self.hparams:
             self.hparams["aggregation"] = ["sum"]
             self.network_input_size = 3 * (self.hparams["hidden"])
@@ -151,25 +157,31 @@ class InteractionGNN(EdgeClassifierStage):
             self.hparams["aggregation"] = [self.hparams["aggregation"]]
             self.network_input_size = 3 * (self.hparams["hidden"])
         elif isinstance(self.hparams["aggregation"], list):
-            self.network_input_size = (1 + 2 * len(self.hparams["aggregation"])) * (self.hparams["hidden"])
+            self.network_input_size = (1 + 2 * len(self.hparams["aggregation"])) * (
+                self.hparams["hidden"]
+            )
         else:
             raise ValueError("Unknown aggregation type")
 
         try:
-            self.aggregation = aggr.MultiAggregation(self.hparams["aggregation"], mode="cat")
+            self.aggregation = aggr.MultiAggregation(
+                self.hparams["aggregation"], mode="cat"
+            )
         except ValueError:
-            raise ValueError("Unknown aggregation type. Did you know that the latest version of GNN4ITk accepts any list of aggregations? E.g. [sum, mean], [max, min, std], etc.")
+            raise ValueError(
+                "Unknown aggregation type. Did you know that the latest version of"
+                " GNN4ITk accepts any list of aggregations? E.g. [sum, mean], [max,"
+                " min, std], etc."
+            )
 
 
 class InteractionGNN2(EdgeClassifierStage):
     """
     Message Passing Neural Network
     """
+
     def __init__(self, hparams):
         super().__init__(hparams)
-
-
-
 
         hparams["batchnorm"] = (
             False if "batchnorm" not in hparams else hparams["batchnorm"]
@@ -178,12 +190,10 @@ class InteractionGNN2(EdgeClassifierStage):
             None if "output_activation" not in hparams else hparams["output_activation"]
         )
 
-
         # Define the dataset to be used, if not using the default
         self.save_hyperparameters(hparams)
 
         # self.setup_layer_sizes()
-
 
         if hparams["concat"]:
             if hparams["in_out_diff_agg"]:
@@ -204,7 +214,8 @@ class InteractionGNN2(EdgeClassifierStage):
             output_activation=hparams["output_activation"],
             hidden_activation=hparams["hidden_activation"],
             layer_norm=hparams["layernorm"],
-            batch_norm=hparams["batchnorm"],)
+            batch_norm=hparams["batchnorm"],
+        )
         # edge encoder
         if "edge_features" in hparams and len(hparams["edge_features"]) != 0:
             self.edge_encoder = make_mlp(
@@ -213,7 +224,8 @@ class InteractionGNN2(EdgeClassifierStage):
                 output_activation=hparams["output_activation"],
                 hidden_activation=hparams["hidden_activation"],
                 layer_norm=hparams["layernorm"],
-                batch_norm=hparams["batchnorm"],)
+                batch_norm=hparams["batchnorm"],
+            )
         else:
             self.edge_encoder = make_mlp(
                 input_size=2 * hparams["hidden"],
@@ -221,7 +233,8 @@ class InteractionGNN2(EdgeClassifierStage):
                 output_activation=hparams["output_activation"],
                 hidden_activation=hparams["hidden_activation"],
                 layer_norm=hparams["layernorm"],
-                batch_norm=hparams["batchnorm"],)
+                batch_norm=hparams["batchnorm"],
+            )
 
         # edge network
         if hparams["edge_net_recurrent"]:
@@ -231,17 +244,22 @@ class InteractionGNN2(EdgeClassifierStage):
                 output_activation=hparams["output_activation"],
                 hidden_activation=hparams["hidden_activation"],
                 layer_norm=hparams["layernorm"],
-                batch_norm=hparams["batchnorm"],)
+                batch_norm=hparams["batchnorm"],
+            )
         else:
             self.edge_network = nn.ModuleList(
-                [make_mlp(
-                    input_size=in_edge_net,
-                    sizes=[hparams["hidden"]] * hparams["n_edge_net_layers"],
-                    output_activation=hparams["output_activation"],
-                    hidden_activation=hparams["hidden_activation"],
-                    layer_norm=hparams["layernorm"],
-                    batch_norm=hparams["batchnorm"],)
-                    for i in range(hparams['n_graph_iters'])])
+                [
+                    make_mlp(
+                        input_size=in_edge_net,
+                        sizes=[hparams["hidden"]] * hparams["n_edge_net_layers"],
+                        output_activation=hparams["output_activation"],
+                        hidden_activation=hparams["hidden_activation"],
+                        layer_norm=hparams["layernorm"],
+                        batch_norm=hparams["batchnorm"],
+                    )
+                    for i in range(hparams["n_graph_iters"])
+                ]
+            )
         # node network
         if hparams["node_net_recurrent"]:
             self.node_network = make_mlp(
@@ -250,17 +268,22 @@ class InteractionGNN2(EdgeClassifierStage):
                 output_activation=hparams["output_activation"],
                 hidden_activation=hparams["hidden_activation"],
                 layer_norm=hparams["layernorm"],
-                batch_norm=hparams["batchnorm"],)
+                batch_norm=hparams["batchnorm"],
+            )
         else:
             self.node_network = nn.ModuleList(
-                [make_mlp(
-                    input_size=in_node_net,
-                    sizes=[hparams["hidden"]] * hparams["n_node_net_layers"],
-                    output_activation=hparams["output_activation"],
-                    hidden_activation=hparams["hidden_activation"],
-                    layer_norm=hparams["layernorm"],
-                    batch_norm=hparams["batchnorm"],)
-                    for i in range(hparams['n_graph_iters'])])
+                [
+                    make_mlp(
+                        input_size=in_node_net,
+                        sizes=[hparams["hidden"]] * hparams["n_node_net_layers"],
+                        output_activation=hparams["output_activation"],
+                        hidden_activation=hparams["hidden_activation"],
+                        layer_norm=hparams["layernorm"],
+                        batch_norm=hparams["batchnorm"],
+                    )
+                    for i in range(hparams["n_graph_iters"])
+                ]
+            )
 
         # edge decoder
         self.edge_decoder = make_mlp(
@@ -269,7 +292,8 @@ class InteractionGNN2(EdgeClassifierStage):
             output_activation=hparams["output_activation"],
             hidden_activation=hparams["hidden_activation"],
             layer_norm=hparams["layernorm"],
-            batch_norm=hparams["batchnorm"],)
+            batch_norm=hparams["batchnorm"],
+        )
         # edge output transform layer
         self.edge_output_transform = make_mlp(
             input_size=hparams["hidden"],
@@ -277,7 +301,8 @@ class InteractionGNN2(EdgeClassifierStage):
             output_activation=hparams["edge_output_transform_final_activation"],
             hidden_activation=hparams["hidden_activation"],
             layer_norm=hparams["layernorm"],
-            batch_norm=hparams["batchnorm"],)
+            batch_norm=hparams["batchnorm"],
+        )
 
         # dropout layer
         self.dropout = nn.Dropout(p=0.1)
@@ -285,10 +310,13 @@ class InteractionGNN2(EdgeClassifierStage):
         # self.hparams = hparams
 
     def forward(self, batch):
-
-        x = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()
+        x = torch.stack(
+            [batch[feature] for feature in self.hparams["node_features"]], dim=-1
+        ).float()
         if "edge_features" in self.hparams and len(self.hparams) != 0:
-            edge_attr = torch.stack([batch[feature] for feature in self.hparams["edge_features"]], dim=-1).float()
+            edge_attr = torch.stack(
+                [batch[feature] for feature in self.hparams["edge_features"]], dim=-1
+            ).float()
         else:
             edge_attr = None
 
@@ -328,7 +356,10 @@ class InteractionGNN2(EdgeClassifierStage):
                 if self.hparams["concat"]:
                     x = checkpoint(self.concat, x, input_x)
                     e = checkpoint(self.concat, e, input_e)
-                if self.hparams["node_net_recurrent"] and self.hparams["edge_net_recurrent"]:
+                if (
+                    self.hparams["node_net_recurrent"]
+                    and self.hparams["edge_net_recurrent"]
+                ):
                     x, e, out = checkpoint(self.message_step, x, e, src, dst)
                 else:
                     x, e, out = checkpoint(self.message_step, x, e, src, dst, i)
@@ -336,7 +367,10 @@ class InteractionGNN2(EdgeClassifierStage):
                 if self.hparams["concat"]:
                     x = torch.cat([x, input_x], dim=-1)
                     e = torch.cat([e, input_e], dim=-1)
-                if self.hparams["node_net_recurrent"] and self.hparams["edge_net_recurrent"]:
+                if (
+                    self.hparams["node_net_recurrent"]
+                    and self.hparams["edge_net_recurrent"]
+                ):
                     x, e, out = self.message_step(x, e, src, dst)
                 else:
                     x, e, out = self.message_step(x, e, src, dst, i)
@@ -353,7 +387,9 @@ class InteractionGNN2(EdgeClassifierStage):
         edge_messages_from_src = scatter_add(e_updated, dst, dim=0, dim_size=x.shape[0])
         edge_messages_from_dst = scatter_add(e_updated, src, dim=0, dim_size=x.shape[0])
         if self.hparams["in_out_diff_agg"]:
-            node_inputs = torch.cat([edge_messages_from_src, edge_messages_from_dst, x], dim=-1)  # to check : the order dst src  x ?
+            node_inputs = torch.cat(
+                [edge_messages_from_src, edge_messages_from_dst, x], dim=-1
+            )  # to check : the order dst src  x ?
         else:
             # add message from src and dst ?? # edge_messages = edge_messages_from_src + edge_messages_from_dst
             edge_messages = edge_messages_from_src + edge_messages_from_dst
@@ -364,8 +400,11 @@ class InteractionGNN2(EdgeClassifierStage):
         else:
             x_updated = self.node_network[i](node_inputs)
 
-        return x_updated, e_updated, self.edge_output_transform(self.edge_decoder(e_updated))
-
+        return (
+            x_updated,
+            e_updated,
+            self.edge_output_transform(self.edge_decoder(e_updated)),
+        )
 
     def concat(self, x, y):
         return torch.cat([x, y], dim=-1)
