@@ -4,10 +4,7 @@
   before_script:
     - pip install flake8
   script:
-    # Ignore some more annoying flake8 problems:
-    #  E231: missing whitespace after comma, semicolon, colon
-    #  W503: line break before binary operator
-    - flake8 --ignore=E231,W503 .
+    - flake8 .
   needs: []
   allow_failure: True
 
