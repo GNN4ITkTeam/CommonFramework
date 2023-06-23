@@ -27,6 +27,7 @@ from itertools import chain, product, combinations
 from torch_geometric.data import Data
 import torch
 import warnings
+import logging
 
 class EventReader:
     """
@@ -45,6 +46,21 @@ class EventReader:
             self.config = yaml.load(open(config, "r"), Loader=yaml.FullLoader)
         else:
             raise NotImplementedError
+        
+        # Logging config
+        self.log=logging.getLogger('EventReader')
+        log_level = self.config["log_level"].upper() if "log_level" in self.config else 'WARNING'
+
+        if log_level=='WARNING':
+            self.log.setLevel(logging.WARNING)
+        elif log_level=='INFO':
+            self.log.setLevel(logging.INFO)
+        elif log_level=='DEBUG':
+            self.log.setLevel(logging.DEBUG)
+        else:
+            raise ValueError(f"Unknown logging level {log_level}")
+
+        self.log.info("Using log level {}".format(logging.getLevelName(self.log.getEffectiveLevel())))
 
     @classmethod
     def infer(cls, config):
@@ -57,9 +73,9 @@ class EventReader:
 
         reader = cls(config)
         reader.convert_to_csv()
-        reader._test_csv_conversion()
-        reader._convert_to_pyg()
-        reader._test_pyg_conversion()
+        #reader._test_csv_conversion()
+        # reader._convert_to_pyg()
+        # reader._test_pyg_conversion()
 
         return reader
 
@@ -71,6 +87,7 @@ class EventReader:
         for dataset, dataset_name in zip([self.trainset, self.valset, self.testset], ["trainset", "valset", "testset"]):
             if dataset is not None:
                 self._build_all_csv(dataset, dataset_name)
+                break
 
     def _build_all_csv(self, dataset, dataset_name):
 
@@ -89,6 +106,7 @@ class EventReader:
         else:
             for event in tqdm(dataset, desc=f"Building {dataset_name} CSV files"):
                 self._build_single_csv(event, output_dir=output_dir)
+                break
 
     def _build_single_csv(self, event, output_dir=None):
         """

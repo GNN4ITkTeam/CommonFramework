@@ -1,0 +1,182 @@
+# Copyright (C) 2023 CERN for the benefit of the ATLAS collaboration
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import os
+from torch.utils.data import random_split
+import torch
+import pandas as pd
+
+from pathlib import Path
+import uproot
+import logging
+
+from ..data_reading_stage import EventReader
+from . import athena_utils
+from . import athena_root_utils
+from .athena_datatypes import SPACEPOINTS_DATATYPES, PARTICLES_DATATYPES
+
+class AthenaRootReader(EventReader):
+    def __init__(self, config):
+        super().__init__(config)
+        """
+        Here we initialize and load any attributes that are needed for the _build_single_csv function.
+        """
+
+        self.log.info("Using AthenaRootReader to read events")
+
+        self.tree_name = "GNN4ITk"
+
+        # Get list of all root files in input_dir (sorted)
+        input_dir = Path(self.config["input_dir"])
+        self.root_files = sorted(list(input_dir.glob("*.root")))
+
+        # Make the list of all Athena Event Numbers, and the file names where we can find them
+        # by reading only the event_number branch in all the files
+        self.map_evtNum_fNameEntry = {}
+
+        for f in self.root_files:
+            entry=0
+            if Path(f).is_file():
+                for event in uproot.iterate( f, filter_name='event_number', library='np', step_size=1):
+                    self.map_evtNum_fNameEntry[ event['event_number'][0] ] = {"fname": f, "entry" : entry}
+                    entry+=1
+            else:
+                raise ValueError(f"Cannot open file {fname}")
+
+        # Split the event numbers in data sets of 80/10/10 for train/val/test 
+        mapEvtFEnt=self.map_evtNum_fNameEntry
+        nEvts = len(mapEvtFEnt)
+        print(f"Total number of events : {nEvts}")
+        l80 = int(nEvts*0.8)-1
+        l10 = int(nEvts*0.1)-1
+        train_end   = l80
+        valid_begin = train_end+1
+        valid_end   = valid_begin+l10
+        test_begin  = valid_end+1
+
+        if(test_begin>=nEvts):
+            raise ValueError(f"Error in data splitting, first test event index is {test_begin}")
+
+        trainset = [*mapEvtFEnt][0:valid_begin]
+        validset = [*mapEvtFEnt][valid_begin:test_begin]
+        testset  = [*mapEvtFEnt][test_begin:]
+
+        self.log.info("Training events   : {0:>7} -> {1:>7} ({2} evts)".format(trainset[0],trainset[-1],len(trainset)))
+        self.log.info("Validation events : {0:>7} -> {1:>7} ({2} evts)".format(validset[0],validset[-1],len(validset)))
+        self.log.info("Test events       : {0:>7} -> {1:>7} ({2} evts)".format(testset[0],testset[-1],len(testset)))
+
+        # Sanity checks
+        if (len(trainset)+len(validset)+len(testset) < nEvts):
+            raise ValueError("Error in data splitting, we are not using all events!")
+
+        if (len(trainset)+len(validset)+len(testset) > nEvts):
+            raise ValueError("Error in data splitting, we are trying to use more events than we can!")
+
+        test1 = list( set(trainset) & set(validset))
+        test2 = list( set(trainset) & set(testset))
+        test3 = list( set(testset) & set(validset))
+
+        if len(test1)!=0 or len(test2)!=0 or len(test3)!=0:
+            raise ValueError("Error in data splitting, train/valid/test sets are not independent!")
+
+        # The sets are good, we can use them (list of event numbers)
+        self.trainset = trainset 
+        self.valset   = validset
+        self.testset  = testset
+        self.module_lookup = self.get_module_lookup()
+
+
+    def get_module_lookup(self):
+        # Let's get the module lookup
+        names = ['hardware', 'barrel_endcap', 'layer_disk', 'eta_module',
+                 'phi_module', "centerMod_z", "centerMod_x", "centerMod_y", "ID", "side"]
+        module_lookup = pd.read_csv(self.config["module_lookup_path"], sep=" ", names=names, header=None)
+        module_lookup = module_lookup.drop_duplicates()
+        return module_lookup[module_lookup.side == 0]  # .copy() ??
+
+
+    def _build_single_csv(self, event, output_dir=None):
+
+        # Check if file already exists
+        if os.path.exists(os.path.join(output_dir, "event{:09}-particles.csv".format(event))) and os.path.exists(os.path.join(output_dir, "event{:09}-truth.csv".format(event))):
+            print(f"File for event number {event} already exists, skipping...")
+            return
+
+        # Determine which root file and wich TTree entry to read given the event number to be processed
+        filename = str(self.map_evtNum_fNameEntry[ event ]['fname'])
+        entry    = self.map_evtNum_fNameEntry[event]['entry']
+
+        # From the TTree extract numpy arrays of interesting TBranches, only for the desired event number
+        with uproot.open(filename+":"+self.tree_name, filter_name=athena_root_utils.all_branches, library='np') as tree:
+
+            self.log.debug(f"Opening file {filename} to read entry {entry} corresponding to event number {event}")
+
+            # Get the dict of np arrays corresponding the the wished TBranches, only for the desired event number
+            part_branches = tree.arrays(athena_root_utils.particle_branch_names,entry_start=entry,entry_stop=(entry+1),library='np')
+            self.log.debug("Particles branches read")
+            sp_branches   = tree.arrays(athena_root_utils.spacepoint_branch_names,entry_start=entry,entry_stop=(entry+1),library='np')
+            self.log.debug("Space points branches read")
+            cl_branches   = tree.arrays(athena_root_utils.cluster_branch_names,entry_start=entry,entry_stop=(entry+1),library='np')
+            self.log.debug("Clusters branches read")
+
+            # Read particles
+            particles = athena_root_utils.read_particles(part_branches)
+            particles = athena_utils.convert_barcodes(particles)
+            particles = particles.astype({k: v for k, v in PARTICLES_DATATYPES.items() if k in particles.columns})
+            self.log.debug("Particles data frame made")
+
+            # Read spacepoints
+            spacepoints = athena_root_utils.read_spacepoints(sp_branches)
+            self.log.debug("Space points data frame made")
+            if self.log.getEffectiveLevel()==logging.DEBUG:
+                print("\nSpace points\n")
+                print(spacepoints)
+                print(spacepoints.dtypes)
+
+            # Read clusters
+            clusters = athena_root_utils.read_clusters(cl_branches, particles)
+            self.log.debug("Clusters data frame made")
+            if self.log.getEffectiveLevel()==logging.DEBUG:
+                print("\nClusters\n")
+                print(clusters)
+                print(clusters.dtypes)
+
+
+            # Get detectable particles
+            detectable_particles = athena_utils.get_detectable_particles(particles, clusters)
+            self.log.debug("Detectable particles data frame made")
+
+            # Get truth spacepoints
+            truth = athena_utils.get_truth_spacepoints(spacepoints, clusters, SPACEPOINTS_DATATYPES)
+            truth = athena_utils.remove_undetectable_particles(truth, detectable_particles)
+            truth = athena_utils.add_region_labels(truth, self.config["region_labels"])
+            truth = athena_utils.add_module_id(truth, self.module_lookup)
+
+            # To ease validation when comapring to txt reading, re-order to get same columns ordering
+            truth = truth[ athena_root_utils.truth_col_order ]
+            detectable_particles = detectable_particles[ athena_root_utils.particles_col_order ]
+
+            # Save to CSV
+            truth.to_csv(os.path.join(output_dir, "event{:09}-truth.csv".format(int(event))), index=False)
+            detectable_particles.to_csv(os.path.join(output_dir, "event{:09}-particles.csv".format(int(event))), index=False)
+            self.log.debug(f"truth.csv and particles.csv made for event {event}")
+
+            if self.log.getEffectiveLevel()==logging.DEBUG:
+                print("\n*** Truth ***\n")
+                print(truth)
+                print(truth.dtypes)
+
+                print("\n*** Particles ***\n")
+                print(detectable_particles)
+                print(detectable_particles.dtypes)

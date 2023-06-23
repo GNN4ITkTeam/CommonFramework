@@ -246,6 +246,10 @@ def add_module_id(hits, module_lookup):
     merged_hits = hits.merge(module_lookup[cols_to_merge + ["ID"]], on=cols_to_merge, how='left')
     merged_hits = merged_hits.rename(columns={"ID": "module_id"})
 
+    # make sure it is an integer: DOES no work since some NANs
+    print(merged_hits[merged_hits['module_id'].isnull()]) # TO BE DEBUGGED: why do we have some module_id to nan?
+    merged_hits = merged_hits.astype({"module_id": "int64"})
+
     assert hits.shape[0] == merged_hits.shape[0], "Merged hits dataframe has different number of rows - possibly missing modules from lookup"
     assert merged_hits.shape[1] - hits.shape[1] == 1, "Merged hits dataframe has different number of columns; should only have added module_id column"
 
