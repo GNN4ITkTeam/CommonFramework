@@ -101,5 +101,5 @@ class HeteroNodeDecoder(torch.nn.Module):
     def forward(self, x_dict):     
         for node_type, x_in in x_dict.items():
             network = partial(checkpoint, self.decoders[node_type], use_reentrant=False) if self.hparams.get('checkpoint') else self.decoders[node_type]
-            x_dict[node_type] = network(x_in.float())
+            x_dict[node_type] = network(x_in.float()).squeeze(-1)
         return x_dict
