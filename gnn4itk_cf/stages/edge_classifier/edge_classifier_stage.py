@@ -265,7 +265,7 @@ class EdgeClassifierStage(LightningModule):
 
         datatype = dataset.data_name
         os.makedirs(os.path.join(self.hparams["stage_dir"], datatype), exist_ok=True)
-        torch.save(event.cpu(), os.path.join(self.hparams["stage_dir"], datatype, f"event{event.event_id}.pyg"))
+        torch.save(event.cpu(), os.path.join(self.hparams["stage_dir"], datatype, f"event{event.event_id[0]}.pyg"))
 
     @classmethod
     def evaluate(cls, config):
