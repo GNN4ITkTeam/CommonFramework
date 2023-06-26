@@ -21,11 +21,6 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
 
     for event in tqdm(lightning_module.testset):
         event = event.to(lightning_module.device)
-        # if config.get('reprocess_classifier'):
-        #     with torch.no_grad():
-        #         eval_dict = lightning_module.shared_evaluation(event, 0)
-        #     event = eval_dict['batch']
-        #     event.scores = torch.sigmoid(eval_dict['output'])
         
         # Need to apply score cut and remap the truth_map 
         if "score_cut" in config:
@@ -100,11 +95,6 @@ def graph_roc_curve(lightning_module, plot_config, config):
 
     for event in tqdm(lightning_module.testset):
         event = event.to(lightning_module.device)
-        if lightning_module.hparams.get('reprocess_classifier'):
-            with torch.no_grad():
-                eval_dict = lightning_module.shared_evaluation(event, 0)
-            event = eval_dict['batch']
-            event.scores = torch.sigmoid(eval_dict['output'])
             
         # Need to apply score cut and remap the truth_map 
         if "weights" in event.keys:
@@ -191,11 +181,7 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
 
     for event in tqdm(lightning_module.testset):
         event = event.to(lightning_module.device)
-        if config.get('reprocess_classifier'):
-            with torch.no_grad():
-                eval_dict = lightning_module.shared_evaluation(event, 0)
-            event = eval_dict['batch']
-            event.scores = torch.sigmoid(eval_dict['output'])
+
         # Need to apply score cut and remap the truth_map 
         if "score_cut" in config:
             lightning_module.apply_score_cut(event, config["score_cut"])
@@ -315,7 +301,7 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
     pred = true_positive.copy()
 
     for event in tqdm(lightning_module.testset):
-        event = event.to(device)
+        event = event.to(lightning_module.device)
         if config.get('reprocess_classifier'):
             with torch.no_grad():
                 eval_dict = lightning_module.shared_evaluation(event, 0)

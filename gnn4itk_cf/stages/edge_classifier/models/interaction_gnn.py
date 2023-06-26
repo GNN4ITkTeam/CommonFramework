@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
@@ -539,7 +540,7 @@ class HeteroInteractionGNNNodeClassifier(HeteroInteractionGNN):
         self.output_node_classifier = self.make_coding_module(HeteroNodeDecoder)
     
     def forward(self, batch, **kwargs):
-        edge_dict, x_dict = super()(batch, **kwargs)
+        edge_dict, x_dict = super().forward(batch, **kwargs)
         x_dict = self.output_node_classifier(x_dict)
         return edge_dict, x_dict
 
@@ -565,7 +566,7 @@ class HeteroInteractionGNNNodeClassifier(HeteroInteractionGNN):
 
     def training_step(self, batch, batch_idx):
         
-        eval_dict = self.shared_evaluation(batch, batch_idx)['loss']
+        eval_dict = self.shared_evaluation(batch, batch_idx)
 
         self.log("train_loss", eval_dict['loss'], on_step=False, on_epoch=True, batch_size=1, sync_dist=True)
         self.log("train_total_loss", eval_dict['total_loss'], on_step=False, on_epoch=True, batch_size=1, sync_dist=True)
