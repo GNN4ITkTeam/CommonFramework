@@ -23,6 +23,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from gnn4itk_cf import stages
+from gnn4itk_cf.utils.quantization_utils import*
 from gnn4itk_cf.stages import *
 from pytorch_lightning.strategies import DDPStrategy
 
@@ -102,7 +103,7 @@ def get_trainer(config, default_root_dir):
         devices=devices,
         num_nodes=config["nodes"],
         max_epochs=config["max_epochs"],
-        callbacks=[checkpoint_callback],
+        callbacks=[checkpoint_callback,onnx_export(),auc_score()],
         logger=logger,
         strategy=DDPStrategy(find_unused_parameters=False, static_graph=True),
         default_root_dir=default_root_dir

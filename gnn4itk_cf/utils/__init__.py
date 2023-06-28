@@ -16,10 +16,12 @@ from .loading_utils import *
 from .ml_utils import *
 from .plotting_utils import *
 from .mapping_utils import *
+from .quantization_utils import*
 
 __all__ = [
     "loading_utils",
     "ml_utils",
     "mapping_utils",
     "plotting_utils",
+    "quantization_utils"
     ]

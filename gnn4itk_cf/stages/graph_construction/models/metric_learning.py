@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import copy
 
 # 3rd party imports
 from ..graph_construction_stage import GraphConstructionStage
@@ -27,7 +28,7 @@ import logging
 # Local imports
 from .utils import make_mlp, build_edges, graph_intersection,make_quantized_mlp
 from ..utils import build_signal_edges  # handle_weighting
-from gnn4itk_cf.utils import load_datafiles_in_dir, handle_hard_node_cuts, handle_weighting
+from gnn4itk_cf.utils import load_datafiles_in_dir, handle_hard_node_cuts, handle_weighting,quantize_features
 
 class MetricLearning(GraphConstructionStage, LightningModule):
     def __init__(self, hparams):
@@ -35,11 +36,11 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         """
         Initialise the Lightning Module that can scan over different embedding training regimes
         """
-
-        # Construct the MLP architecture
-        in_channels = len(hparams["node_features"])
-
+        """
+        adding some variables for pruning 
+        """
         
+        in_channels = len(hparams["node_features"])
         if(hparams["quantized_network"]==False):
             
             self.network = make_mlp(
@@ -47,7 +48,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
                 [hparams["emb_hidden"]] * hparams["nb_layer"] + [hparams["emb_dim"]],
                 hidden_activation=hparams["activation"],
                 output_activation=None,
-                layer_norm=True,
+                batch_norm=True,
             )
         else:
             print("QUANTIZED NETWORK IS BEING USED")
@@ -69,7 +70,12 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         self.dataset_class = GraphDataset
         self.use_pyg = True
-        self.save_hyperparameters(hparams)       
+        self.save_hyperparameters(hparams)
+        ##added variables for pruning
+        self.last_pruned = -1 
+        self.val_loss = []
+        self.pruned  = 0
+
 
     def forward(self, x):
 
@@ -139,7 +145,11 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         input_data = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()
         input_data[input_data != input_data] = 0 # Replace NaNs with 0s
-
+       
+        if self.hparams["quantized_dataset"]:
+            fixed_point, pre_point, post_point  = self.hparams["input_quantization"],self.hparams["integer_part"],self.hparams["fractional_part"]
+            input_data = quantize_features(input_data,False,fixed_point, pre_point, post_point) 
+          
         return input_data
 
     def get_query_points(self, batch, spatial):
@@ -241,6 +251,16 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         loss = self.loss_function(batch, embedding, weights)
 
+        ##adding l1 loss for training (pruned_model)
+
+        if(self.hparams["l1_loss"]):
+            l1_crit = torch.nn.L1Loss(size_average=False)
+            reg_loss = 0
+            for param in self.parameters():
+                reg_loss += l1_crit(param,target=torch.zeros_like(param))
+
+            
+            loss += self.hparams["l1_factor"]* reg_loss
         self.log("train_loss", loss, batch_size=1)
 
         return loss
@@ -497,6 +517,12 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         random_flip = torch.randint(2, (event.edge_index.shape[1],), dtype=torch.bool)
         event.edge_index[:, random_flip] = event.edge_index[:, random_flip].flip(0)
+
+
+
+
+    def deepcopy_model(self):
+        return copy.deepcopy(self.network)    
 
 
 class GraphDataset(Dataset):

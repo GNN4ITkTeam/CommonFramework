@@ -25,6 +25,9 @@ import yaml
 import click
 
 from pytorch_lightning import LightningModule
+from pytorch_lightning.callbacks import  ModelPruning
+    
+
 
 from .core_utils import str_to_class, get_trainer, get_stage_module
 
@@ -66,11 +69,70 @@ def train(config_file, checkpoint=None):
         stage_module.setup(stage="fit")
         stage_module.train()
 
+
 def lightning_train(config, stage_module_class, checkpoint=None):
+ 
+    global stage_module
 
     stage_module, config, default_root_dir = get_stage_module(config, stage_module_class, checkpoint_path=checkpoint)
+    def apply_pruning2(epoch):
+        
+
+        if(not config["pruning_allow"]):
+            return False
+   
+        stage_module.val_loss.append(trainer.callback_metrics['val_loss'].cpu().numpy())  # could include feedback from validation or training loss here
+        if((len(stage_module.val_loss) > 10) and (stage_module.last_pruned > -1)):
+            stage_module.val_loss.pop(0)
+            if( (max(stage_module.val_loss) - min(stage_module.val_loss)) < config["pruning_val_loss"]):
+            
+                stage_module.val_loss=[]
+                stage_module.last_pruned = epoch
+                stage_module.pruned = stage_module.pruned + 1
+                if(config["rewind_lr"]):
+                    stage_module.optimizers().param_groups[0]["lr"] = config["lr"]
+
+                stage_module.log('pruned',stage_module.pruned)    
+                return True
+        if(((epoch-stage_module.last_pruned) % config["pruning_freq"])==0):
+        
+            stage_module.val_loss=[]
+            stage_module.last_pruned = epoch
+            stage_module.pruned = stage_module.pruned + 1
+            if(config["rewind_lr"]):
+                stage_module.optimizers().param_groups[0]["lr"] = config["lr"]
+                stage_module.log('pruned',stage_module.pruned)  
+            return True
+        else:
+            return False
+
+
+
+    if(config["quantized_network"]):
+        parameters_to_prune = [(stage_module.network[1], "weight"), (stage_module.network[4], "weight"), (stage_module.network[7], "weight"), (stage_module.network[10], "weight"), (stage_module.network[13], "weight")]
+    else:
+        parameters_to_prune = [(stage_module.network[0], "weight"), (stage_module.network[3], "weight"), (stage_module.network[6], "weight"), (stage_module.network[9], "weight"), (stage_module.network[12], "weight")]
+
+
+    
     trainer = get_trainer(config, default_root_dir)
+    if(config["pruning_allow"]):
+        trainer.callbacks.append( ModelPruning(
+                    pruning_fn = config["pruning_fn"],
+                    parameters_to_prune = parameters_to_prune,
+                    amount = config["pruning_amount"],
+                    apply_pruning = apply_pruning2,
+                
+                    # settings below only for structured!
+    #                pruning_dim = metric_learning_configs["pruning_dim"],
+    #                pruning_norm = metric_learning_configs["pruning_norm"],
+    #                use_global_unstructured = metric_learning_configs["use_global_unstructured"],
+                    verbose = 1 #2 for per-layer sparsity, #1 for overall sparsity
+                ))
+
+    
     trainer.fit(stage_module)
+
 
 if __name__ == "__main__":
     main()

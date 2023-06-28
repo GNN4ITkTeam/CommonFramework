@@ -6,6 +6,7 @@ stage_dir: MY_DATA_DIR/Example_2/metric_learning/ # A directory to be created th
 project: CF_Example_2_MetricLearning # Used in logging
 gpus: 1
 nodes: 1
+num_workers: [0,0]
 
 # Dataset parameters
 data_split: [80, 10, 10] # Number of [training, validation, testing] examples
@@ -32,8 +33,8 @@ weighting:
 
 # A list of hard cut conditions. Any hits not passing these conditions will be removed from the training and validation dataset.
 # By definition, noise will not pass any of these cuts, so any hard cuts will remove noise.
-hard_cuts:
-  pt: [1000, .inf]
+# hard_cuts:
+#   pt: [1000, .inf]
 
 # Model parameters
 undirected: True
@@ -42,12 +43,13 @@ node_scales:   [1000, 3.14, 1000]
 emb_hidden: 1024
 nb_layer: 4
 emb_dim: 12
-activation: Tanh
+activation: ReLU
 randomisation: 1
 points_per_batch: 50000
 r_train: 0.1
 knn: 50
-knn_val: 1000
+knn_val: 500
+knn_test: 100
 
 # Training parameters
 warmup: 5
@@ -55,6 +57,43 @@ margin: 0.1
 lr: 0.01
 factor: 0.7
 patience: 10
-max_epochs: 100
+max_epochs: 250
 metric_to_monitor: f1
 metric_mode: max
+
+
+
+
+##QNN Parameters
+quantized_network: True
+quantized_dataset: False
+activation_qnn: False ## telling the network to use quantReLU()
+output_activation: False
+output_activation_quantization: False
+input_quantization: True # also enables QuantIdentity
+
+
+weight_bit_width_input: 6
+weight_bit_width_hidden: 4
+weight_bit_width_output: 6
+
+activation_bit_width_input: 8
+activation_bit_width_hidden: 8
+activation_bit_width_output: 8
+# Input quantization Parameters, only using fixed point representation
+integer_part: 5
+fractional_part: 10
+
+
+
+##pruning 
+pruning_allow: False
+l1_loss: False
+rewind_lr: True # for rewinding learning rate after pruning
+
+prune_list: []
+l1_factor: 0.000005
+pruning_amount: 0.1
+pruning_freq: 150
+pruning_val_loss: 0.000002
+pruning_fn: "l1_unstructured"
