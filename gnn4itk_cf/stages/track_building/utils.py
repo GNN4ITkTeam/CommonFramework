@@ -7,27 +7,16 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, sys
-import logging
-import random
-
-import torch.nn as nn
 import torch
 import pandas as pd
 import numpy as np
 import math
 from atlasify import atlasify
-try:
-    import cupy as cp
-except:
-    pass
-
-from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
@@ -56,19 +45,19 @@ def load_particles_df(graph):
     return particles_df
 
 def get_matching_df(reconstruction_df, particles_df, min_track_length=1, min_particle_length=1):
-    
+
     # Get track lengths
     candidate_lengths = reconstruction_df.track_id.value_counts(sort=False)\
         .reset_index().rename(
-            columns={"index":"track_id", "track_id": "n_reco_hits"})
+            columns={"index": "track_id", "track_id": "n_reco_hits"})
 
     # Get true track lengths
     particle_lengths = reconstruction_df.drop_duplicates(subset=['hit_id']).particle_id.value_counts(sort=False)\
         .reset_index().rename(
-            columns={"index":"particle_id", "particle_id": "n_true_hits"})
+            columns={"index": "particle_id", "particle_id": "n_true_hits"})
 
     spacepoint_matching = reconstruction_df.groupby(['track_id', 'particle_id']).size()\
-        .reset_index().rename(columns={0:"n_shared"})
+        .reset_index().rename(columns={0: "n_shared"})
 
     spacepoint_matching = spacepoint_matching.merge(candidate_lengths, on=['track_id'], how='left')
     spacepoint_matching = spacepoint_matching.merge(particle_lengths, on=['particle_id'], how='left')
@@ -84,12 +73,12 @@ def calculate_matching_fraction(spacepoint_matching_df):
     spacepoint_matching_df = spacepoint_matching_df.assign(
         purity_reco=np.true_divide(spacepoint_matching_df.n_shared, spacepoint_matching_df.n_reco_hits))
     spacepoint_matching_df = spacepoint_matching_df.assign(
-        eff_true = np.true_divide(spacepoint_matching_df.n_shared, spacepoint_matching_df.n_true_hits))
+        eff_true=np.true_divide(spacepoint_matching_df.n_shared, spacepoint_matching_df.n_true_hits))
 
     return spacepoint_matching_df
 
 def evaluate_labelled_graph(graph, matching_fraction=0.5, matching_style="ATLAS", min_track_length=1, min_particle_length=1):
-    
+
     if matching_fraction < 0.5:
         raise ValueError("Matching fraction must be >= 0.5")
 
@@ -102,7 +91,7 @@ def evaluate_labelled_graph(graph, matching_fraction=0.5, matching_style="ATLAS"
     particles_df = load_particles_df(graph)
 
     # Get matching dataframe
-    matching_df = get_matching_df(reconstruction_df, particles_df, min_track_length=min_track_length, min_particle_length=min_particle_length) 
+    matching_df = get_matching_df(reconstruction_df, particles_df, min_track_length=min_track_length, min_particle_length=min_particle_length)
     # Flatten event_id if it's a list
     event_id = graph.event_id
     while type(event_id) == list:
@@ -163,14 +152,14 @@ def plot_pt_eff(particles, pt_units, save_path="track_reconstruction_eff_vs_pt.p
     ax.set_xlabel(f'$p_T [{pt_units}]$', fontsize=16)
     ax.set_ylabel('Efficiency', fontsize=16)
 
-    atlasify("Internal", 
-         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
-         r"$p_T > 1$GeV, $|\eta < 4$")
+    atlasify("Internal",
+             r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
+             r"$p_T > 1$GeV, $|\eta < 4$")
 
     # Save the plot
     fig.savefig(save_path)
 
 def get_ratio(x_vals, y_vals):
-    res = [x/y if y!=0 else 0.0 for x,y in zip(x_vals, y_vals)]
-    err = [x/y * math.sqrt((x+y)/(x*y)) if y!=0 and x!=0 else 0.0 for x,y in zip(x_vals, y_vals)]
+    res = [x / y if y != 0 else 0.0 for x, y in zip(x_vals, y_vals)]
+    err = [x / y * math.sqrt((x + y) / (x * y)) if y != 0 and x != 0 else 0. for x, y in zip(x_vals, y_vals)]
     return res, err

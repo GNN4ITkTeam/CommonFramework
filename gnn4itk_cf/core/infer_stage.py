@@ -7,7 +7,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -22,8 +22,6 @@ This script:
 """
 
 import sys
-import os
-from pathlib import Path
 
 import yaml
 import click
@@ -31,7 +29,6 @@ import logging
 import torch
 
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning import LightningModule
 
 from .core_utils import str_to_class, find_latest_checkpoint
@@ -39,7 +36,6 @@ from .core_utils import str_to_class, find_latest_checkpoint
 @click.command()
 @click.argument("config_file")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose mode")
-
 def main(config_file, verbose):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.

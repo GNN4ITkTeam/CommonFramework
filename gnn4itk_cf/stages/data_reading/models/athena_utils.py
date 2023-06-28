@@ -7,7 +7,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -21,46 +21,46 @@ def read_particles(filename):
     """
     Parse in the CSV files containing each particle, dumped from Athena
     """
-    
-    field_names = ['subevent', 'barcode', 'px', 'py', 'pz', 'pt', 
-               'eta', 'vx', 'vy', 'vz', 'radius', 'status', 'charge', 
-               'pdgId', 'pass', 'vProdNIn', 'vProdNOut', 'vProdStatus', 'vProdBarcode']
-    
+
+    field_names = ['subevent', 'barcode', 'px', 'py', 'pz', 'pt',
+                   'eta', 'vx', 'vy', 'vz', 'radius', 'status', 'charge',
+                   'pdgId', 'pass', 'vProdNIn', 'vProdNOut', 'vProdStatus', 'vProdBarcode']
+
     particles = pd.read_csv(filename, header=None, sep=r",#", engine='python')
-    
+
     particles = particles[0].str.split(",", expand=True)
     particles.columns = field_names
-    
+
     # Prepare barcodes for later processing
     particles = particles.astype({"barcode": str, "subevent": str})
-    
+
     return particles
 
 def get_max_length(series):
-    """ 
+    """
     A utility to get the maximum string length of a particle barcode, used for padding
     with zeros
     """
-    
+
     max_entry = str(series.astype(int).max())
-    
+
     return len(max_entry)
 
 def convert_barcodes(particles):
     """
     Build a particle ID from concatenating the subevent and the barcode,
     padded with zeros such that there is no danger of accidental duplications.
-    
+
     E.g. Assuming the longest barcode is 2965491 (length of 7), then some particle:
     (subevent, barcode) = (496, 17) -> particle_id = 4960000017
     """
 
     max_length = get_max_length(particles.barcode)
-    
+
     # Use "insert" to put the particle_id at the start of the DF
     particles.insert(0, "particle_id",
-        particles.subevent + particles.barcode.str.pad(width=max_length, fillchar='0'))
-    
+                     particles.subevent + particles.barcode.str.pad(width=max_length, fillchar='0'))
+
     return particles
 
 def get_detectable_particles(particles, clusters):
@@ -68,7 +68,7 @@ def get_detectable_particles(particles, clusters):
     Apply some detectability cuts for statistical analysis. Note that this is not a reconstructability cut - we simply require
     that particles can be detected in some way.
     """
-    num_clusters =  clusters.groupby("particle_id")["cluster_id"].count().reset_index(name="num_clusters")
+    num_clusters = clusters.groupby("particle_id")["cluster_id"].count().reset_index(name="num_clusters")
     particles = pd.merge(particles, num_clusters, on='particle_id').fillna(method='ffill')
 
     cut1 = particles[particles.charge.abs() > 0]  # Keep charged particles
@@ -94,12 +94,12 @@ def read_spacepoints(filename):
     return hits
 
 def split_particle_entries(cluster_df, particles):
-    
+
     """
     Do some fiddling to split the cluster entry for truth particle, which could have 0 true
     particles, 1 true particle, or many true particles
     """
-    
+
     cleaned_cell_pids = cluster_df[["cluster_id", "particle_id"]].astype({"particle_id": str})
 
     split_pids = pd.DataFrame(
@@ -112,15 +112,16 @@ def split_particle_entries(cluster_df, particles):
     )
 
     split_pids = split_pids.join(
-                split_pids.particle_id.str.strip("()").str.split(",", expand=True).rename(
-                    {0: "subevent", 1: "barcode"}, axis=1)
-                ).drop(columns=["particle_id", 2])
-    
-    split_pids["particle_id"] = split_pids.merge(particles[["subevent", "barcode", "particle_id"]].astype({"subevent": str, "barcode": str}), how="left", 
-                                 on=["subevent", "barcode"])["particle_id"].fillna(0).astype(int)
-    
+        split_pids.particle_id.str.strip("()").str.split(",", expand=True).rename(
+            {0: "subevent", 1: "barcode"}, axis=1)
+    ).drop(columns=["particle_id", 2])
+
+    split_pids["particle_id"] = split_pids.merge(
+        particles[["subevent", "barcode", "particle_id"]].astype({"subevent": str, "barcode": str}), how="left",
+        on=["subevent", "barcode"])["particle_id"].fillna(0).astype(int)
+
     split_pids = split_pids[["cluster_id", "particle_id"]]
-    
+
     return split_pids
 
 def read_clusters(clusters_file, particles, column_lookup):
@@ -136,11 +137,11 @@ def read_clusters(clusters_file, particles, column_lookup):
     clusters_processed, shape_list = split_cluster_entries(clusters_raw, particles, column_lookup)
 
     split_pids = split_particle_entries(clusters_processed, particles)
-    
+
     # Fix some types
     clusters_processed = clusters_processed.drop(columns=["particle_id"])
     clusters_processed = clusters_processed.merge(split_pids, on="cluster_id").astype({"cluster_id": int})
-    
+
     # Fix indexing mismatch in DumpObjects - is this still necessary????
     clusters_processed["cluster_id"] = clusters_processed["cluster_id"] - 1
     
@@ -148,14 +149,14 @@ def read_clusters(clusters_file, particles, column_lookup):
 
 def split_cluster_entries(clusters_raw, particles, column_lookup):
     """
-    Split the cluster text file into separate columns, as defined in the config file for 
+    Split the cluster text file into separate columns, as defined in the config file for
     """
 
     clusters_processed = pd.DataFrame()
-    
+
     # First read the co-ordinates of each cluster
     clusters_processed[column_lookup["coordinates"]] = clusters_raw["coordinates"].str.split(",", expand=True)
-    
+
     # Split the detector geometry information
     clusters_processed[column_lookup["region"]] = clusters_raw["region"].str.split(",", expand=True)
 
@@ -241,7 +242,7 @@ def add_module_id(hits, module_lookup):
     """
     if "module_id" in hits:
         return hits
-    cols_to_merge = ['hardware','barrel_endcap','layer_disk','eta_module','phi_module']
+    cols_to_merge = ['hardware', 'barrel_endcap', 'layer_disk', 'eta_module', 'phi_module']
     merged_hits = hits.merge(module_lookup[cols_to_merge + ["ID"]], on=cols_to_merge, how='left')
     merged_hits = merged_hits.rename(columns={"ID": "module_id"})
 
@@ -254,7 +255,7 @@ def add_region_labels(hits, region_labels: dict):
     """
         Label the 6 detector regions (forward-endcap pixel, forward-endcap strip, etc.)
         """
-        
+
     for region_label, conditions in region_labels.items():
         condition_mask = np.logical_and.reduce([hits[condition_column] == condition for condition_column, condition in conditions.items()])
         hits.loc[condition_mask, "region"] = region_label

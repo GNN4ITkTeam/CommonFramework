@@ -7,7 +7,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -35,14 +35,14 @@ def get_condition_lambda(condition_key, condition_val):
     else:
         raise ValueError(f"Condition {condition_val} not recognised")
 
-def map_tensor_handler(input_tensor: torch.Tensor, 
-                       output_type: str, 
-                       input_type: str = None, 
-                       truth_map: torch.Tensor = None, 
+def map_tensor_handler(input_tensor: torch.Tensor,
+                       output_type: str,
+                       input_type: str = None,
+                       truth_map: torch.Tensor = None,
                        edge_index: torch.Tensor = None,
                        track_edges: torch.Tensor = None,
-                       num_nodes: int = None, 
-                       num_edges: int = None, 
+                       num_nodes: int = None,
+                       num_edges: int = None,
                        num_track_edges: int = None,
                        aggr: str = None):
     """
@@ -54,7 +54,7 @@ def map_tensor_handler(input_tensor: torch.Tensor,
     To visualize:
                     (n)
                      ^
-                    / \ 
+                    / \
       edge_to_node /   \ track_to_node
                   /     \
                  /       \
@@ -63,7 +63,7 @@ def map_tensor_handler(input_tensor: torch.Tensor,
               /             \
 node_to_edge /               \ node_to_track
             /                 \
-           |                   | 
+           |                   |
            v     edge_to_track v
           (e) <-------------> (t)
             track_to_edge
@@ -116,7 +116,7 @@ def infer_input_type(input_tensor: torch.Tensor, num_nodes: int = None, num_edge
         return "edge-like", input_tensor
     elif num_track_edges is not None and num_track_edges in input_tensor.shape:
         return "track-like", input_tensor
-    elif num_track_edges is not None and num_track_edges//2 in input_tensor.shape:
+    elif num_track_edges is not None and num_track_edges // 2 in input_tensor.shape:
         return "track-like", torch.cat([input_tensor, input_tensor], dim=0)
     else:
         return "node-like", input_tensor
@@ -129,11 +129,11 @@ def map_nodes_to_edges(nodelike_input: torch.Tensor, edge_index: torch.Tensor, a
 
     if aggr is None:
         return nodelike_input[edge_index]
-    
+
     edgelike_tensor = nodelike_input[edge_index]
     torch_aggr = getattr(torch, aggr)
     return torch_aggr(edgelike_tensor, dim=0)
-    
+
 def map_edges_to_nodes(edgelike_input: torch.Tensor, edge_index: torch.Tensor, aggr: str = None, num_nodes: int = None):
     """
     Map an edge-like tensor to a node-like tensor. If the aggregation is None, this is simply done by sending edge values to the nodes, thus returning a tensor of shape (num_nodes,).
@@ -147,7 +147,7 @@ def map_edges_to_nodes(edgelike_input: torch.Tensor, edge_index: torch.Tensor, a
         nodelike_output = torch.zeros(num_nodes, dtype=edgelike_input.dtype, device=edgelike_input.device)
         nodelike_output[edge_index] = edgelike_input
         return nodelike_output
-    
+
     return scatter(edgelike_input, edge_index[1], dim=0, dim_size=num_nodes, reduce=aggr)
 
 def map_nodes_to_tracks(nodelike_input: torch.Tensor, track_edges: torch.Tensor, aggr: str = None):
@@ -155,10 +155,10 @@ def map_nodes_to_tracks(nodelike_input: torch.Tensor, track_edges: torch.Tensor,
     Map a node-like tensor to a track-like tensor. If the aggregation is None, this is simply done by sending node values to the tracks, thus returning a tensor of shape (2, num_track_edges).
     If the aggregation is not None, the node values are aggregated to the tracks, and the resulting tensor is of shape (num_track_edges,).
     """
-    
+
     if aggr is None:
         return nodelike_input[track_edges]
-    
+
     tracklike_tensor = nodelike_input[track_edges]
     torch_aggr = getattr(torch, aggr)
     return torch_aggr(tracklike_tensor, dim=0)
@@ -176,9 +176,9 @@ def map_tracks_to_nodes(tracklike_input: torch.Tensor, track_edges: torch.Tensor
         nodelike_output = torch.zeros(num_nodes, dtype=tracklike_input.dtype, device=tracklike_input.device)
         nodelike_output[track_edges] = tracklike_input
         return nodelike_output
-    
+
     return scatter(tracklike_input.repeat(2), torch.cat([track_edges[0], track_edges[1]]), dim=0, dim_size=num_nodes, reduce=aggr)
-    
+
 def map_tracks_to_edges(tracklike_input: torch.Tensor, truth_map: torch.Tensor, num_edges: int = None):
     """
     Map an track-like tensor to a edge-like tensor. This is done by sending the track value through the truth map, where the truth map is >= 0. Note that where truth_map == -1,
@@ -199,7 +199,7 @@ def map_edges_to_tracks(edgelike_input: torch.Tensor, truth_map: torch.Tensor):
     raise NotImplementedError("This is not a meaningful operation, but it is needed for completeness")
 
 def remap_from_mask(event, edge_mask):
-    """ 
+    """
     Takes a mask applied to the edge_index tensor, and remaps the truth_map tensor indices to match.
     """
 
