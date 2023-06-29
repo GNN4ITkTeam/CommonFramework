@@ -87,7 +87,6 @@ class EventReader:
         for dataset, dataset_name in zip([self.trainset, self.valset, self.testset], ["trainset", "valset", "testset"]):
             if dataset is not None:
                 self._build_all_csv(dataset, dataset_name)
-                break
 
     def _build_all_csv(self, dataset, dataset_name):
 
@@ -106,7 +105,6 @@ class EventReader:
         else:
             for event in tqdm(dataset, desc=f"Building {dataset_name} CSV files"):
                 self._build_single_csv(event, output_dir=output_dir)
-                break
 
     def _build_single_csv(self, event, output_dir=None):
         """

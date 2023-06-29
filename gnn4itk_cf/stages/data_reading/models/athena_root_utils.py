@@ -43,7 +43,7 @@ translator = {
         'SPCL1_index': 'cluster_index_1',
         'SPCL2_index': 'cluster_index_2',
         "CLindex": 'cluster_id' , 
-        "CLhardware": 'hardware' , # TO DO check if moduleID correspond well to hardware
+        "CLhardware": 'hardware' ,
         "CLx": 'cluster_x' , 
         "CLy": 'cluster_y' , 
         "CLz": 'cluster_z' ,
@@ -52,6 +52,7 @@ translator = {
         "CLeta_module": 'eta_module' , 
         "CLphi_module": 'phi_module' ,
         "CLside": 'side' ,
+        "CLmoduleID": 'module_id', # warning, this field is not present in origianl .txt dump
         "CLpixel_count": 'count' ,
         "CLcharge_count": 'charge_count' ,
         "CLloc_eta": 'loc_eta' , 

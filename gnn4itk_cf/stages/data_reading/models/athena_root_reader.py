@@ -94,7 +94,7 @@ class AthenaRootReader(EventReader):
         self.trainset = trainset 
         self.valset   = validset
         self.testset  = testset
-        self.module_lookup = self.get_module_lookup()
+        self.module_lookup = None
 
 
     def get_module_lookup(self):
