@@ -81,8 +81,8 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
     def forward(self, x):
 
-        x_out = self.network(x)
-        return F.normalize(x_out)
+        return self.network(x)
+     
 
     def train_dataloader(self):
         if self.trainset is None:
