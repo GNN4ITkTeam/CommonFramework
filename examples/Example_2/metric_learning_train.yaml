@@ -57,43 +57,42 @@ margin: 0.1
 lr: 0.01
 factor: 0.7
 patience: 10
-max_epochs: 250
+max_epochs: 150
 metric_to_monitor: f1
 metric_mode: max
-
-
+log_working_metrics: False
 
 
 ##QNN Parameters
-quantized_network: True
+quantized_network: False
 quantized_dataset: False
-activation_qnn: False ## telling the network to use quantReLU()
-output_activation: False
-output_activation_quantization: False
-input_quantization: True # also enables QuantIdentity
-
-
-weight_bit_width_input: 6
-weight_bit_width_hidden: 4
-weight_bit_width_output: 6
-
+weight_bit_width_input: 8
+weight_bit_width_hidden: 8
+weight_bit_width_output: 8
+activation_qnn: False ## tlling the network to use quantReLU()
 activation_bit_width_input: 8
 activation_bit_width_hidden: 8
 activation_bit_width_output: 8
+output_activation: False
+output_activation_quantization: False
+
 # Input quantization Parameters, only using fixed point representation
-integer_part: 5
-fractional_part: 10
+input_quantization: False # also enables QuantIdentity
+integer_part: 3
+fractional_part: 24
 
 
 
 ##pruning 
 pruning_allow: False
 l1_loss: False
-rewind_lr: True # for rewinding learning rate after pruning
+rewind_lr: False # for rewinding learning rate after pruning
 
 prune_list: []
 l1_factor: 0.000005
-pruning_amount: 0.1
-pruning_freq: 150
 pruning_val_loss: 0.000002
 pruning_fn: "l1_unstructured"
+pruning_amount: 0.1
+pruning_freq: 149
+
+

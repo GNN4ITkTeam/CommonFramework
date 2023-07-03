@@ -17,6 +17,7 @@ import copy
 
 # 3rd party imports
 from ..graph_construction_stage import GraphConstructionStage
+import torch.nn.functional as F
 
 from pytorch_lightning import LightningModule
 from torch_geometric.data import DataLoader, Dataset
@@ -405,6 +406,10 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         if hasattr(self, "trainer") and self.trainer.state.stage in ["train", "validate"]:
             self.log_metrics(batch, loss, batch.edge_index, true_edges, batch.y, weights)
 
+            if(self.hparams["log_working_metrics"]):
+
+                self.log_working_points(batch,embedding,true_edges,knn_num)
+
         return {
             "loss": loss,
             "distances": d,
@@ -526,6 +531,42 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
     def deepcopy_model(self):
         return copy.deepcopy(self.network)    
+    
+    def log_working_points(self,batch,embedding,true_edges,knn_num): ##these are the working points of fixed signal efficiency 
+        signal_true_edges = build_signal_edges(batch, self.hparams["weighting"], true_edges)
+      
+        d = torch.pairwise_distance(embedding[signal_true_edges[0]], embedding[signal_true_edges[1]])
+        d,i = torch.sort(d)
+        
+        R_95 = d[int(len(d)*.95)] 
+        R_98 = d[int(len(d)*.98)]  
+        R_99 = d[int(len(d)*.99)]  
+
+        eff_95,pur_95 = self.get_signal_pur(batch,embedding,R_95,knn_num,signal_true_edges)
+        eff_98,pur_98 = self.get_signal_pur(batch,embedding,R_98,knn_num,signal_true_edges)
+
+
+        self.log_dict({"R_95":R_95,"R_98":R_98,"pur_95":pur_95,"pur_98":pur_98,"eff_95":eff_95})
+
+
+
+
+    def get_signal_pur(self,batch,embedding,radius,knn_num,signal_true_edges):
+
+        batch.edge_index = build_edges(
+                query=embedding, database=embedding, indices=None, r_max=radius, k_max=knn_num, backend="FRNN"
+            )
+        batch.edge_index, batch.y, batch.truth_map, true_edges = self.get_truth(batch, batch.edge_index) 
+        weights = self.get_weights(batch)
+        signal_true_pred_edges = batch.edge_index[:, (batch.y == 1) & (weights > 0)] 
+        signal_eff = signal_true_pred_edges.shape[1] / signal_true_edges.shape[1]
+        signal_pur = signal_true_pred_edges.shape[1] / batch.edge_index.shape[1]
+
+        return signal_eff,signal_pur
+
+
+
+
 
 
 class GraphDataset(Dataset):
