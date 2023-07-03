@@ -108,6 +108,10 @@ class AthenaRootReader(EventReader):
 
     def _build_single_csv(self, event, output_dir=None):
 
+        # Trick to make all workers are using separate CPUs
+        # https://stackoverflow.com/questions/15639779/why-does-multiprocessing-use-only-a-single-core-after-i-import-numpy
+        os.sched_setaffinity(0,range(1000))
+
         # Check if file already exists
         if os.path.exists(os.path.join(output_dir, "event{:09}-particles.csv".format(event))) and os.path.exists(os.path.join(output_dir, "event{:09}-truth.csv".format(event))):
             print(f"File for event number {event} already exists, skipping...")

@@ -140,7 +140,7 @@ def read_spacepoints(branches :dict):
     """
     spacepoints = uproot2pandaDF(branches)
 
-    print(spacepoints)
+    #print(spacepoints)
 
     # Wherever cluster_index_2 is NaN (i.e. for pixel hits), replace with cluster_index_1
     # small hack because in root dump we have -1 for pixel cluster_index_2

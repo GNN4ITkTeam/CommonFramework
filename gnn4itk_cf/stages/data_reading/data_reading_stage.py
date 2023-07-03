@@ -73,9 +73,9 @@ class EventReader:
 
         reader = cls(config)
         reader.convert_to_csv()
-        #reader._test_csv_conversion()
-        # reader._convert_to_pyg()
-        # reader._test_pyg_conversion()
+        reader._test_csv_conversion()
+        reader._convert_to_pyg()
+        reader._test_pyg_conversion()
 
         return reader
 
@@ -125,6 +125,10 @@ class EventReader:
             self._build_all_pyg(dataset_name)
 
     def _build_single_pyg_event(self, event, output_dir=None):
+
+        # Trick to make all workers are using separate CPUs
+        # https://stackoverflow.com/questions/15639779/why-does-multiprocessing-use-only-a-single-core-after-i-import-numpy
+        os.sched_setaffinity(0,range(1000))
         
         event_id = event["event_id"]
         
