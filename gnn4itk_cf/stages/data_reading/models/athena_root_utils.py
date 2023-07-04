@@ -149,9 +149,11 @@ def read_spacepoints(branches :dict):
 
     # To align types as in txt file reading
     spacepoints = spacepoints.astype({'cluster_index_1': 'int64'})
+    spacepoints = spacepoints.astype({'hit_id': 'int64'})
 
     # Check that hit_ids are a sequential list, if they're not, set them as such and return a warning
     if not spacepoints.hit_id.equals(pd.Series(range(len(spacepoints)))):
+
         warnings.warn("Hit IDs are not sequential, fixing")
         spacepoints["hit_id"] = range(len(spacepoints)) 
 

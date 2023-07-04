@@ -97,15 +97,6 @@ class AthenaRootReader(EventReader):
         self.module_lookup = None
 
 
-    def get_module_lookup(self):
-        # Let's get the module lookup
-        names = ['hardware', 'barrel_endcap', 'layer_disk', 'eta_module',
-                 'phi_module', "centerMod_z", "centerMod_x", "centerMod_y", "ID", "side"]
-        module_lookup = pd.read_csv(self.config["module_lookup_path"], sep=" ", names=names, header=None)
-        module_lookup = module_lookup.drop_duplicates()
-        return module_lookup[module_lookup.side == 0]  # .copy() ??
-
-
     def _build_single_csv(self, event, output_dir=None):
 
         # Trick to make all workers are using separate CPUs
