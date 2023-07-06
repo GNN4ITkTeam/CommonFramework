@@ -36,47 +36,40 @@ class AthenaRootReader(EventReader):
         self.log.info("Using AthenaRootReader to read events")
 
         self.tree_name = "GNN4ITk"
+        self.setnames = ["train", "valid", "test"]
 
         # Get list of all root files in input_dir (sorted)
-        input_dir = Path(self.config["input_dir"])
-        self.root_files = sorted(list(input_dir.glob("*.root")))
+        input_sets =  { dataset_name : self.config["input_sets"][f"{dataset_name}"] 
+                       for dataset_name in self.setnames }
 
-        # Make the list of all Athena Event Numbers, and the file names where we can find them
-        # by reading only the event_number branch in all the files
-        self.map_evtNum_fNameEntry = {}
+        self.root_files = { dataset_name : [] for dataset_name in self.setnames }
 
-        for f in self.root_files:
-            entry=0
-            if Path(f).is_file():
-                for event in uproot.iterate( f, filter_name='event_number', library='np', step_size=1):
-                    self.map_evtNum_fNameEntry[ event['event_number'][0] ] = {"fname": f, "entry" : entry}
-                    entry+=1
-            else:
-                raise ValueError(f"Cannot open file {fname}")
+        # Make the map of all Athena Event Numbers, TTree entry and file names where we can find them
+        # from the input event list txt files
+        self.evtsmap = {}
 
-        # Split the event numbers in data sets of 80/10/10 for train/val/test 
-        mapEvtFEnt=self.map_evtNum_fNameEntry
-        nEvts = len(mapEvtFEnt)
+        for dataset_name,evt_list_fname in input_sets.items():
+            with open(evt_list_fname) as evt_list_file:
+                for line in evt_list_file:
+                    # we ignore the run number
+                    items=line.split()
+                    evt = int(items[1])
+                    entry=int(items[2])
+                    root_fname=str(items[3])
+                    self.evtsmap[ evt ] = {"fname":root_fname, "entry":entry, "dataset_name":dataset_name}
+
+        # Sanity checks on the sample splitting
+        nEvts = len(self.evtsmap)
         print(f"Total number of events : {nEvts}")
-        l80 = int(nEvts*0.8)-1
-        l10 = int(nEvts*0.1)-1
-        train_end   = l80
-        valid_begin = train_end+1
-        valid_end   = valid_begin+l10
-        test_begin  = valid_end+1
 
-        if(test_begin>=nEvts):
-            raise ValueError(f"Error in data splitting, first test event index is {test_begin}")
-
-        trainset = [*mapEvtFEnt][0:valid_begin]
-        validset = [*mapEvtFEnt][valid_begin:test_begin]
-        testset  = [*mapEvtFEnt][test_begin:]
+        trainset = [e for e,v in self.evtsmap.items() if v['dataset_name']=='train']
+        validset = [e for e,v in self.evtsmap.items() if v['dataset_name']=='valid']
+        testset  = [e for e,v in self.evtsmap.items() if v['dataset_name']=='test']
 
         self.log.info("Training events   : {0:>7} -> {1:>7} ({2} evts)".format(trainset[0],trainset[-1],len(trainset)))
         self.log.info("Validation events : {0:>7} -> {1:>7} ({2} evts)".format(validset[0],validset[-1],len(validset)))
         self.log.info("Test events       : {0:>7} -> {1:>7} ({2} evts)".format(testset[0],testset[-1],len(testset)))
 
-        # Sanity checks
         if (len(trainset)+len(validset)+len(testset) < nEvts):
             raise ValueError("Error in data splitting, we are not using all events!")
 
@@ -109,8 +102,8 @@ class AthenaRootReader(EventReader):
             return
 
         # Determine which root file and wich TTree entry to read given the event number to be processed
-        filename = str(self.map_evtNum_fNameEntry[ event ]['fname'])
-        entry    = self.map_evtNum_fNameEntry[event]['entry']
+        filename = self.config['input_dir']+'/'+self.evtsmap[ event ]['fname']
+        entry    = self.evtsmap[event]['entry']
 
         # From the TTree extract numpy arrays of interesting TBranches, only for the desired event number
         with uproot.open(filename+":"+self.tree_name, filter_name=athena_root_utils.all_branches, library='np') as tree:
