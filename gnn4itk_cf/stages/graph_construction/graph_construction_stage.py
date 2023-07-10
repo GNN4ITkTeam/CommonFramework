@@ -148,6 +148,7 @@ class GraphConstructionStage:
         all_y_truth, all_pt = [], []
 
         for event in tqdm(self.testset):
+            #print(event)
             if "target_tracks" in config:
                 self.apply_target_conditions(event, config["target_tracks"])
             else:
@@ -167,6 +168,8 @@ class GraphConstructionStage:
             pt_min, pt_max = pt_min * 1000, pt_max * 1000
         pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
 
+        total_efficiency = len(all_pt[all_y_truth])/len(all_pt)
+
         true_pt_hist, _ = np.histogram(all_pt, bins=pt_bins)
         true_pos_pt_hist, _ = np.histogram(all_pt[all_y_truth], bins=pt_bins)
 
@@ -182,12 +185,15 @@ class GraphConstructionStage:
         ax.set_xlabel(f'$p_T [{pt_units}]$', ha='right', x=0.95, fontsize=14)
         ax.set_ylabel(plot_config["title"], ha='right', y=0.95, fontsize=14)
         ax.set_xscale('log')
+        ax.set_ylim(0.92, 1.115)
 
         # Save the plot
         atlasify(atlas="Internal",
                  subtext=r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
                          r"$p_T > 1$GeV, $|\eta < 4$" + "\n"
-                         r"Mean graph size: " + f"{np.mean([event.edge_index.shape[1] for event in self.testset]):.2f}")
+                         r"Mean graph size: " + f"{np.mean([event.edge_index.shape[1] for event in self.testset]):.2f}" + "\n"
+                         r"Total efficiency: " + f"{total_efficiency:.4f}"
+                         )
         fig.savefig(os.path.join(config["stage_dir"], "edgewise_efficiency.png"))
 
     def graph_region_efficiency_purity(self, plot_config, config):
@@ -222,7 +228,11 @@ class GraphConstructionStage:
 
         for key, values in target_tracks.items():
             if isinstance(values, list):
-                passing_tracks = passing_tracks * (values[0] <= event[key].float()) * (event[key].float() <= values[1])
+                if values[0] == 'not_in':
+                    for val in values[1]:
+                        passing_tracks = passing_tracks * (event[key].float() != val)
+                else:
+                    passing_tracks = passing_tracks * (values[0] <= event[key].float()) * (event[key].float() <= values[1])
             else:
                 passing_tracks = passing_tracks * (event[key] == values)
 
