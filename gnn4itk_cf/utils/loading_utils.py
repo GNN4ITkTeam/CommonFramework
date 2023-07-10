@@ -174,17 +174,28 @@ def handle_edge_features(event, edge_features):
         if "dr" in edge_features:
             event.dr = event.r[dst] - event.r[src]
         if "dphi" in edge_features:
-            event.dphi = reset_angle(event.phi[dst] - event.phi[src])
+            event.dphi = reset_angle((event.phi[dst] - event.phi[src])*torch.pi)/torch.pi
         if "dz" in edge_features:
             event.dz = event.z[dst] - event.z[src]
         if "deta" in edge_features:
             event.deta = event.eta[dst] - event.eta[src]
         if 'phislope' in edge_features:
             dr = event.r[dst] - event.r[src]
-            dphi = reset_angle(event.phi[dst] - event.phi[src])
+            dphi = reset_angle((event.phi[dst] - event.phi[src])*torch.pi)/torch.pi
             phislope = dphi / dr
-            phislope = torch.nan_to_num(phislope, nan=0.0, posinf=1, neginf=-1)
+            phislope = torch.nan_to_num(phislope, nan=0.0, posinf=100, neginf=-100)
+            phislope = torch.clamp(phislope, -100, 100)
             event.phislope = phislope
+        if 'rphislope' in edge_features:
+            r_ = ((event.r[dst] + event.r[src])/2.)
+            dr = event.r[dst] - event.r[src]
+            dphi = reset_angle((event.phi[dst] - event.phi[src])*torch.pi)/torch.pi
+            phislope = dphi / dr
+            phislope = torch.nan_to_num(phislope, nan=0.0, posinf=100, neginf=-100)
+            phislope = torch.clamp(phislope, -100, 100)
+            rphislope = torch.multiply(r_, phislope)
+            event.rphislope = rphislope # features / norm / pre_proc once
+
 
 
 def get_weight_mask(event, weight_conditions):
