@@ -461,8 +461,9 @@ class GraphDataset(Dataset):
         self.apply_hard_cuts(event)
         self.construct_weighting(event)
         self.handle_edge_list(event)
-        self.add_edge_features(event)
         self.scale_features(event)
+        self.add_edge_features(event)
+        
 
     def apply_hard_cuts(self, event):
         """
