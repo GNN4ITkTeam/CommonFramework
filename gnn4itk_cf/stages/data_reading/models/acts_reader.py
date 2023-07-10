@@ -22,32 +22,14 @@ class ActsReader(EventReader):
             self.simhit_stem = "truth"
 
         # Determine if we try to add cell information
-        cell_features = [
-            "cell_count",
-            "cell_val",
-            "leta",
-            "lphi",
-            "lx",
-            "ly",
-            "lz",
-            "geta",
-            "gphi",
-        ]
+        cell_features = ["cell_count", "cell_val", "leta", "lphi", "lx", "ly", "lz", "geta", "gphi"]
         self.use_cell_information = any(
-            [
-                feat in self.config["feature_sets"]["hit_features"]
-                for feat in cell_features
-            ]
+            [feat in self.config["feature_sets"]["hit_features"] for feat in cell_features]
         )
 
         # Import files
         input_dir = self.config["input_dir"]
-        files = [
-            self.simhit_stem,
-            "measurements",
-            "particles",
-            "measurement-simhit-map",
-        ]
+        files = [self.simhit_stem, "measurements", "particles", "measurement-simhit-map"]
 
         if self.use_cell_information:
             files.append("cells")
@@ -81,15 +63,14 @@ class ActsReader(EventReader):
             )
 
     def _build_single_csv(self, event, output_dir=None):
+
         # Check if file already exists
         event_id = event["event_id"]
         particles_file_exists = os.path.exists(
             os.path.join(output_dir, "event{:09}-particles.csv".format(int(event_id)))
         )
         truth_file_exists = os.path.exists(
-            os.path.join(
-                output_dir, "event{:09}-{}.csv".format(int(event_id), self.simhit_stem)
-            )
+            os.path.join(output_dir, "event{:09}-{}.csv".format(int(event_id), self.simhit_stem))
         )
         if particles_file_exists and truth_file_exists:
             logging.info(f"File {event_id} already exists, skipping...")
@@ -105,9 +86,7 @@ class ActsReader(EventReader):
         if self.config["use_truth_hits"]:
             truth = self._process_true_hits(simhits)
         else:
-            truth = self._process_measurements(
-                measurements, simhits, measurement_simhit_map
-            )
+            truth = self._process_measurements(measurements, simhits, measurement_simhit_map)
 
         # Adjust column names so we can use trackml utils
         if self.use_cell_information:
@@ -131,12 +110,10 @@ class ActsReader(EventReader):
 
         # Save to CSV
         truth.to_csv(
-            os.path.join(output_dir, "event{:09}-truth.csv".format(int(event_id))),
-            index=False,
+            os.path.join(output_dir, "event{:09}-truth.csv".format(int(event_id))), index=False
         )
         particles.to_csv(
-            os.path.join(output_dir, "event{:09}-particles.csv".format(int(event_id))),
-            index=False,
+            os.path.join(output_dir, "event{:09}-particles.csv".format(int(event_id))), index=False
         )
 
     def _process_measurements(self, measurements, truth, simhit_map):
@@ -145,8 +122,7 @@ class ActsReader(EventReader):
         """
         # Add decoded geometry information
         measurements = measurements.merge(
-            self.detector[["geometry_id", "volume_id", "layer_id", "module_id"]],
-            on="geometry_id",
+            self.detector[["geometry_id", "volume_id", "layer_id", "module_id"]], on="geometry_id"
         )
 
         # Add global positions
@@ -185,8 +161,7 @@ class ActsReader(EventReader):
         """
         # Add decoded geometry information
         truth = truth.merge(
-            self.detector[["geometry_id", "volume_id", "layer_id", "module_id"]],
-            on="geometry_id",
+            self.detector[["geometry_id", "volume_id", "layer_id", "module_id"]], on="geometry_id"
         )
 
         # Drop index axis as this has a different meaning in this context and confuses pandas
@@ -219,10 +194,7 @@ class ActsReader(EventReader):
 
         # Add nhits information
         particles["nhits"] = (
-            particles["particle_id"]
-            .map(hits.groupby("particle_id").size())
-            .fillna(0)
-            .astype(int)
+            particles["particle_id"].map(hits.groupby("particle_id").size()).fillna(0).astype(int)
         )
 
         return particles

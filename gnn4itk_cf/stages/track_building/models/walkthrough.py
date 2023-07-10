@@ -29,7 +29,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Local imports
 from ..track_building_stage import TrackBuildingStage
 
-
 class Walkthrough(TrackBuildingStage):
     def __init__(self, hparams):
         super().__init__(hparams)
@@ -41,15 +40,11 @@ class Walkthrough(TrackBuildingStage):
 
     @staticmethod
     def find_all_paths(start, G=None, ending_nodes=None):
-        return list(
-            chain.from_iterable(
-                [
-                    list(nx.all_simple_paths(G, start, end))
-                    for end in ending_nodes
-                    if nx.has_path(G, start, end)
-                ]
-            )
-        )
+        return list(chain.from_iterable([
+            list(nx.all_simple_paths(G, start, end))
+            for end in ending_nodes
+            if nx.has_path(G, start, end)
+        ]))
 
     @staticmethod
     def find_shortest_paths(start, G=None, ending_nodes=None):
@@ -72,6 +67,7 @@ class Walkthrough(TrackBuildingStage):
         logging.info(f"Saving tracks to {output_dir}")
 
         for graph in tqdm(dataset):
+
             # Apply score cut
             edge_mask = graph.scores > self.hparams["score_cut"]
 
@@ -90,9 +86,7 @@ class Walkthrough(TrackBuildingStage):
             workers = 32  # TODO: Remove this hardcoded value
 
             # Make partial method for multiprocessing
-            find_paths_partial = partial(
-                self.find_shortest_paths, G=G, ending_nodes=ending_nodes
-            )
+            find_paths_partial = partial(self.find_shortest_paths, G=G, ending_nodes=ending_nodes)
 
             # Run multiprocessing
             with Pool(workers) as p:
@@ -101,9 +95,7 @@ class Walkthrough(TrackBuildingStage):
             track_df = pd.DataFrame(
                 {
                     "hit_id": list(chain.from_iterable(paths)),
-                    "track_id": list(
-                        chain.from_iterable([[i] * len(p) for i, p in enumerate(paths)])
-                    ),
+                    "track_id": list(chain.from_iterable([[i] * len(p) for i, p in enumerate(paths)])),
                 }
             )
 

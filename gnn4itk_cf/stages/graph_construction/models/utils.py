@@ -7,7 +7,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+#distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -22,15 +22,11 @@ from torch_geometric.nn import radius
 
 try:
     import frnn
-
     FRNN_AVAILABLE = True
     logging.warning("FRNN is available")
 except ImportError:
     FRNN_AVAILABLE = False
-    logging.warning(
-        "FRNN is not available, install it at https://github.com/murnanedaniel/FRNN."
-        " Using PyG radius instead."
-    )
+    logging.warning("FRNN is not available, install it at https://github.com/murnanedaniel/FRNN. Using PyG radius instead.")
 if not torch.cuda.is_available():
     FRNN_AVAILABLE = False
     logging.warning("FRNN is not available, as no GPU is available")
@@ -40,18 +36,18 @@ if not torch.cuda.is_available():
 
 # ---------------------------- Edge Building ------------------------------
 
-
 def build_edges(
     query: torch.Tensor,
-    database: torch.Tensor,
-    indices: Optional[torch.Tensor] = None,
-    r_max: float = 1.0,
-    k_max: int = 10,
-    return_indices: bool = False,
-    backend: str = "FRNN",
+    database: torch.Tensor, 
+    indices: Optional[torch.Tensor] = None, 
+    r_max: float = 1.0, 
+    k_max: int = 10, 
+    return_indices: bool = False, 
+    backend: str = "FRNN"
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
+
     # Type hint
-    if backend == "FRNN" and FRNN_AVAILABLE:
+    if backend == "FRNN" and FRNN_AVAILABLE:    
         # Compute edges
         dists, idxs, _, _ = frnn.frnn_grid_points(
             points1=query.unsqueeze(0),
@@ -63,14 +59,10 @@ def build_edges(
             grid=None,
             return_nn=False,
             return_sorted=True,
-        )
+        )      
 
         idxs: torch.Tensor = idxs.squeeze().int()
-        ind = (
-            torch.arange(idxs.shape[0], device=query.device)
-            .repeat(idxs.shape[1], 1)
-            .T.int()
-        )
+        ind = torch.arange(idxs.shape[0], device=query.device).repeat(idxs.shape[1], 1).T.int()
         positive_idxs = idxs >= 0
         edge_list = torch.stack([ind[positive_idxs], idxs[positive_idxs]]).long()
     else:
@@ -83,54 +75,31 @@ def build_edges(
     # Remove self-loops
     edge_list = edge_list[:, edge_list[0] != edge_list[1]]
 
-    return (
-        (edge_list, dists, idxs, ind)
-        if (return_indices and backend == "FRNN")
-        else edge_list
-    )
+    return (edge_list, dists, idxs, ind) if (return_indices and backend=="FRNN") else edge_list
 
 
-def graph_intersection(
-    input_pred_graph,
-    input_truth_graph,
-    return_y_pred=True,
-    return_y_truth=False,
-    return_pred_to_truth=False,
-    return_truth_to_pred=False,
-    unique_pred=True,
-    unique_truth=True,
-):
+def graph_intersection(input_pred_graph, input_truth_graph, return_y_pred=True, return_y_truth=False, return_pred_to_truth=False, return_truth_to_pred=False, unique_pred=True, unique_truth=True):
     """
     An updated version of the graph intersection function, which is around 25x faster than the
     Scipy implementation (on GPU). Takes a prediction graph and a truth graph, assumed to have unique entries.
     If unique_pred or unique_truth is False, the function will first find the unique entries in the input graphs, and return the updated edge lists.
     """
-
+    
     if not unique_pred:
         input_pred_graph = torch.unique(input_pred_graph, dim=1)
     if not unique_truth:
         input_truth_graph = torch.unique(input_truth_graph, dim=1)
 
-    unique_edges, inverse = torch.unique(
-        torch.cat([input_pred_graph, input_truth_graph], dim=1),
-        dim=1,
-        sorted=False,
-        return_inverse=True,
-        return_counts=False,
-    )
+    unique_edges, inverse = torch.unique(torch.cat([input_pred_graph, input_truth_graph], dim=1), dim=1, sorted=False, return_inverse=True, return_counts=False)
 
     inverse_pred_map = torch.ones_like(unique_edges[1]) * -1
-    inverse_pred_map[inverse[: input_pred_graph.shape[1]]] = torch.arange(
-        input_pred_graph.shape[1], device=input_pred_graph.device
-    )
-
+    inverse_pred_map[inverse[:input_pred_graph.shape[1]]] = torch.arange(input_pred_graph.shape[1], device=input_pred_graph.device)
+    
     inverse_truth_map = torch.ones_like(unique_edges[1]) * -1
-    inverse_truth_map[inverse[input_pred_graph.shape[1] :]] = torch.arange(
-        input_truth_graph.shape[1], device=input_truth_graph.device
-    )
+    inverse_truth_map[inverse[input_pred_graph.shape[1]:]] = torch.arange(input_truth_graph.shape[1], device=input_truth_graph.device)
 
-    pred_to_truth = inverse_truth_map[inverse][: input_pred_graph.shape[1]]
-    truth_to_pred = inverse_pred_map[inverse][input_pred_graph.shape[1] :]
+    pred_to_truth = inverse_truth_map[inverse][:input_pred_graph.shape[1]]
+    truth_to_pred = inverse_pred_map[inverse][input_pred_graph.shape[1]:]
 
     return_tensors = []
 
@@ -144,7 +113,7 @@ def graph_intersection(
     if return_y_truth:
         y_truth = truth_to_pred >= 0
         return_tensors.append(y_truth)
-    if return_pred_to_truth:
+    if return_pred_to_truth:        
         return_tensors.append(pred_to_truth)
     if return_truth_to_pred:
         return_tensors.append(truth_to_pred)
@@ -176,9 +145,7 @@ def make_mlp(
         if layer_norm:
             layers.append(nn.LayerNorm(sizes[i + 1], elementwise_affine=False))
         if batch_norm:
-            layers.append(
-                nn.BatchNorm1d(sizes[i + 1], track_running_stats=False, affine=False)
-            )
+            layers.append(nn.BatchNorm1d(sizes[i + 1], track_running_stats=False, affine=False))
         layers.append(hidden_activation())
     # Final layer
     layers.append(nn.Linear(sizes[-2], sizes[-1]))
@@ -186,8 +153,6 @@ def make_mlp(
         if layer_norm:
             layers.append(nn.LayerNorm(sizes[-1], elementwise_affine=False))
         if batch_norm:
-            layers.append(
-                nn.BatchNorm1d(sizes[-1], track_running_stats=False, affine=False)
-            )
+            layers.append(nn.BatchNorm1d(sizes[-1], track_running_stats=False, affine=False))
         layers.append(output_activation())
     return nn.Sequential(*layers)

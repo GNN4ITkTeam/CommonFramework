@@ -1,7 +1,8 @@
 import sys
-
 sys.path.append("../")
 
+import yaml
+import pytest
 
 def test_stage_load():
     """
@@ -10,3 +11,8 @@ def test_stage_load():
     from gnn4itk_cf.core.train_stage import train
 
     train("test_gnn_config.yaml")
+
+    
+
+
+

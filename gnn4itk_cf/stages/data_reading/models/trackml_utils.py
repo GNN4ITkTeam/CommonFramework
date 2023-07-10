@@ -17,6 +17,7 @@ import pandas as pd
 import logging
 
 
+
 #####################################################
 #                   UTILD PANDAS                    #
 #####################################################
@@ -171,7 +172,9 @@ def extract_dir_new(hits, cells, detector):
     l_eta = theta_to_eta(l_theta)
     g_eta = theta_to_eta(g_theta)
 
-    angles = np.vstack([hit_ids, l_eta, l_phi, l_u, l_v, l_w, g_eta, g_phi]).T
+    angles = np.vstack(
+        [hit_ids, l_eta, l_phi, l_u, l_v, l_w, g_eta, g_phi]
+    ).T
     logging.info("Concated")
     df_angles = pd.DataFrame(
         angles,
@@ -203,6 +206,7 @@ def check_diff(h1, h2, name):
 
 
 def augment_hit_features(hits, cells, detector_orig, detector_proc):
+
     cell_stats = get_cell_stats(cells)
     hits["cell_count"] = cell_stats[:, 0]
     hits["cell_val"] = cell_stats[:, 1]
@@ -211,7 +215,6 @@ def augment_hit_features(hits, cells, detector_orig, detector_proc):
 
     return angles
 
-
 def get_cell_stats(cells):
     hit_cells = cells.groupby(["hit_id"]).value.count().values
     hit_value = cells.groupby(["hit_id"]).value.sum().values
@@ -219,34 +222,22 @@ def get_cell_stats(cells):
     cell_stats = cell_stats.astype(np.float32)
     return cell_stats
 
-
 def add_region_labels(hits, region_labels: dict):
     """
     Label the 6 detector regions (forward-endcap pixel, forward-endcap strip, etc.)
     """
 
     for region_label, conditions in region_labels.items():
-        condition_mask = np.logical_and.reduce(
-            [
-                hits[condition_column].isin(condition)
-                if isinstance(condition, list)
-                else hits[condition_column] == condition
-                for condition_column, condition in conditions.items()
-            ]
-        )
+        condition_mask = np.logical_and.reduce([hits[condition_column].isin(condition) if isinstance(condition, list) else hits[condition_column] == condition for condition_column, condition in conditions.items()])
         hits.loc[condition_mask, "region"] = region_label
 
-    assert (
-        hits.region.isna()
-    ).sum() == 0, "There are hits that do not belong to any region!"
+    assert (hits.region.isna()).sum() == 0, "There are hits that do not belong to any region!"
 
     return hits
-
 
 ###########################################
 #           CELL INFO LOADING             #
 ###########################################
-
 
 def add_cell_info(truth, cells, detector_dims):
     cell_stats = get_cell_stats(cells)
@@ -258,24 +249,20 @@ def add_cell_info(truth, cells, detector_dims):
 
     return truth
 
-
 #############################################
 #               DETECTOR UTILS              #
 #############################################
-
 
 def load_detector(detector_path):
     detector_df = pd.read_csv(detector_path)
     detector_dims = preprocess_detector(detector_df)
     return detector_df, detector_dims
 
-
 def preprocess_detector(detector):
     thicknesses = Detector_Thicknesses(detector).get_thicknesses()
     rotations = Detector_Rotations(detector).get_rotations()
     pixel_size = Detector_Pixel_Size(detector).get_pixel_size()
     return dict(thicknesses=thicknesses, rotations=rotations, pixel_size=pixel_size)
-
 
 def determine_array_size(detector):
     max_v, max_l, max_m = (0, 0, 0)
@@ -290,7 +277,6 @@ def determine_array_size(detector):
             unique_modules = lay.module_id.unique()
             max_m = max(max_m, max(unique_modules) + 1)
     return max_v, max_l, max_m
-
 
 class Detector_Rotations(object):
     def __init__(self, detector):
