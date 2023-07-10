@@ -56,6 +56,7 @@ PARTICLES_DATATYPES = {
     'vy': "float32",
     'vz': "float32",
     'radius': "float32",
+    'eta': "float32",
     'status': "int32",
     'charge': "float32",
     'pdgId': "int32",
