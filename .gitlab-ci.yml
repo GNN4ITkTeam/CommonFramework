@@ -5,12 +5,14 @@
 
 stages:
   - linting
+  - pages
   - build
   - test
   - deploy
 
 include:
   - ".gitlab/pipelines/.linting-gitlab-ci.yaml"
+  - ".gitlab/pipelines/.pages-gitlab-ci.yaml"
   - ".gitlab/pipelines/.build-gitlab-ci.yaml"
   - ".gitlab/pipelines/.test-gitlab-ci.yaml"
   - ".gitlab/pipelines/.deploy-gitlab-ci.yaml"
