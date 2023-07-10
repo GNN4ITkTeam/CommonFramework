@@ -1,0 +1,69 @@
+site_name: GNN4ITk
+site_description: Documentation for the ATLAS GNN4ITk pipeline
+site_author: Jackson Burzynski
+site_url: https://atlas-gnn-tracking.docs.cern.ch/
+
+repo_name: GitLab
+repo_url: https://gitlab.cern.ch/gnn4itkteam/commonframework
+edit_uri: 'tree/dev/docs'
+
+theme:
+  name: material
+  palette:
+
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+nav:
+  - Home: 'index.md'
+  - Setup: 'setup.md'
+  - Preprocessing: 'preprocessing.md'
+  - Training: 'training.md'
+  - Evaluation: 'evaluation.md'
+
+plugins:
+    - search
+    - git-revision-date-localized:
+        enable_creation_date: true
+        type: date
+
+markdown_extensions:
+    - admonition
+    - codehilite
+    - pymdownx.arithmatex
+    - pymdownx.details
+    - pymdownx.inlinehilite
+    - pymdownx.smartsymbols
+    - pymdownx.superfences:
+        custom_fences:
+          - name: mermaid
+            class: mermaid
+            format: !!python/name:pymdownx.superfences.fence_code_format
+
+    - toc:
+        permalink: "#"
+
+
+extra_javascript:
+    - 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'
+
+copyright: Copyright &copy; 2022 - 2023 CERN for the benefit of the ATLAS collaboration
+
+
