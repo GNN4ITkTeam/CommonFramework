@@ -27,6 +27,7 @@ from itertools import chain, product, combinations
 from torch_geometric.data import Data
 import torch
 import warnings
+import logging
 
 class EventReader:
     """
@@ -45,6 +46,21 @@ class EventReader:
             self.config = yaml.load(open(config, "r"), Loader=yaml.FullLoader)
         else:
             raise NotImplementedError
+        
+        # Logging config
+        self.log=logging.getLogger('EventReader')
+        log_level = self.config["log_level"].upper() if "log_level" in self.config else 'WARNING'
+
+        if log_level=='WARNING':
+            self.log.setLevel(logging.WARNING)
+        elif log_level=='INFO':
+            self.log.setLevel(logging.INFO)
+        elif log_level=='DEBUG':
+            self.log.setLevel(logging.DEBUG)
+        else:
+            raise ValueError(f"Unknown logging level {log_level}")
+
+        self.log.info("Using log level {}".format(logging.getLevelName(self.log.getEffectiveLevel())))
 
     @classmethod
     def infer(cls, config):
@@ -109,6 +125,10 @@ class EventReader:
             self._build_all_pyg(dataset_name)
 
     def _build_single_pyg_event(self, event, output_dir=None):
+
+        # Trick to make all workers are using separate CPUs
+        # https://stackoverflow.com/questions/15639779/why-does-multiprocessing-use-only-a-single-core-after-i-import-numpy
+        os.sched_setaffinity(0,range(1000))
         
         event_id = event["event_id"]
         
