@@ -48,21 +48,34 @@ def get_aggregation(aggregation):
     return aggregation_dict[aggregation]
 
 class EdgeUpdater(torch.nn.Module):
-    def __init__(self, hparams):
+    def __init__(self, 
+            hidden=64,
+            nb_edge_layer=4,
+            hidden_activation='ReLU',
+            output_activation=None,
+            layernorm=False,
+            batchnorm=False,
+            hidden_dropout=0,
+            region_ids=[],
+            hetero_level=4,
+            checkpoint=True,
+            concat_edge=True,
+            **hparams):
         super().__init__()
         self.hparams = hparams
         concatenation_factor = 3
+        self.checkpoint = checkpoint
         if self.hparams.get('concat_edge'): concatenation_factor+=1
 
         # The edge network computes new edge features from connected nodes
         self.network = make_mlp(
-            concatenation_factor * hparams["hidden"],
-            [hparams["hidden"]] * hparams["nb_edge_layer"],
-            layer_norm=hparams["layernorm"],
-            batch_norm=hparams["batchnorm"],
-            output_activation=hparams["output_activation"],
-            hidden_activation=hparams["hidden_activation"],
-            hidden_dropout=hparams.get('hidden_dropout', 0)
+            concatenation_factor * hidden,
+            [hidden] * nb_edge_layer,
+            layer_norm=layernorm,
+            batch_norm=batchnorm,
+            output_activation=output_activation,
+            hidden_activation=hidden_activation,
+            hidden_dropout=hidden_dropout
         )
     
     def forward(self, x, edge_index, edge, *args, **kwargs):
@@ -72,7 +85,7 @@ class EdgeUpdater(torch.nn.Module):
             x_input = torch.cat([x1[src], x2[dst], edge], dim=-1)
         else:
             x_input = torch.cat([x[src], x[dst], edge], dim=-1)
-        edge_out = checkpoint(self.network, x_input, use_reentrant=False) if self.hparams['checkpoint'] else self.network(x_input)
+        edge_out = checkpoint(self.network, x_input, use_reentrant=False) if self.checkpoint else self.network(x_input)
         if self.hparams.get('concat_edge'):
             return edge_out
         else: 
@@ -137,7 +150,7 @@ class HeteroEdgeConv(HeteroConv):
         return out_dict
 
 class NodeUpdater(MessagePassing):
-    def __init__(self, hparams, aggr: str = "add", flow: str = "source_to_target", node_dim: int = -2, decomposed_layers: int = 1):
+    def __init__(self, aggr: str = "add", flow: str = "source_to_target", node_dim: int = -2, decomposed_layers: int = 1, **hparams):
         super().__init__(aggr, flow=flow, node_dim=node_dim, decomposed_layers=decomposed_layers)
 
         self.hparams=hparams

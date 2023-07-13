@@ -423,12 +423,12 @@ class HeteroMixin:
     def make_coding_module(self, module, params={}):
         hparams = self.hparams.copy()
         for key, val in params.items(): hparams[key] = val
-        return module(hparams)
+        return module(**hparams)
 
     def make_single_conv(self, msg_passing_class, conv_class, hparams):
         convs = {}
         for region0, region1 in combinations_with_replacement(hparams['region_ids'], r=2):
-            conv = msg_passing_class(hparams=hparams)
+            conv = msg_passing_class(**hparams)
             convs[region0['name'], 'to', region1['name']] = convs[(region1['name'], 'to', region0['name'])] = conv
         if self.hparams.get('simplified_edge_conv'):
             for region0, region1 in product(hparams['region_ids'], hparams['region_ids']):

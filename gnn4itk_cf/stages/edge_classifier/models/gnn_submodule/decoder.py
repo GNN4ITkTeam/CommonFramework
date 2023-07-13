@@ -12,33 +12,62 @@ from itertools import product, combinations_with_replacement
 from .encoder import get_string_edge_type
 
 class HeteroEdgeDecoder(torch.nn.Module):
-    def __init__(self, hparams) -> None:
+    """Heterogeneous encoder module. Create heterogeneous node encoders as a torch.nn.ModuleDict instance from a list of region_ids: 
+    [
+        {'id': LIST_OF_REGION_ID_1, 'name': REGION_NAME_1},
+        {'id': LIST_OF_REGION_ID_2, 'name': REGION_NAME_2},
+        ...
+    ]
+    as 
+
+    {
+        REGION_NAME_1__to__REGION_NAME_1: MODULE_1__1
+        REGION_NAME_1__to__REGION_NAME_2: MODULE_1__2,
+        ...
+    }
+    Args:
+        hparams: A dictionary of hyperparameters.
+    """
+    def __init__(self, 
+                edge_features=[],
+                hidden=64,
+                nb_edge_layer=4,
+                hidden_activation='ReLU',
+                output_activation=None,
+                layernorm=False,
+                batchnorm=False,
+                hidden_dropout=0,
+                region_ids=[],
+                hetero_level=4,
+                checkpoint=True,
+                **hparams) -> None:
         super().__init__()
         self.hparams = hparams
-        region_ids = self.hparams['region_ids']
+        self.region_ids = region_ids
+        self.checkpoint = checkpoint
         decoders = {}
         if self.hparams['hetero_level'] < 4:
             decoder = make_mlp(
-                3 * hparams["hidden"],
-                [hparams["hidden"]] * hparams["nb_edge_layer"] + [1],
-                layer_norm=hparams["layernorm"],
-                batch_norm=hparams["batchnorm"],
+                3 * hidden,
+                [hidden] * nb_edge_layer + [1],
+                layer_norm=layernorm,
+                batch_norm=batchnorm,
                 output_activation=None,
-                hidden_activation=hparams["hidden_activation"],
-                hidden_dropout=hparams.get('hidden_dropout', 0)
+                hidden_activation=hidden_activation,
+                hidden_dropout=hidden_dropout
             )
-            for region0, region1 in combinations_with_replacement(region_ids, r=2):
+            for region0, region1 in combinations_with_replacement(self.region_ids, r=2):
                 decoders[(region0['name'], 'to', region1['name']) ] = decoders[(region1['name'], 'to', region0['name'])] = decoder
         else:
-            for region0, region1 in combinations_with_replacement(region_ids, r=2):
+            for region0, region1 in combinations_with_replacement(self.region_ids, r=2):
                 decoder = make_mlp(
-                    3 * hparams["hidden"],
-                    [hparams["hidden"]] * hparams["nb_edge_layer"] + [1],
-                    layer_norm=hparams["layernorm"],
-                    batch_norm=hparams["batchnorm"],
+                    3 * hidden,
+                    [hidden] * nb_edge_layer + [1],
+                    layer_norm=layernorm,
+                    batch_norm=batchnorm,
                     output_activation=None,
-                    hidden_activation=hparams["hidden_activation"],
-                    hidden_dropout=hparams.get('hidden_dropout', 0)
+                    hidden_activation=hidden_activation,
+                    hidden_dropout=hidden_dropout
                 )
                 decoders[ get_string_edge_type(region0['name'], 'to', region1['name']) ] = decoders[ get_string_edge_type(region1['name'], 'to', region0['name']) ] = decoder
             if self.hparams.get('simplified_edge_conv'):
@@ -61,45 +90,45 @@ class HeteroEdgeDecoder(torch.nn.Module):
                 edge_dict[edge_type]
             ], dim=-1)
             network = self.decoders[get_string_edge_type(*edge_type)]
-            if self.hparams.get('checkpoint'):
-                network = partial(checkpoint, network,  use_reentrant=False) 
+            if self.checkpoint:
+                network = partial(checkpoint, network, use_reentrant=False) 
             output_dict[edge_type] = network(x_in).squeeze(-1)
         return output_dict
 
-class HeteroNodeDecoder(torch.nn.Module):
-    def __init__(self, hparams) -> None:
-        super().__init__()
-        self.hparams = hparams
-        region_ids = self.hparams['region_ids']
-        decoders = {}
-        if self.hparams['hetero_level'] < 4:
-            decoder = make_mlp(
-                hparams["hidden"],
-                [hparams["hidden"]] * hparams["nb_edge_layer"] + [1],
-                layer_norm=hparams["layernorm"],
-                batch_norm=hparams["batchnorm"],
-                output_activation=None,
-                hidden_activation=hparams["hidden_activation"],
-                hidden_dropout=hparams.get('hidden_dropout', 0)
-            )
-            for region in region_ids:
-                decoders[ region['name'] ] = decoder
-        else:
-            for region in region_ids:
-                decoder = make_mlp(
-                    hparams["hidden"],
-                    [hparams["hidden"]] * hparams["nb_edge_layer"] + [1],
-                    layer_norm=hparams["layernorm"],
-                    batch_norm=hparams["batchnorm"],
-                    output_activation=None,
-                    hidden_activation=hparams["hidden_activation"],
-                    hidden_dropout=hparams.get('hidden_dropout', 0)
-                )
-                decoders[ region['name'] ] = decoder
-        self.decoders=nn.ModuleDict(decoders)
+# class HeteroNodeDecoder(torch.nn.Module):
+#     def __init__(self, hparams) -> None:
+#         super().__init__()
+#         self.hparams = hparams
+#         region_ids = self.hparams['region_ids']
+#         decoders = {}
+#         if self.hparams['hetero_level'] < 4:
+#             decoder = make_mlp(
+#                 hparams["hidden"],
+#                 [hparams["hidden"]] * hparams["nb_edge_layer"] + [1],
+#                 layer_norm=hparams["layernorm"],
+#                 batch_norm=hparams["batchnorm"],
+#                 output_activation=None,
+#                 hidden_activation=hparams["hidden_activation"],
+#                 hidden_dropout=hparams.get('hidden_dropout', 0)
+#             )
+#             for region in region_ids:
+#                 decoders[ region['name'] ] = decoder
+#         else:
+#             for region in region_ids:
+#                 decoder = make_mlp(
+#                     hparams["hidden"],
+#                     [hparams["hidden"]] * hparams["nb_edge_layer"] + [1],
+#                     layer_norm=hparams["layernorm"],
+#                     batch_norm=hparams["batchnorm"],
+#                     output_activation=None,
+#                     hidden_activation=hparams["hidden_activation"],
+#                     hidden_dropout=hparams.get('hidden_dropout', 0)
+#                 )
+#                 decoders[ region['name'] ] = decoder
+#         self.decoders=nn.ModuleDict(decoders)
 
-    def forward(self, x_dict):     
-        for node_type, x_in in x_dict.items():
-            network = partial(checkpoint, self.decoders[node_type], use_reentrant=False) if self.hparams.get('checkpoint') else self.decoders[node_type]
-            x_dict[node_type] = network(x_in.float()).squeeze(-1)
-        return x_dict
+#     def forward(self, x_dict):     
+#         for node_type, x_in in x_dict.items():
+#             network = partial(checkpoint, self.decoders[node_type], use_reentrant=False) if self.hparams.get('checkpoint') else self.decoders[node_type]
+#             x_dict[node_type] = network(x_in.float()).squeeze(-1)
+#         return x_dict
