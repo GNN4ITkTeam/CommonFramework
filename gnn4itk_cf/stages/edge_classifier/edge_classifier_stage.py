@@ -62,7 +62,7 @@ class EdgeClassifierStage(LightningModule):
         2. Run tests to ensure data is of the right format and loaded correctly.
         3. Construct the truth and weighting labels for the model training
         """
-        preprocess=True
+        preprocess = True
         input_dir = "input_dir"
         if stage in ["fit", "predict"]:
             self.load_data(stage, self.hparams[input_dir], preprocess)
@@ -72,7 +72,7 @@ class EdgeClassifierStage(LightningModule):
             if not self.hparams.get("reprocess_classifier"):
                 print("Reading data from stage_dir without preprocessing")
                 input_dir = "stage_dir"
-                preprocess=False
+                preprocess = False
             self.load_data(stage, self.hparams[input_dir], preprocess)
 
         try:
@@ -193,7 +193,7 @@ class EdgeClassifierStage(LightningModule):
     def validation_step(self, batch, batch_idx):
         
         output_dict = self.shared_evaluation(batch, batch_idx)
-        self.log_metrics( output_dict['output'], output_dict['all_truth'], output_dict['target_truth'], output_dict['loss'] )
+        self.log_metrics(output_dict['output'], output_dict['all_truth'], output_dict['target_truth'], output_dict['loss'])
         self.log("val_loss", output_dict['loss'], on_step=False, on_epoch=True, batch_size=1, sync_dist=True)        
 
     def test_step(self, batch, batch_idx):

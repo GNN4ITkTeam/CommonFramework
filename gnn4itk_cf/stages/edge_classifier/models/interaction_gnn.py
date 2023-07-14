@@ -23,7 +23,7 @@ from gnn4itk_cf.utils import make_mlp
 from ..edge_classifier_stage import EdgeClassifierStage
 from .gnn_submodule.encoder import HeteroEdgeEncoder, HeteroNodeEncoder
 from .gnn_submodule.updater import HeteroNodeConv, HeteroEdgeConv, NodeUpdater, EdgeUpdater, DirectedNodeUpdater
-from .gnn_submodule.decoder import HeteroEdgeDecoder, HeteroNodeDecoder
+from .gnn_submodule.decoder import HeteroEdgeDecoder
 from itertools import product, combinations_with_replacement
 
 
@@ -535,55 +535,3 @@ class HeteroInteractionGNN(InteractionGNN, HeteroMixin):
         target_truth = (batch.weights > 0) & all_truth
         
         return {"loss": loss, "all_truth": all_truth, "target_truth": target_truth, "output": output.detach(), 'batch': batch}
-    
-class HeteroInteractionGNNNodeClassifier(HeteroInteractionGNN):
-
-    def __init__(self, hparams):
-        super().__init__(hparams)
-        self.output_node_classifier = self.make_coding_module(HeteroNodeDecoder)
-    
-    def forward(self, batch, **kwargs):
-        edge_dict, x_dict = super().forward(batch, **kwargs)
-        x_dict = self.output_node_classifier(x_dict)
-        return edge_dict, x_dict
-
-    def shared_evaluation(self, batch, batch_idx):
-        edge_dict, x_dict = self(batch)
-        for k, v in edge_dict.items():
-            batch[k]['output'] = v
-        for k, v in x_dict.items():
-            batch[k]['node_output'] = v
-        batch = batch.to_homogeneous()
-
-        output = batch.output
-        edge_loss = self.loss_function(output, batch)
-
-        node_loss = torch.nn.functional.binary_cross_entropy_with_logits(batch.node_output, batch.y_node)
-
-        total_loss = edge_loss + node_loss * self.hparams.get("node_weight", 1)
-
-        all_truth = batch.y.bool()
-        target_truth = (batch.weights > 0) & all_truth
-        
-        return {"total_loss": total_loss, "all_truth": all_truth, "target_truth": target_truth, "output": output.detach(), 'batch': batch, "node_loss": node_loss, "loss": edge_loss}
-
-    def training_step(self, batch, batch_idx):
-        
-        eval_dict = self.shared_evaluation(batch, batch_idx)
-
-        self.log("train_loss", eval_dict['loss'], on_step=False, on_epoch=True, batch_size=1, sync_dist=True)
-        self.log("train_total_loss", eval_dict['total_loss'], on_step=False, on_epoch=True, batch_size=1, sync_dist=True)
-        self.log("train_node_loss", eval_dict['node_loss'], on_step=False, on_epoch=True, batch_size=1, sync_dist=True)
-
-        return eval_dict['total_loss']
-
-    def validation_step(self, batch, batch_idx):
-        
-        output_dict = self.shared_evaluation(batch, batch_idx)
-        self.log_metrics( output_dict['output'], output_dict['all_truth'], output_dict['target_truth'], output_dict['loss'] )
-        self.log("val_loss", output_dict['loss'], on_step=False, on_epoch=True, batch_size=1, sync_dist=True)
-        self.log("val_total_loss", output_dict['total_loss'], on_step=False, on_epoch=True, batch_size=1, sync_dist=True)
-        self.log("val_node_loss", output_dict['node_loss'], on_step=False, on_epoch=True, batch_size=1, sync_dist=True)
-
-
-
