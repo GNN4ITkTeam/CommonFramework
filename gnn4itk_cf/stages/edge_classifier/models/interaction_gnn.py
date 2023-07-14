@@ -417,6 +417,9 @@ class InteractionGNN2(EdgeClassifierStage):
 
 
 class HeteroMixin:
+    """
+    Mixin methods specifically for Heterogeneous GNN. These include initiation methods to create heterogeneous modules in the network.
+    """
     def __init__(self, hparams):
         self.hparams = hparams
 

@@ -211,6 +211,8 @@ class EdgeClassifierStage(LightningModule):
         target_true = target_truth.sum().float()
         target_true_positive = (target_truth.bool() & preds).sum().float()
         all_true_positive = (all_truth.bool() & preds).sum().float()
+
+        # add torch.sigmoid(output).float() to convert to float in case training is done with 16-bit precision
         target_auc = roc_auc_score(
             target_truth.bool().cpu().detach(), torch.sigmoid(output).float().cpu().detach()
         )
@@ -244,53 +246,16 @@ class EdgeClassifierStage(LightningModule):
         self.trainer.strategy.optimizers = [self.trainer.lr_scheduler_configs[0].scheduler.optimizer]
     
     def on_before_optimizer_step(self, optimizer, *args, **kwargs):
+        
         # warm up lr
-        # optimizer = self.optimizers()
         if (self.hparams["warmup"] is not None) and (self.trainer.current_epoch < self.hparams["warmup"]):
             lr_scale = min(1.0, float(self.trainer.current_epoch + 1) / self.hparams["warmup"])
             for pg in optimizer.param_groups:
                 pg["lr"] = lr_scale * self.hparams["lr"]
-            
+        
+        # after reaching minimum learning rate, stop LR decay
         for pg in optimizer.param_groups:
             pg['lr'] = max(pg['lr'], self.hparams.get('min_lr', 0.00005))
-
-    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_closure=None):
-        """
-        Use this to manually enforce warm-up. In the future, this may become built-into PyLightning
-        """
-        # if (self.hparams["warmup"] is not None) and (self.trainer.current_epoch < self.hparams["warmup"]):
-        #     lr_scale = min(1.0, float(epoch + 1) / self.hparams["warmup"])
-        #     for pg in optimizer.param_groups:
-        #         pg["lr"] = lr_scale * self.hparams["lr"]
-            
-        # for pg in optimizer.param_groups:
-        #     pg['lr'] = max(pg['lr'], self.hparams.get('min_lr', 0.00005))
-
-        if batch_idx==1 and self.hparams.get('debug'):
-            print('='*20 + 'node encoder param grads')
-            for param in self.node_encoder.parameters():
-                if not param.get_device() == 0: continue
-                print(param.grad.sum() if param.grad is not None else param.grad)
-            
-            print('='*20 +'edge encoder param grads')
-            for param in self.edge_encoder.parameters():
-                if not param.get_device() == 0: continue
-                print(param.grad.sum() if param.grad is not None else param.grad)
-
-            print('='*20 +"node network params grads")
-            for param in self.node_networks.parameters():
-                if not param.get_device() == 0: continue
-                print(param.grad.sum() if param.grad is not None else param.grad)
-            print('='*20 +"edge network params grads")
-            for param in self.edge_networks.parameters():
-                if not param.get_device() == 0: continue
-                print(param.grad.sum() if param.grad is not None else param.grad)
-            print('='*20 +'edge classifiers param grads')
-            for param in self.output_edge_classifier.parameters():
-                if not param.get_device() == 0: continue
-                print(param.grad.sum() if param.grad is not None else param.grad)
-
-        super().optimizer_step(epoch, batch_idx, optimizer, optimizer_closure)
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         """
@@ -308,19 +273,6 @@ class EdgeClassifierStage(LightningModule):
         output = eval_dict['output']
         batch = eval_dict['batch']
         self.save_edge_scores(batch, output, dataset)
-
-    # def on_predict_batch_end(self, outputs: dict, batch, batch_idx, dataloader_idx=0):
-    #     if outputs is None: return
-    #     event = outputs['batch']
-    #     event.scores = torch.sigmoid(outputs['output'])
-    #     datatype = self.datasets[dataloader_idx].data_name
-    #     event.truth_map = graph_intersection(event.edge_index, event.track_edges, return_y_pred=False, return_y_truth=False, return_truth_to_pred=True)
-    #     event.config.append(self.hparams)
-    #     os.makedirs(os.path.join(self.hparams["stage_dir"], datatype), exist_ok=True)
-    #     torch.save(event.cpu(), os.path.join(self.hparams["stage_dir"], datatype, f"event{event.event_id}.pyg"))
-    #     del outputs, event
-    #     return
-
 
     def save_edge_scores(self, event, output, dataset):
         event.scores = torch.sigmoid(output)
