@@ -1,8 +1,10 @@
 import os
 from setuptools import setup, find_packages
 
+
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
+
 
 dependencies = [
     "tqdm",
@@ -11,6 +13,11 @@ dependencies = [
     "trackml@ https://github.com/LAL/trackml-library/tarball/master#egg=trackml-3",
     "networkx",
     "seaborn",
+    "pyyaml",
+    "click",
+    "pytorch-lightning===1.8.6",
+    "pytest",
+    "torch-geometric==2.2.0",
 ]
 
 setup(

@@ -1,0 +1,28 @@
+build_docker:
+  stage: build
+  needs: []
+  variables:
+    TO: $CI_REGISTRY_IMAGE:latest
+    GIT_SSL_NO_VERIFY: "true"
+    DOCKER_FILE: Dockerfile
+  tags:
+    - docker-image-build
+  script:
+    - ignore
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+      variables:
+        TO: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+
+build_docker_test:
+  stage: build
+  needs: []
+  variables:
+    TO: '$CI_REGISTRY_IMAGE/temporary_images:${CI_COMMIT_REF_SLUG}-test'
+    GIT_SSL_NO_VERIFY: "true"
+    DOCKER_FILE: Dockerfile
+  tags:
+    - docker-image-build
+  script:
+    - ignore

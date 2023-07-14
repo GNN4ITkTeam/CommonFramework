@@ -1,0 +1,23 @@
+test-gnn-model:
+  stage: test
+  needs: [build_docker_test]
+  image: '$CI_REGISTRY_IMAGE/temporary_images:${CI_COMMIT_REF_SLUG}-test'
+  script:
+    - pytest tests/test_gnn_model.py
+    - ls -la
+
+test-gnn-stage:
+  stage: test
+  needs: [build_docker_test]
+  image: '$CI_REGISTRY_IMAGE/temporary_images:${CI_COMMIT_REF_SLUG}-test'
+  script:
+    - pytest tests/test_gnn_stage.py
+    - ls -la
+
+test-acts-reader:
+  stage: test
+  needs: [build_docker_test]
+  image: '$CI_REGISTRY_IMAGE/temporary_images:${CI_COMMIT_REF_SLUG}-test'
+  script:
+    - pytest tests/test_acts_reader.py
+    - ls -la

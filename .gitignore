@@ -1,5 +1,4 @@
 *.csv*
-*.txt*
 *.pt*
 *.pyg*
 **wandb*
@@ -12,3 +11,5 @@
 **__pycache__*
 *master*
 **master**
+*env*
+*dist*
