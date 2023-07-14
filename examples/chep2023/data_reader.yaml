@@ -1,10 +1,10 @@
 # CommonFramework configuration
 stage: data_reading
 model: AthenaReader
-input_dir: /sps/atlas/s/scaillou/CHEP2023/CTF_CHEP2023/dump/
-stage_dir: /sps/atlas/s/scaillou/CHEP2023/CTF_CHEP2023/data/
+input_dir: MY_DATA_DIR/CHEP2023/dump/
+stage_dir: MY_DATA_DIR/CHEP2023/data/
 
-module_lookup_path: /sps/atlas/s/scaillou/CHEP2023/CTF_CHEP2023/Modules_geo_events.txt
+module_lookup_path: MY_DATA_DIR/CHEP2023/Modules_geo_events.txt
 
 # Feature Configurations
 feature_sets:

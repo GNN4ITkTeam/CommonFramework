@@ -1,8 +1,8 @@
 # CommonFramework configuration
 stage: graph_construction
 model: PyModuleMap
-input_dir: /sps/atlas/s/scaillou/CHEP2023/CTF_CHEP2023/data/ # Should contain the files used in training and inference
-stage_dir: /sps/atlas/s/scaillou/CHEP2023/CTF_CHEP2023/module_map/ # A directory to be created that will store logs, artifacts, and output data
+input_dir: MY_DATA_DIR/CHEP2023/data/ # Should contain the files used in training and inference
+stage_dir: MY_DATA_DIR/CHEP2023/module_map/ # A directory to be created that will store logs, artifacts, and output data
 
 # Dataset parameters
 data_split: [0, 0, 100] # Number of [training, validation, testing] examples
