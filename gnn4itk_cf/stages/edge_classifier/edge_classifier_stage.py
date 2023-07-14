@@ -277,7 +277,7 @@ class EdgeClassifierStage(LightningModule):
 
         datatype = dataset.data_name
         os.makedirs(os.path.join(self.hparams["stage_dir"], datatype), exist_ok=True)
-        torch.save(event.cpu(), os.path.join(self.hparams["stage_dir"], datatype, f"event{event.event_id}.pyg"))
+        torch.save(event.cpu(), os.path.join(self.hparams["stage_dir"], datatype, f"event{event.event_id[0]}.pyg"))
 
     @classmethod
     def evaluate(cls, config):
@@ -479,7 +479,7 @@ class GraphDataset(Dataset):
         self.apply_hard_cuts(event)
         self.construct_weighting(event)
         self.handle_edge_list(event)
-        self.scale_features(event)
+        self.scale_features(event) # scaling must be done before adding features
         self.add_edge_features(event)
         
 

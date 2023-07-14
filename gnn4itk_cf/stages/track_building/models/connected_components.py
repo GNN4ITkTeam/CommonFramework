@@ -72,4 +72,4 @@ class ConnectedComponents(TrackBuildingStage):
             graph.config.append(self.hparams)
 
             # TODO: Graph name file??
-            torch.save(graph, os.path.join(output_dir, f"event{graph.event_id}.pyg"))
+            torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))

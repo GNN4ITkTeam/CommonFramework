@@ -16,6 +16,7 @@ import os
 from torch.utils.data import random_split
 import torch
 import pandas as pd
+import logging
 
 from ..data_reading_stage import EventReader
 from . import athena_utils
@@ -28,9 +29,11 @@ class AthenaReader(EventReader):
         Here we initialize and load any attributes that are needed for the _build_single_csv function.
         """
 
+        self.log.info("Using AthenaReader to read events")
+
         input_dir = self.config["input_dir"]
         self.raw_events = self.get_file_names(input_dir, filename_terms = ["clusters", "particles", "spacepoints"])
-
+        
         # Very opinionated: We split the data by 80/10/10: train/val/test
         torch.manual_seed(42) # We want the same split every time for convenience
         self.trainset, self.valset, self.testset = random_split(self.raw_events, [int(len(self.raw_events)*0.8), int(len(self.raw_events)*0.1), int(len(self.raw_events)*0.1)])
@@ -63,9 +66,17 @@ class AthenaReader(EventReader):
 
         # Read spacepoints
         spacepoints = athena_utils.read_spacepoints(spacepoints_file)
+        if self.log.getEffectiveLevel()==logging.DEBUG:
+            print("\nSpace points\n")
+            print(spacepoints)
+            print(spacepoints.dtypes)
 
         # Read clusters
         clusters, self.shape_list = athena_utils.read_clusters(clusters_file, particles, self.config["column_lookup"])
+        if self.log.getEffectiveLevel()==logging.DEBUG:
+            print("\nClusters\n")
+            print(clusters)
+            print(clusters.dtypes)
 
         # Get detectable particles
         detectable_particles = athena_utils.get_detectable_particles(particles, clusters)
@@ -79,3 +90,12 @@ class AthenaReader(EventReader):
         # Save to CSV
         truth.to_csv(os.path.join(output_dir, "event{:09}-truth.csv".format(int(event_id))), index=False)
         detectable_particles.to_csv(os.path.join(output_dir, "event{:09}-particles.csv".format(int(event_id))), index=False)
+
+        if self.log.getEffectiveLevel()==logging.DEBUG:
+            print("\n*** Truth ***\n")
+            print(truth)
+            print(truth.dtypes)
+
+            print("\n*** Particles ***\n")
+            print(detectable_particles)
+            print(detectable_particles.dtypes)

@@ -242,9 +242,18 @@ def add_module_id(hits, module_lookup):
     """
     if "module_id" in hits:
         return hits
+    
+    if "module_id_1" in hits:
+        #Duplicate module_id_1 to module_id
+        hits['module_id'] = hits['module_id_1']
+        return hits
+
     cols_to_merge = ['hardware', 'barrel_endcap', 'layer_disk', 'eta_module', 'phi_module']
     merged_hits = hits.merge(module_lookup[cols_to_merge + ["ID"]], on=cols_to_merge, how='left')
     merged_hits = merged_hits.rename(columns={"ID": "module_id"})
+
+    # make sure we had all modules in the config file    
+    assert not merged_hits['module_id'].isnull().values.any(), "Some modules are unknown, please check your module lookup file"
 
     assert hits.shape[0] == merged_hits.shape[0], "Merged hits dataframe has different number of rows - possibly missing modules from lookup"
     assert merged_hits.shape[1] - hits.shape[1] == 1, "Merged hits dataframe has different number of columns; should only have added module_id column"

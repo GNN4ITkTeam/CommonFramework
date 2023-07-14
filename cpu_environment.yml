@@ -2,18 +2,18 @@ name: gnn4itk
 
 channels:
     - pytorch
-    - pyg
     - defaults
     - conda-forge
     
 dependencies:
+    - python=3.9
     - pip
     - numpy<=1.22
     - pandas
     - scipy
     - matplotlib
     - cpuonly
-    - pytorch==1.10.2
+    - pytorch==1.12.1
     - pytorch-lightning=1.9.2
-    - pyg
     - faiss-cpu
+    - uproot
