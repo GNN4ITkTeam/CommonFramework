@@ -403,7 +403,7 @@ class GraphDataset(Dataset):
         event = self.construct_weighting(event)
         event = self.handle_edge_list(event)
         event = self.scale_features(event)
-        if self.hparams.get('edge_features'):
+        if self.hparams.get('edge_features')!=None:
             event = self.add_edge_features(event) # scaling must be done before adding features
         return event
         
