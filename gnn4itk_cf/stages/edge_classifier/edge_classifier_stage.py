@@ -150,18 +150,23 @@ class EdgeClassifierStage(LightningModule):
         assert hasattr(batch, "y"), "The batch does not have a truth label. Please ensure the batch has a `y` attribute."
         assert hasattr(batch, "weights"), "The batch does not have a weighting label. Please ensure the batch weighting is handled in preprocessing."
 
-        negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
+        if ("loss_balancing" in self.hparams) and self.hparams["loss_balancing"]:
+            print("loss_balancing")
+            negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
+            negative_loss = F.binary_cross_entropy_with_logits(
+                output[negative_mask], torch.zeros_like(output[negative_mask]), weight=batch.weights[negative_mask].abs()
+            )
+            positive_mask = (batch.y == 1) & (batch.weights > 0)
+            positive_loss = F.binary_cross_entropy_with_logits(
+                output[positive_mask], torch.ones_like(output[positive_mask]), weight=batch.weights[positive_mask].abs()
+            )
+            return positive_loss + negative_loss
+        else:
+            loss = F.binary_cross_entropy_with_logits(
+                output, batch.y.float(), weight=batch.weights.abs()
+            )
+        return loss
 
-        negative_loss = F.binary_cross_entropy_with_logits(
-            output[negative_mask], torch.zeros_like(output[negative_mask]), weight=batch.weights[negative_mask].abs()
-        )
-
-        positive_mask = (batch.y == 1) & (batch.weights > 0)
-        positive_loss = F.binary_cross_entropy_with_logits(
-            output[positive_mask], torch.ones_like(output[positive_mask]), weight=batch.weights[positive_mask].abs()
-        )
-
-        return positive_loss + negative_loss
 
     def shared_evaluation(self, batch, batch_idx):
 
@@ -202,6 +207,11 @@ class EdgeClassifierStage(LightningModule):
         target_true = target_truth.sum().float()
         target_true_positive = (target_truth.bool() & preds).sum().float()
         all_true_positive = (all_truth.bool() & preds).sum().float()
+
+        fake_positive = edge_positive.item() - all_true_positive.item() 
+        # Masked Positives
+        target_and_fake_edge_positive = target_true_positive + fake_positive
+
         target_auc = roc_auc_score(
             target_truth.bool().cpu().detach(), torch.sigmoid(output).cpu().detach()
         )
@@ -209,6 +219,7 @@ class EdgeClassifierStage(LightningModule):
         # Eff, pur, auc
         target_eff = target_true_positive / target_true
         target_pur = target_true_positive / edge_positive
+        l2it_target_pur = target_true_positive / target_and_fake_edge_positive
         total_pur = all_true_positive / edge_positive
         current_lr = self.optimizers().param_groups[0]["lr"]
 
@@ -218,6 +229,7 @@ class EdgeClassifierStage(LightningModule):
                 "current_lr": current_lr,
                 "eff": target_eff,
                 "target_pur": target_pur,
+                "l2it_target_pur": l2it_target_pur,
                 "total_pur": total_pur,
                 "auc": target_auc,
             },  # type: ignore
@@ -334,6 +346,8 @@ class EdgeClassifierStage(LightningModule):
                  r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
                  r"$p_T > 1$GeV, $|\eta < 4$")
         fig.savefig(os.path.join(config["stage_dir"], "edgewise_efficiency.png"))
+    
+    
 
     def graph_roc_curve(self, plot_config, config):
         """
@@ -418,7 +432,11 @@ class EdgeClassifierStage(LightningModule):
 
         for key, values in target_tracks.items():
             if isinstance(values, list):
-                passing_tracks = passing_tracks * (values[0] <= event[key].float()) * (event[key].float() <= values[1])
+                if values[0] == 'not_in':
+                    for val in values[1]:
+                        passing_tracks = passing_tracks * (event[key].float() != val)
+                else:
+                    passing_tracks = passing_tracks * (values[0] <= event[key].float()) * (event[key].float() <= values[1])
             else:
                 passing_tracks = passing_tracks * (event[key] == values)
 
