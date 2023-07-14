@@ -94,7 +94,7 @@ def get_trainer(config, default_root_dir):
     )
 
     accelerator = "gpu" if torch.cuda.is_available() else None
-    devices = config["gpus"] if "gpus" in config else 1
+    devices = config["gpus"] if config.get("gpus",0) else 1
 
     return Trainer(
         accelerator=accelerator,

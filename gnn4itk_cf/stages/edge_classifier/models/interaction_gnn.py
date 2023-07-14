@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
@@ -20,6 +21,10 @@ from torch_geometric.nn import aggr
 
 from gnn4itk_cf.utils import make_mlp
 from ..edge_classifier_stage import EdgeClassifierStage
+from .gnn_submodule.encoder import HeteroEdgeEncoder, HeteroNodeEncoder
+from .gnn_submodule.updater import HeteroNodeConv, HeteroEdgeConv, NodeUpdater, EdgeUpdater, DirectedNodeUpdater
+from .gnn_submodule.decoder import HeteroEdgeDecoder
+from itertools import product, combinations_with_replacement
 
 
 class InteractionGNN(EdgeClassifierStage):
@@ -35,10 +40,15 @@ class InteractionGNN(EdgeClassifierStage):
         """
 
         # Define the dataset to be used, if not using the default
-        self.save_hyperparameters(hparams)
 
         self.setup_aggregation()
 
+        hparams["node_net_recurrent"] = (
+            True if "node_net_recurrent" not in hparams else hparams["node_net_recurrent"]
+        )
+        hparams["edge_net_recurrent"] = (
+            True if "edge_net_recurrent" not in hparams else hparams["edge_net_recurrent"]
+        )
         hparams["batchnorm"] = (
             False if "batchnorm" not in hparams else hparams["batchnorm"]
         )
@@ -67,24 +77,51 @@ class InteractionGNN(EdgeClassifierStage):
         )
 
         # The edge network computes new edge features from connected nodes
-        self.edge_network = make_mlp(
-            3 * hparams["hidden"],
-            [hparams["hidden"]] * hparams["nb_edge_layer"],
-            layer_norm=hparams["layernorm"],
-            batch_norm=hparams["batchnorm"],
-            output_activation=hparams["output_activation"],
-            hidden_activation=hparams["hidden_activation"],
-        )
+        if not hparams["edge_net_recurrent"]:
+            self.edge_networks = nn.ModuleList(
+            [make_mlp(
+                3 * hparams["hidden"],
+                [hparams["hidden"]] * hparams["nb_edge_layer"],
+                layer_norm=hparams["layernorm"],
+                batch_norm=hparams["batchnorm"],
+                output_activation=hparams["output_activation"],
+                hidden_activation=hparams["hidden_activation"],
+            )
+            for _ in range(hparams["n_graph_iters"])]
+            )
+        else:
+            self.edge_network = make_mlp(
+                3 * hparams["hidden"],
+                [hparams["hidden"]] * hparams["nb_edge_layer"],
+                layer_norm=hparams["layernorm"],
+                batch_norm=hparams["batchnorm"],
+                output_activation=hparams["output_activation"],
+                hidden_activation=hparams["hidden_activation"],
+            )
+
 
         # The node network computes new node features
-        self.node_network = make_mlp(
-            self.network_input_size,
-            [hparams["hidden"]] * hparams["nb_node_layer"],
-            layer_norm=hparams["layernorm"],
-            batch_norm=hparams["batchnorm"],
-            output_activation=hparams["output_activation"],
-            hidden_activation=hparams["hidden_activation"],
-        )
+        if not hparams["node_net_recurrent"]:
+            self.node_networks = nn.ModuleList(
+            [make_mlp(
+                self.network_input_size,
+                [hparams["hidden"]] * hparams["nb_node_layer"],
+                layer_norm=hparams["layernorm"],
+                batch_norm=hparams["batchnorm"],
+                output_activation=hparams["output_activation"],
+                hidden_activation=hparams["hidden_activation"],
+            )
+            for _ in range(hparams["n_graph_iters"])]
+            )
+        else:
+            self.node_network = make_mlp(
+                self.network_input_size,
+                [hparams["hidden"]] * hparams["nb_node_layer"],
+                layer_norm=hparams["layernorm"],
+                batch_norm=hparams["batchnorm"],
+                output_activation=hparams["output_activation"],
+                hidden_activation=hparams["hidden_activation"],
+            )
 
         # Final edge output classification network
         self.output_edge_classifier = make_mlp(
@@ -96,7 +133,9 @@ class InteractionGNN(EdgeClassifierStage):
             hidden_activation=hparams["hidden_activation"],
         )
 
-    def message_step(self, x, start, end, e):
+        self.save_hyperparameters(hparams)
+
+    def message_step(self, x, start, end, e, i):
 
         # Compute new node features
         edge_messages = torch.cat([
@@ -106,11 +145,17 @@ class InteractionGNN(EdgeClassifierStage):
 
         node_inputs = torch.cat([x, edge_messages], dim=-1)
 
-        x_out = self.node_network(node_inputs)
+        if not self.hparams["node_net_recurrent"]:
+            x_out = self.node_networks[i](node_inputs)
+        else:
+            x_out = self.node_network(node_inputs)
 
         # Compute new edge features
         edge_inputs = torch.cat([x_out[start], x_out[end], e], dim=-1)
-        e_out = self.edge_network(edge_inputs)
+        if not self.hparams["edge_net_recurrent"]:
+            e_out = self.edge_networks[i](edge_inputs)
+        else:
+            e_out = self.edge_network(edge_inputs)
 
         return x_out, e_out
 
@@ -132,13 +177,13 @@ class InteractionGNN(EdgeClassifierStage):
             start, end = torch.cat([start, end]), torch.cat([end, start])
 
         # Encode the graph features into the hidden space
-        x.requires_grad = True
-        x = checkpoint(self.node_encoder, x)
-        e = checkpoint(self.edge_encoder, torch.cat([x[start], x[end]], dim=1))
+        # x.requires_grad = True
+        x = checkpoint(self.node_encoder, x, use_reentrant=False)
+        e = checkpoint(self.edge_encoder, torch.cat([x[start], x[end]], dim=1), use_reentrant=False)
 
         # Loop over iterations of edge and node networks
-        for _ in range(self.hparams["n_graph_iters"]):
-            x, e = checkpoint(self.message_step, x, start, end, e)
+        for i in range(self.hparams["n_graph_iters"]):
+            x, e = checkpoint(self.message_step, x, start, end, e, i, use_reentrant=False)
 
         return self.output_step(x, start, end, e)
 
@@ -368,4 +413,125 @@ class InteractionGNN2(EdgeClassifierStage):
 
 
     def concat(self, x, y):
-        return torch.cat([x, y], dim=-1)
+        return torch.cat([x, y], dim=-1) 
+
+
+class HeteroMixin:
+    """
+    Mixin methods specifically for Heterogeneous GNN. These include initiation methods to create heterogeneous modules in the network.
+    """
+    def __init__(self, hparams):
+        self.hparams = hparams
+
+    def make_coding_module(self, module, params={}):
+        hparams = self.hparams.copy()
+        for key, val in params.items(): hparams[key] = val
+        return module(**hparams)
+
+    def make_single_conv(self, msg_passing_class, conv_class, hparams):
+        convs = {}
+        for region0, region1 in combinations_with_replacement(hparams['region_ids'], r=2):
+            conv = msg_passing_class(**hparams)
+            convs[region0['name'], 'to', region1['name']] = convs[(region1['name'], 'to', region0['name'])] = conv
+        if self.hparams.get('simplified_edge_conv'):
+            for region0, region1 in product(hparams['region_ids'], hparams['region_ids']):
+                if region0['name'] == region1['name']: continue
+                convs[(region0['name'], 'to', region1['name'])] = convs[(region0['name'], 'to', region0['name'])]
+        return conv_class(convs, aggr=hparams.get('modulewise_aggregation', 'sum'))
+
+    def make_updater(self, msg_passing_class, conv_class, params={}):
+        hparams = self.hparams.copy()
+        for key, val in params.items(): hparams[key] = val
+        
+        module_convs = torch.nn.ModuleList([])
+        if hparams.get('recurrent'):
+            conv = self.make_single_conv(msg_passing_class, conv_class, hparams)
+            for _ in range(hparams['n_graph_iters']): 
+                module_convs.append( conv ) 
+        else:
+            for _ in range(hparams['n_graph_iters']):
+                conv = self.make_single_conv(msg_passing_class, conv_class, hparams)
+                module_convs.append(conv)
+        
+        return module_convs
+
+class HeteroInteractionGNN(InteractionGNN, HeteroMixin):
+    def __init__(self, hparams):
+        super().__init__(hparams)
+
+        self.setup_aggregation()
+        node_updater = eval(self.hparams.get('node_updater', 'NodeUpdater'))
+        self.node_encoder = self.make_coding_module(HeteroNodeEncoder)
+        self.edge_encoder = self.make_coding_module(HeteroEdgeEncoder)
+        self.node_networks = self.make_updater(node_updater, HeteroNodeConv)
+        self.edge_networks = self.make_updater(EdgeUpdater, HeteroEdgeConv)
+        self.output_edge_classifier = self.make_coding_module(HeteroEdgeDecoder)
+
+    def setup(self, stage="fit"):
+        """
+        The setup logic of the stage.
+        1. Setup the data for training, validation and testing.
+        2. Run tests to ensure data is of the right format and loaded correctly.
+        3. Construct the truth and weighting labels for the model training
+        """
+        preprocess=True
+        input_dir = "input_dir"
+        if stage in ["fit", "predict"]:
+            self.load_data(stage, self.hparams[input_dir], preprocess)
+            # self.test_data(stage)
+        elif stage == "test":
+            if not self.hparams.get("reprocess_classifier"):
+                print("Reading data from stage_dir without preprocessing")
+                input_dir = "stage_dir"
+                preprocess=False
+            self.load_data(stage, self.hparams[input_dir], preprocess)
+
+        try:
+            print("Defining figures of merit")
+            self.logger.experiment.define_metric("val_loss" , summary="min")
+            self.logger.experiment.define_metric("auc" , summary="max")
+        except Exception:
+            warnings.warn("Failed to define figures of merit, due to logger unavailable")
+
+    def forward(self, batch, **kwargs):
+        x_dict = batch.input_node_features_dict
+        edge_index_dict= batch.edge_index_dict
+        edge_dict = batch.collect('input_edge_features')
+        
+        x_input_dict = self.node_encoder(x_dict)
+        x_dict = x_input_dict.copy()
+
+        edge_input_dict = self.edge_encoder(x_dict, edge_index_dict, edge_dict=edge_dict)
+        edge_dict = edge_input_dict.copy()
+
+        for node_updater, edge_updater in zip(self.node_networks, self.edge_networks):
+            if self.hparams.get('concat_node'):
+                x_dict = {name: torch.cat([x_dict[name], x_input], dim=-1) for name, x_input in x_input_dict.items()}
+            x_dict = node_updater(x_dict, edge_index_dict, edge_dict)
+            if self.hparams.get('concat_edge'):
+                edge_dict = {name: torch.cat([edge_dict[name], e], dim=-1) for name, e in edge_input_dict.items()}
+            edge_dict = edge_updater(x_dict, edge_index_dict, edge_dict)
+        return self.output_edge_classifier(x_dict, edge_index_dict, edge_dict), x_dict
+
+    def training_step(self, batch, batch_idx):
+        
+        loss = self.shared_evaluation(batch, batch_idx)['loss']
+
+        self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1, sync_dist=True)
+
+        return loss
+
+    def shared_evaluation(self, batch, batch_idx):
+
+        output_dict, _ = self(batch)
+        for k, v in output_dict.items():
+            batch[k]['output'] = v
+        batch = batch.to_homogeneous()
+
+        output = batch.output
+        loss = self.loss_function(output, batch) 
+
+        all_truth = batch.y.bool()
+        target_truth = (batch.weights > 0) & all_truth
+        
+        return {"loss": loss, "all_truth": all_truth, "target_truth": target_truth, "output": output.detach(), 'batch': batch}

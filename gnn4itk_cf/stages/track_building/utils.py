@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dis import dis
+import os, sys
+import logging
+import random
+
+import torch.nn as nn
 import torch
 import pandas as pd
 import numpy as np
@@ -160,6 +166,20 @@ def plot_pt_eff(particles, pt_units, save_path="track_reconstruction_eff_vs_pt.p
     fig.savefig(save_path)
 
 def get_ratio(x_vals, y_vals):
-    res = [x / y if y != 0 else 0.0 for x, y in zip(x_vals, y_vals)]
-    err = [x / y * math.sqrt((x + y) / (x * y)) if y != 0 and x != 0 else 0. for x, y in zip(x_vals, y_vals)]
+    res = [x/y if y!=0 else 0.0 for x,y in zip(x_vals, y_vals)]
+    err = [x/y * math.sqrt((x+y)/(x*y)) if y!=0 and x!=0 else 0.0 for x,y in zip(x_vals, y_vals)]
     return res, err
+
+
+# ------------- MAPPING UTILS ----------------
+
+def rearrange_by_distance(event, edge_index):
+
+    assert 'r' in event.keys and 'z' in event.keys, "event must contain r and z"
+    distance = event.r ** 2 + event.z ** 2
+
+    # flip edges that are pointing inward
+    edge_mask = distance[edge_index[0]] > distance[edge_index[1]]
+    edge_index[:, edge_mask] = edge_index[:, edge_mask].flip(0)
+
+    return edge_index
