@@ -17,6 +17,8 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
+import torch
+
 
 # fontsize=16
 # minor_size=14
@@ -218,5 +220,26 @@ def plot_eff_pur_region(edge_truth, edge_positive, edge_regions, node_r, node_z,
 
     ax.set_xlabel("z")
     ax.set_ylabel("r")
+
+    return fig, ax
+
+
+def plot_efficiency_rz(target_z: torch.Tensor, target_r: torch.Tensor, true_positive_z: torch.Tensor, true_positive_r: torch.Tensor, plot_config: dict):
+
+    z_range, r_range = plot_config.get("z_range", [-3,3]), plot_config.get("r_range", [0, 1.])
+    z_bins, r_bins = plot_config.get('z_bins', 6* 64), plot_config.get("r_bins", 64)
+    z_bins = np.linspace(z_range[0], z_range[1], z_bins, endpoint=True)
+    r_bins = np.linspace(r_range[0], r_range[1], r_bins, endpoint=True)
+
+    fig, ax = plt.subplots(1,1, figsize=plot_config.get('fig_size', (12,6)))
+    true_hist, _, _ = np.histogram2d(target_z.numpy(), target_r.numpy(), bins=[z_bins, r_bins], )
+    true_positive_hist, z_edges, r_edges = np.histogram2d(true_positive_z.numpy(), true_positive_r.numpy(), bins=[z_bins, r_bins])
+
+    eff = true_positive_hist / true_hist
+
+    c = ax.pcolormesh(z_bins, r_bins, eff.T, cmap='jet_r', vmin=plot_config.get("vmin", 0.9), vmax=plot_config.get("vmax", 1))
+    fig.colorbar(c, ax=ax)
+    ax.set_xlabel('z [m]')
+    ax.set_ylabel('r [m]')
 
     return fig, ax

@@ -14,6 +14,7 @@
 
 import torch
 from torch_scatter import scatter
+from torch_geometric.data import Data
 
 def get_condition_lambda(condition_key, condition_val):
 
@@ -238,3 +239,33 @@ def map_to_edges(event):
     event.edge_attr = edge_attr
 
     return event
+
+def get_directed_prediction(event: Data, edge_pred, edge_index):
+    """Apply score cut on edge_index of a totally bidirectional graph, i.e. every edge is repeated 
+    in the graph
+
+    Args:
+        event (_type_): _description_
+        scores (_type_): _description_
+        score_cut (_type_): _description_
+        edge_index: must be sorted by distance
+    """
+    num_edges = edge_pred.shape[0]
+    inner_sorted_indices = torch.argsort(edge_index[1])
+    edge_pred = edge_pred[inner_sorted_indices]
+    edge_index = edge_index[:, inner_sorted_indices]
+    outter_sorted_indices = torch.argsort(edge_index[0])
+    edge_pred = edge_pred[outter_sorted_indices]
+    event['edge_index'] = edge_index[:, outter_sorted_indices].T.view(-1, 2, 2)[:, 0].T
+    # print(event.edge_index)
+    for key in event.keys:
+        if isinstance(event[key], torch.Tensor) and ((event[key].shape[0] == num_edges)):
+            event[key] = event[key][inner_sorted_indices][outter_sorted_indices].view(2, -1)[0]
+
+    paired_pred = edge_pred.view(-1, 2)
+    for matching in ['loose', 'tight']:
+        if matching=='loose':
+            event.passing_edge_mask_loose = torch.any(paired_pred, dim=1)
+        elif matching=='tight': 
+            event.passing_edge_mask_tight = torch.all(paired_pred, dim=1)
+    # print(event.passing_edge_mask_loose, event.passing_edge_mask_tight)
