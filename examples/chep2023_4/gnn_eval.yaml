@@ -9,8 +9,13 @@ nodes: 1
 # Dataset parameters
 data_split: [0, 0, 100] # Number of [training, validation, testing] examples
 
+dataset_class: GraphDataset
+undirected: False
+
 # Evaluation parameters
-score_cut: 0.5
+#score_cut: 0.75
+input_cut: 0.2
+
 target_tracks: 
   pt: [1000, .inf]
   nhits: [3, .inf]
@@ -22,8 +27,16 @@ target_tracks:
 
 # Plotting parameters
 plots:
-  graph_scoring_efficiency: 
-    title: Interaction GNN Edge-wise Efficiency
-    pt_units: MeV
-  graph_roc_curve:
-    title: Interaction GNN ROC curve
+  graph_scoring_efficiency_purity:
+    title: Efficiency / Purity
+  #graph_scoring_efficiency: 
+  #  title: Interaction GNN Edge-wise Efficiency
+  #  pt_units: MeV
+  #graph_roc_curve:
+  #  title: Interaction GNN ROC curve
+  #graph_region_efficiency_purity:
+  #  title: Efficiency / Purity
+  #gnn_efficiency_rz:
+  #  title: Efficiency vs rz
+  #gnn_purity_rz:
+  #  title: Efficiency vs rz

@@ -8,6 +8,8 @@ nodes: 1
 
 # Dataset parameters
 data_split: [1600, 80, 100] # Number of [training, validation, testing] examples
+dataset_class: GraphDataset
+undirected: False
 
 # Truth and weighting parameters. Syntax is...
 # Single value: track[key] == value
