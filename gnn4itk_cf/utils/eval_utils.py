@@ -1,6 +1,7 @@
 
 from atlasify import atlasify
 import os
+import matplotlib
 from matplotlib import pyplot as plt
 import numpy as np
 from sklearn.metrics import auc, roc_curve
@@ -8,7 +9,7 @@ import torch
 from tqdm import tqdm
 
 from gnn4itk_cf.stages.track_building.utils import rearrange_by_distance
-from gnn4itk_cf.utils.plotting_utils import get_ratio, plot_eff_pur_region, plot_efficiency_rz
+from gnn4itk_cf.utils.plotting_utils import get_ratio, get_ratio2D, plot_eff_pur_region, plot_efficiency_rz
 
 def graph_scoring_efficiency(lightning_module, plot_config, config):
     """
@@ -406,3 +407,210 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
             # plt.close()
 
     pass
+
+
+def cmap_map(function, cmap):
+    """ Applies function (which should operate on vectors of shape 3: [r, g, b]), on colormap cmap.
+    This routine will break any discontinuous points in a colormap.
+    """
+    cdict = cmap._segmentdata
+    step_dict = {}
+    # Firt get the list of points where the segments start or end
+    for key in ('red', 'green', 'blue'):
+        step_dict[key] = list(map(lambda x: x[0], cdict[key]))
+    step_list = sum(step_dict.values(), [])
+    step_list = np.array(list(set(step_list)))
+    # Then compute the LUT, and apply the function to the LUT
+    reduced_cmap = lambda step : np.array(cmap(step)[0:3])
+    old_LUT = np.array(list(map(reduced_cmap, step_list)))
+    new_LUT = np.array(list(map(function, old_LUT)))
+    # Now try to make a minimal segment definition of the new LUT
+    cdict = {}
+    for i, key in enumerate(['red','green','blue']):
+        this_cdict = {}
+        for j, step in enumerate(step_list):
+            if step in step_dict[key]:
+                this_cdict[step] = new_LUT[j, i]
+            elif new_LUT[j,i] != old_LUT[j, i]:
+                this_cdict[step] = new_LUT[j, i]
+        colorvector = list(map(lambda x: x + (x[1], ), this_cdict.items()))
+        colorvector.sort()
+        cdict[key] = colorvector
+
+    return matplotlib.colors.LinearSegmentedColormap('colormap',cdict,1024)
+
+
+def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
+        """
+        Plot the graph construction efficiency and purity vs. pT, eta, (r, z) of the edge.
+        eta, r, z are eta, r, z of the source node of the edge
+        """
+
+        dark_jet = cmap_map(lambda x: x*0.75, plt.cm.jet)
+
+        # Define bins
+        pt_min, pt_max = 1., 100.   
+        pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 13+1)   
+        eta_bins = np.linspace(-4, 4, 40+1)
+        n_z_bins = 300
+        n_r_bins = 100
+        z_r_bins = [np.linspace(0, 1000, n_r_bins+1), np.linspace(-3000, 3000, n_z_bins+1)]
+
+        # Init total histograms
+        all_true_positive_pt_hist = np.zeros(13)
+        all_true_pt_hist = np.zeros(13)
+        all_true_positive_eta_hist = np.zeros(40)
+        all_true_eta_hist = np.zeros(40)
+        all_positive_eta_hist = np.zeros(40)
+        all_true_positive_z_r_hist = np.zeros((n_r_bins, n_z_bins))
+        all_true_z_r_hist = np.zeros((n_r_bins, n_z_bins))
+        all_positive_z_r_hist = np.zeros((n_r_bins, n_z_bins))
+
+        
+        for event in tqdm(lightning_module.testset):
+            event = event.to(lightning_module.device)
+            print("****************", lightning_module.hparams["edge_cut"])
+            # Define mask for true_positive, true and positive
+            mask_true_positive = (event.scores > lightning_module.hparams["edge_cut"]) & (event.y & event.weights.bool())
+            mask_true_positive = mask_true_positive.cpu().numpy()
+            mask_true = event.y & event.weights.bool()
+            mask_true = mask_true.cpu().numpy()
+            mask_positive = (event.scores > lightning_module.hparams["edge_cut"]) & event.weights.bool()
+            mask_positive = mask_positive.cpu().numpy()
+
+            # Get pT, eta, r, z value at edge level
+            
+            src, _ = event.edge_index
+
+            
+            #pt = event.pt[src].cpu().numpy()/1000.
+            eta = event.eta[src].cpu().numpy()
+            r = event.r[src].cpu().numpy()
+            z = event.z[src].cpu().numpy()
+
+            # Compute true positive, true and positive histograms for pT, eta, r, z
+            #true_positive_pt_hist, _ = np.histogram(pt[mask_true_positive], bins=pt_bins)
+            #all_true_positive_pt_hist += true_positive_pt_hist
+            #true_pt_hist, _ =  np.histogram(pt[mask_true], bins=pt_bins)
+            #all_true_pt_hist += true_pt_hist
+            true_positive_eta_hist, _ = np.histogram(eta[mask_true_positive], bins=eta_bins)
+            all_true_positive_eta_hist += true_positive_eta_hist
+            true_eta_hist, _ =  np.histogram(eta[mask_true], bins=eta_bins)
+            all_true_eta_hist += true_eta_hist
+            positive_eta_hist, _ =  np.histogram(eta[mask_positive], bins=eta_bins)
+            all_positive_eta_hist += positive_eta_hist
+            true_positive_z_r_hist, _, _ = np.histogram2d(r[mask_true_positive], z[mask_true_positive],  bins=z_r_bins)
+            all_true_positive_z_r_hist += true_positive_z_r_hist
+            true_z_r_hist, _, _ =  np.histogram2d(r[mask_true],z[mask_true],  bins=z_r_bins)
+            all_true_z_r_hist += true_z_r_hist
+            positive_z_r_hist, _, _ =  np.histogram2d(r[mask_positive],z[mask_positive],  bins=z_r_bins)
+            all_positive_z_r_hist += positive_z_r_hist
+
+        # Compute total efficiency and purity
+        total_eff = np.sum(all_true_positive_eta_hist) / np.sum(all_true_eta_hist)
+        total_pur = np.sum(all_true_positive_eta_hist) / np.sum(all_positive_eta_hist)
+
+        # Efficiency vs pt
+        # Divide the two histograms to get the edgewise efficiency vs pT
+        #eff, err = get_ratio(all_true_positive_pt_hist,  all_true_pt_hist)
+        #xvals = (pt_bins[1:] + pt_bins[:-1]) / 2
+        #xerrs = (pt_bins[1:] - pt_bins[:-1]) / 2
+        # Plot the edgewise efficiency vs pT
+        #fig, ax = plt.subplots(figsize=(8, 6))
+        #ax.errorbar(xvals, eff, xerr=xerrs, yerr=err, fmt='o', color='black', label='Efficiency')
+        #ax.set_xlabel(f'$p_T [GeV]$', ha='right', x=0.95, fontsize=16)
+        #ax.set_ylabel("GNN per-edge efficiency", ha='right', y=0.95, fontsize=16)
+        #ax.set_ylim(0.85)
+        #ax.set_xscale("log", nonpositive='clip')
+        #plt.xticks(fontsize=16)
+        #plt.yticks(fontsize=16)
+        # Save the plot
+        #atlasify("Simulation Internal", 
+        #    r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, (primaries $t \bar{t}$ and soft interactions) " + "\n"
+        #    r"$p_T > 1$GeV, $|\eta| < 4$" + "\n" + f"Mean GNN per-edge efficiency : {total_eff:.4f}")
+        #fig.savefig(os.path.join(config["stage_dir"], "edgewise_efficiency_vs_pT.png"))
+
+        # Efficiency vs eta
+        # Divide the two histograms to get the edgewise efficiency vs eta
+        eff, err = get_ratio(all_true_positive_eta_hist,  all_true_eta_hist)
+        xvals = (eta_bins[1:] + eta_bins[:-1]) / 2
+        xerrs = (eta_bins[1:] - eta_bins[:-1]) / 2
+        # Plot the edgewise efficiency vs eta
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.errorbar(xvals, eff, xerr=xerrs, yerr=err, fmt='o', color='black', label='Efficiency')
+        ax.set_xlabel('\u03B7', ha='right', x=0.95, fontsize=16)
+        ax.set_ylabel("GNN per-edge efficiency", ha='right', y=0.95, fontsize=16)
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+        ax.set_ylim(0.9)
+        # Save the plot
+        atlasify("Simulation Internal", 
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, (primaries $t \bar{t}$ and soft interactions) " + "\n"
+            r"$p_T > 1$GeV, $|\eta| < 4$" + "\n" + f"Mean GNN per-edge efficiency : {total_eff:.4f}")
+        fig.savefig(os.path.join(config["stage_dir"], "edgewise_efficiency_vs_eta.png"))
+
+        # Purity vs eta
+        # Divide the two histograms to get the edgewise putity vs eta
+        pur, err = get_ratio(all_true_positive_eta_hist,  all_positive_eta_hist)
+        xvals = (eta_bins[1:] + eta_bins[:-1]) / 2
+        xerrs = (eta_bins[1:] - eta_bins[:-1]) / 2
+        # Plot the edgewise prity vs eta
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.errorbar(xvals, pur, xerr=xerrs, yerr=err, fmt='o', color='black', label='Purity')
+        ax.set_xlabel('\u03B7', ha='right', x=0.95, fontsize=16)
+        ax.set_ylabel("GNN per-edge purity", ha='right', y=0.95, fontsize=16)
+        ax.set_ylim(0.5)
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+        # Save the plot
+        atlasify("Simulation Internal", 
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, (primaries $t \bar{t}$ and soft interactions) " + "\n"
+            r"$p_T > 1$GeV, $|\eta| < 4$"+ "\n" + f"Mean GNN per-edge purity : {total_pur:.4f}")
+        fig.savefig(os.path.join(config["stage_dir"], "edgewise_purity_vs_eta.png"))
+
+        # Efficiency vs (r,z)
+        # Divide the two histograms to get the edgewise efficiency
+        eff = get_ratio2D(all_true_positive_z_r_hist,  all_true_z_r_hist)
+        xvals = (z_r_bins[1][1:] + z_r_bins[1][:-1]) / 2
+        yvals = (z_r_bins[0][1:] + z_r_bins[0][:-1]) / 2
+        X, Y = np.meshgrid(xvals, yvals)
+        # Plot the edgewise efficiency vs (r, z)
+        fig, ax = plt.subplots(figsize=(12, 6))
+        pc = ax.pcolormesh(X, Y, eff, vmin=0.9, vmax = 1., cmap=dark_jet.reversed())
+        cb = plt.colorbar(pc, pad=0.025, aspect=20)
+        cb.set_label(label="GNN per-edge efficiency", ha='right', x=0.8, y=0.98, fontsize=16)
+        cb.minorticks_on()
+        ax.set_xlabel('z [mm]', ha='right', x=0.98, fontsize=16)
+        ax.set_ylabel('r [mm]', ha='right', y=0.98, fontsize=16)
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+        # Save the plot
+        atlasify("Simulation Internal", 
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, (primaries $t \bar{t}$ and soft interactions) " + "\n"
+            #r"$p_T > 1$GeV, $|\eta| < 4$"+ "\n" + f"Mean efficiency : {np.nanmean(np.array(eff)):.4f}")
+            r"$p_T > 1$GeV, $|\eta| < 4$" + "\n" + f"Mean GNN per-edge efficiency : {total_eff:.4f}")
+        fig.savefig(os.path.join(config["stage_dir"], "edgewise_efficiency_vs_rz.png"))
+
+        # Purity vs (r, z)
+        # Divide the two histograms to get the edgewise purity
+        pur = get_ratio2D(all_true_positive_z_r_hist,  all_positive_z_r_hist)
+        xvals = (z_r_bins[1][1:] + z_r_bins[1][:-1]) / 2
+        yvals = (z_r_bins[0][1:] + z_r_bins[0][:-1]) / 2
+        X, Y = np.meshgrid(xvals, yvals)
+        # Plot the edgewise purity vs (r, z)
+        fig, ax = plt.subplots(figsize=(12, 6))
+        pc = ax.pcolormesh(X, Y, pur, vmin=0.4, vmax = 1., cmap=dark_jet.reversed())
+        cb = plt.colorbar(pc, pad=0.025, aspect=20)
+        cb.set_label(label="GNN per-edge purity", ha='right', x=0.8, y=0.98, fontsize=16)
+        cb.minorticks_on()
+        ax.set_xlabel('z [mm]', ha='right', x=0.98, fontsize=16)
+        ax.set_ylabel('r [mm]', ha='right', y=0.98, fontsize=16)
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+        # Save the plot
+        atlasify("Simulation Internal", 
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, (primaries $t \bar{t}$ and soft interactions) " + "\n"
+            #r"$p_T > 1$GeV, $|\eta| < 4$"+ "\n" + f"Mean purity : {np.nanmean(np.array(pur)):.4f}")
+            r"$p_T > 1$GeV, $|\eta| < 4$"+ "\n" + f"Mean GNN per-edge purity : {total_pur:.4f}")
+        fig.savefig(os.path.join(config["stage_dir"], "edgewise_purity_vs_rz.png"))
+

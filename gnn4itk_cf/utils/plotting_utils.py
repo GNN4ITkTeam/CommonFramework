@@ -71,6 +71,11 @@ def get_ratio(x_vals, y_vals):
     err = [x / y * math.sqrt((x + y) / (x * y)) if y != 0 and x != 0 else 0.0 for x, y in zip(x_vals, y_vals)]
     return res, err
 
+def get_ratio2D(x_vals, y_vals):
+    res = np.array([[x/y if y!=0 else np.nan for x,y in zip(xs, ys)] for xs , ys in zip(x_vals, y_vals)])
+    return res
+
+
 
 # def pairwise(iterable):
 #   """s -> (s0,s1), (s1,s2), (s2, s3), ..."""
