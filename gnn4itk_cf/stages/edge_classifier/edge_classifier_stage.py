@@ -48,11 +48,12 @@ class EdgeClassifierStage(LightningModule):
         """
         Initialise the Lightning Module that can scan over different GNN training regimes
         """
-
+        self.to(device)
         self.save_hyperparameters(hparams)
 
         # Assign hyperparameters
         self.trainset, self.valset, self.testset = None, None, None
+        self.hparams['dataset_class'] = "GraphDataset"
         self.dataset_class = eval(self.hparams['dataset_class'])
         
     def setup(self, stage="fit"):
@@ -185,7 +186,6 @@ class EdgeClassifierStage(LightningModule):
 
 
     def shared_evaluation(self, batch, batch_idx):
-
         output = self(batch)
         loss = self.loss_function(output, batch)
         batch.output = output.detach() 
