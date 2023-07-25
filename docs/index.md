@@ -9,23 +9,23 @@ Welcome to the documentation for the ATLAS GNN tracking pipeline.
 This repository contains the framework used for developing, testing and presenting the GNN-based ITk track reconstruction project GNN4ITk.
 
 Related work can be found here:
-1. https://arxiv.org/abs/2103.06995
-2. https://indico.cern.ch/event/948465/contributions/4323753/https://doi.org/10.1051/epjconf/202125103047
-3. https://cds.cern.ch/record/2815578?ln=en.
 
-**This repository is still under development and may be subject to breaking changes.**
+1. <https://arxiv.org/abs/2103.06995>5>
+2. <https://indico.cern.ch/event/948465/contributions/4323753/>/>
+3. <https://doi.org/10.1051/epjconf/202125103047>7>
+4. <https://cds.cern.ch/record/2815578?ln=en>n>.
 
 ## Get Started
 
 To get started, run the setup commands (Install instructions section below), then take a look at the examples in the `examples` directory. Instructions and further details about the framework are available under the subdirectory of interest - `examples`, `gnn4itk_cf/stages` or `gnn4itk_cf/core`.
- 
+
 ## Install
 
 **IMPORTANT! Please use the `dev` branch to run all Examples: it is the latest version and is fully supported!**
 
 To install the GNN4ITK common framework, assuming GPU capability, run
 
-```
+```bash
 git checkout dev
 conda env create -f gpu_environment.yml
 conda activate gnn4itk
@@ -77,9 +77,6 @@ This example is available in the `examples/Example_3` directory. The example is 
 3. **GNN** - a graph neural network that scores the edges of the graphs produced by the Module Map
 4. **Connected Components** - a simple algorithm that applies a threshold to the scores of the edges, and produces a set of track candidates from the resulting graph
 
-
-### Fourth Example: Reproducing the Results of the GNN4ITk V1 CTD Proceedings (ATL-ITK-PROC-2022-006)
-
 Work in progress!
 
 ## CITATION
@@ -107,16 +104,17 @@ archivePrefix = {arXiv},
 
 ```
 @article{YourReferenceHere,
-	author = {{Biscarat, Catherine} and {Caillou, Sylvain} and {Rougier, Charline} and {Stark, Jan} and {Zahreddine, Jad}},
-	title = {Towards a realistic track reconstruction algorithm based on graph neural networks for the HL-LHC},
-	DOI= "10.1051/epjconf/202125103047",
-	url= "https://doi.org/10.1051/epjconf/202125103047",
-	journal = {EPJ Web Conf.},
-	year = 2021,
-	volume = 251,
-	pages = "03047",
-}
+ author = {{Biscarat, Catherine} and {Caillou, Sylvain} and {Rougier, Charline} and {Stark, Jan} and {Zahreddine, Jad}},
+ title = {Towards a realistic track reconstruction algorithm based on graph neural networks for the HL-LHC},
+ DOI= "10.1051/epjconf/202125103047",
+ url= "https://doi.org/10.1051/epjconf/202125103047",
+ journal = {EPJ Web Conf.},
+ year = 2021,
+ volume = 251,
+ pages = "03047",
+ 
 ```
+
 ```
 @techreport{YourReferenceHere,
       author        = "Caillou, Sylvain and Calafiura, Paolo and Farrell, Steven
@@ -143,12 +141,15 @@ url = {https://github.com/GNN4ITkTeam/CommonFramework}
 }
 ```
 
-## Developing
+## Developing & Contributing
 
 (Optional)
 
 Pre-commit hooks are available for running linting and code formatting. To set them up, run
-```
+
+```bash
 pre-commit install
 pre-commit run
-``
+```
+
+(If you are using a conda environment, you may need to run `pip install pre-commit` first)
