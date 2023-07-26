@@ -1,0 +1,11 @@
+tag-to-github:
+  stage: deploy
+  script:
+    - GITHUB_USER=GNN4ITkTeam
+    - GITHUB_REPO=commonframework
+    - 'export TAG=$(curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "https://gitlab.com/api/v4/projects/$CI_PROJECT_ID/repository/tags?order_by=name" | jq -r ".[0].name")'
+    - 'curl --header "Authorization: token $GITHUB_TOKEN" --header "Content-Type: application/json" --data "{\"tag_name\":\"$TAG\",\"target_commitish\":\"master\",\"name\":\"$TAG\",\"body\":\"Release $TAG\",\"draft\":false,\"prerelease\":false}" "https://api.github.com/repos/$GITHUB_USER/$GITHUB_REPO/releases"'
+    - 'curl --header "Authorization: token $GITHUB_TOKEN" --header "Content-Type: application/zip" --data-binary "@$TAG.zip" "https://uploads.github.com/repos/$GITHUB_USER/$GITHUB_REPO/releases/$TAG/assets?name=$TAG.zip"'
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PROJECT_PATH=="gnn4itkteam/commonframework"
+      when: always

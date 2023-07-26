@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from stages.data_reading.models.acts_reader import ActsReader
+from gnn4itk_cf.stages.data_reading.models.acts_reader import ActsReader
 
 common_config = {
     "simhit_stem": "hits",

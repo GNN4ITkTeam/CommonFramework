@@ -20,3 +20,4 @@ dependencies:
     - pytorch=1.12.1
     - pytorch-lightning=1.9.2
     - pyg=2.2
+    - uproot
