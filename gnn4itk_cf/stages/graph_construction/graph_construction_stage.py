@@ -37,7 +37,11 @@ from atlasify import atlasify
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 from gnn4itk_cf.utils import run_data_tests, get_ratio, plot_eff_pur_region
+from gnn4itk_cf.utils import eval_utils
+from gnn4itk_cf.utils.mapping_utils import get_condition_lambda
 
 class GraphConstructionStage:
     def __init__(self):
@@ -122,13 +126,13 @@ class GraphConstructionStage:
         pass
 
     @classmethod
-    def evaluate(cls, config):
+    def evaluate(cls, config, *args):
         """
         The gateway for the evaluation stage. This class method is called from the eval_stage.py script.
         """
 
         # Load data from testset directory
-        graph_constructor = cls(config)
+        graph_constructor = cls(config).to(device)
         graph_constructor.use_csv = False
         graph_constructor.setup(stage="test")
 
@@ -136,59 +140,10 @@ class GraphConstructionStage:
 
         # TODO: Handle the list of plots properly
         for plot_function, plot_config in all_plots.items():
-            if hasattr(graph_constructor, plot_function):
-                getattr(graph_constructor, plot_function)(plot_config, config)
+            if hasattr(eval_utils, plot_function):
+                getattr(eval_utils, plot_function)(graph_constructor, plot_config, config)
             else:
                 print(f"Plot {plot_function} not implemented")
-
-    def graph_construction_efficiency(self, plot_config, config):
-        """
-        Plot the graph construction efficiency vs. pT of the edge.
-        """
-        all_y_truth, all_pt = [], []
-
-        for event in tqdm(self.testset):
-            if "target_tracks" in config:
-                self.apply_target_conditions(event, config["target_tracks"])
-            else:
-                event.target_mask = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
-
-            all_y_truth.append(event.truth_map[event.target_mask] >= 0)
-            all_pt.append(event.pt[event.target_mask])
-
-        #  TODO: Handle different pT units!
-        all_pt = torch.cat(all_pt).cpu().numpy()
-        all_y_truth = torch.cat(all_y_truth).cpu().numpy()
-
-        # Get the edgewise efficiency
-        # Build a histogram of true pTs, and a histogram of true-positive pTs
-        pt_min, pt_max = 1, 50
-        if "pt_units" in plot_config and plot_config["pt_units"] == "MeV":
-            pt_min, pt_max = pt_min * 1000, pt_max * 1000
-        pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
-
-        true_pt_hist, _ = np.histogram(all_pt, bins=pt_bins)
-        true_pos_pt_hist, _ = np.histogram(all_pt[all_y_truth], bins=pt_bins)
-
-        # Divide the two histograms to get the edgewise efficiency
-        eff, err = get_ratio(true_pos_pt_hist, true_pt_hist)
-        xvals = (pt_bins[1:] + pt_bins[:-1]) / 2
-        xerrs = (pt_bins[1:] - pt_bins[:-1]) / 2
-
-        # Plot the edgewise efficiency
-        pt_units = "GeV" if "pt_units" not in plot_config else plot_config["pt_units"]
-        fig, ax = plt.subplots(figsize=(8, 6))
-        ax.errorbar(xvals, eff, xerr=xerrs, yerr=err, fmt='o', color='black', label='Efficiency')
-        ax.set_xlabel(f'$p_T [{pt_units}]$', ha='right', x=0.95, fontsize=14)
-        ax.set_ylabel(plot_config["title"], ha='right', y=0.95, fontsize=14)
-        ax.set_xscale('log')
-
-        # Save the plot
-        atlasify(atlas="Internal",
-                 subtext=r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
-                         r"$p_T > 1$GeV, $|\eta < 4$" + "\n"
-                         r"Mean graph size: " + f"{np.mean([event.edge_index.shape[1] for event in self.testset]):.2f}")
-        fig.savefig(os.path.join(config["stage_dir"], "edgewise_efficiency.png"))
 
     def graph_region_efficiency_purity(self, plot_config, config):
         edge_truth, edge_regions = [], []
@@ -218,13 +173,11 @@ class GraphConstructionStage:
         Apply the target conditions to the event. This is used for the evaluation stage.
         Target_tracks is a list of dictionaries, each of which contains the conditions to be applied to the event.
         """
-        passing_tracks = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
+        passing_tracks = torch.ones(event.truth_map.shape[0], dtype=torch.bool).to(self.device)
 
-        for key, values in target_tracks.items():
-            if isinstance(values, list):
-                passing_tracks = passing_tracks * (values[0] <= event[key].float()) * (event[key].float() <= values[1])
-            else:
-                passing_tracks = passing_tracks * (event[key] == values)
+        for condition_key, condition_val in target_tracks.items():
+            condition_lambda = get_condition_lambda(condition_key, condition_val)
+            passing_tracks = passing_tracks * condition_lambda(event).to(self.device)
 
         event.target_mask = passing_tracks
 
