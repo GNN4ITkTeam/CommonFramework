@@ -286,16 +286,13 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
     atlasify(
         "Internal",
         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-        r" \bar{t}$ and soft interactions) " + "\n"
-        r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
+        r" \bar{t}$ and soft interactions) \n"
+        r"$p_T > 1$ GeV, $ | \eta | < 4$ \n"
         r"Edge score cut: " + str(config["score_cut"]) + "\n"
-        # f"Mean graph size: {mean_graph_size:.0f},
         "Graph Construction Efficiency:"
-        f" {(target['z'].shape[0] / all_target['z'].shape[0]):.3f}"
-        + "\n"
-        f"Signal Efficiency: {true_positive['z'].shape[0] / target['z'].shape[0] :.3f}"
-        + "\n"
-        # f"Signal Purity: {target_purity:.4f}" + "\n"
+        f" {(target['z'].shape[0] / all_target['z'].shape[0]):.3f} \n"
+        "Signal Efficiency:"
+        f" {true_positive['z'].shape[0] / target['z'].shape[0] :.3f} \n",
     )
     plt.tight_layout()
     save_dir = os.path.join(config["stage_dir"], "edgewise_efficiency_rz.png")
@@ -388,8 +385,6 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
             fig.savefig(save_dir)
             print(f"Finish plotting. Find the plot at {save_dir}")
             plt.close()
-
-    pass
 
 
 def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
@@ -539,18 +534,3 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
             fig.savefig(save_dir)
             print(f"Finish plotting. Find the plot at {save_dir}")
             plt.close()
-
-            # fig, ax = plot_efficiency_rz(all_target['z'], all_target['r'], true_positive[f'z_{threshold}'], true_positive[f'r_{threshold}'], plot_config)
-            # # Save the plot
-            # atlasify("Internal",
-            #     r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
-            #     r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
-            #     r"Edge score cut: " + str(config["score_cut"]) + f", {threshold} prediction matching" + "\n"
-            # )
-            # plt.tight_layout()
-            # save_dir = os.path.join(config["stage_dir"], f"cumulative_edgewise_efficiency_rz_{threshold}.png")
-            # fig.savefig(save_dir)
-            # print(f'Finish plotting. Find the plot at {save_dir}')
-            # plt.close()
-
-    pass
