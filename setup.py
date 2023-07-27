@@ -19,6 +19,7 @@ dependencies = [
     "pytest",
     "torch-geometric==2.2.0",
     "uproot",
+    "class-resolver",
 ]
 
 setup(

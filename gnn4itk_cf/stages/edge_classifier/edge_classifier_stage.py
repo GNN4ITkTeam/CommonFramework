@@ -17,26 +17,20 @@ import warnings
 from itertools import product
 from pytorch_lightning import LightningModule
 import torch.nn.functional as F
-from torch_geometric.data import Dataset, Data, HeteroData
+from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
 import random
-
-# import roc auc
 from sklearn.metrics import roc_auc_score
 import torch
-import numpy as np
-from tqdm import tqdm
-from atlasify import atlasify
-import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, auc
+from class_resolver import ClassResolver
+
 from gnn4itk_cf.stages.track_building.utils import rearrange_by_distance
 from gnn4itk_cf.utils.mapping_utils import get_directed_prediction
-from gnn4itk_cf.utils.plotting_utils import plot_efficiency_rz
 from gnn4itk_cf.utils import eval_utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-from gnn4itk_cf.utils import load_datafiles_in_dir, run_data_tests, handle_weighting, handle_hard_cuts, remap_from_mask, get_ratio, handle_edge_features, get_optimizers, plot_eff_pur_region, get_condition_lambda
+from gnn4itk_cf.utils import load_datafiles_in_dir, run_data_tests, handle_weighting, handle_hard_cuts, remap_from_mask, handle_edge_features, get_optimizers, get_condition_lambda
 from gnn4itk_cf.stages.graph_construction.models.utils import graph_intersection
 
 # TODO: What is this for??
@@ -53,7 +47,11 @@ class EdgeClassifierStage(LightningModule):
 
         # Assign hyperparameters
         self.trainset, self.valset, self.testset = None, None, None
-        self.dataset_class = eval(self.hparams['dataset_class'])
+        self.dataset_resolver = ClassResolver(
+            [GraphDataset, HeteroGraphDataset, DirectedHeteroGraphDataset, HeteroGraphDatasetWithNode],
+            base=Dataset,
+            default=GraphDataset
+        )
         
     def setup(self, stage="fit"):
         """
@@ -87,10 +85,9 @@ class EdgeClassifierStage(LightningModule):
         Load in the data for training, validation and testing.
         """
 
-        # if stage == "fit":
         for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
             if data_num > 0:
-                dataset = self.dataset_class(input_dir, data_name, data_num, stage, self.hparams, preprocess=preprocess)
+                dataset = self.dataset_resolver.make(self.hparams.get("dataset_class"), input_dir=input_dir, data_name=data_name, num_events=data_num, stage=stage, hparams=self.hparams, preprocess=preprocess)
                 setattr(self, data_name, dataset)
 
     def test_data(self, stage):
@@ -99,8 +96,7 @@ class EdgeClassifierStage(LightningModule):
         """
         required_features = ["x", "edge_index", "track_edges", "truth_map", "y"]
         optional_features = ["particle_id", "nhits", "primary", "pdgId", "ghost", "shared", "module_id", "region", "hit_id", "pt"]
-
-        run_data_tests([self.trainset, self.valset, self.testset], required_features, optional_features)
+        run_data_tests([dataset for dataset in [self.trainset, self.valset, self.testset] if dataset is not None], required_features, optional_features)
 
     def train_dataloader(self):
         if self.trainset is None:
