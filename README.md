@@ -2,7 +2,7 @@
 
 # Common Framework for GNN4ITk Project
 
-[![Static Badge](https://img.shields.io/badge/documentation-blue)](https://atlas-gnn-tracking.docs.cern.ch/)  [![pipeline status](https://gitlab.cern.ch/gnn4itkteam/commonframework/badges/dev/pipeline.svg)](https://gitlab.cern.ch/gnn4itkteam/commonframework/-/commits/dev) [![coverage report](https://gitlab.cern.ch/gnn4itkteam/commonframework/badges/dev/coverage.svg)](https://gitlab.cern.ch/gnn4itkteam/commonframework/-/commits/dev)
+[![Static Badge](https://img.shields.io/badge/documentation-blue)](https://atlas-gnn-tracking.docs.cern.ch/)  [![pipeline status](https://gitlab.cern.ch/gnn4itkteam/commonframework/badges/DM_test_writing/pipeline.svg)](https://gitlab.cern.ch/gnn4itkteam/commonframework/-/commits/DM_test_writing) [![coverage report](https://gitlab.cern.ch/gnn4itkteam/commonframework/badges/DM_test_writing/coverage.svg)](https://gitlab.cern.ch/gnn4itkteam/commonframework/-/commits/DM_test_writing)
 
 This repository contains the framework used for developing, testing and presenting the GNN-based ITk track reconstruction project GNN4ITk.
 
