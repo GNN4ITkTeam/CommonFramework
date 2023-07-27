@@ -18,6 +18,7 @@ dependencies = [
     "pytorch-lightning===1.8.6",
     "pytest",
     "torch-geometric==2.2.0",
+    "uproot",
 ]
 
 setup(
