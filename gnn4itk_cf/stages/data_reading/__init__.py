@@ -19,9 +19,9 @@ from .models.trackml_reader import TrackMLReader
 from .models.acts_reader import ActsReader
 
 __all__ = [
-    'AthenaReader',
-    'AthenaRootReader',
-    'AthenaClusterReader',
-    'TrackMLReader',
-    'ActsReader',
+    "AthenaReader",
+    "AthenaRootReader",
+    "AthenaClusterReader",
+    "TrackMLReader",
+    "ActsReader",
 ]

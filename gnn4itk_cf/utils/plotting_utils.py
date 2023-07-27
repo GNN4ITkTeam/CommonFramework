@@ -66,9 +66,13 @@ import torch
 #     ax2.set_xticklabels(["" for _ in ax.get_xticks()])
 #     ax2.xaxis.set_minor_locator(AutoMinorLocator())
 
+
 def get_ratio(x_vals, y_vals):
     res = [x / y if y != 0 else 0.0 for x, y in zip(x_vals, y_vals)]
-    err = [x / y * math.sqrt((x + y) / (x * y)) if y != 0 and x != 0 else 0.0 for x, y in zip(x_vals, y_vals)]
+    err = [
+        x / y * math.sqrt((x + y) / (x * y)) if y != 0 and x != 0 else 0.0
+        for x, y in zip(x_vals, y_vals)
+    ]
     return res, err
 
 
@@ -180,19 +184,21 @@ def get_ratio(x_vals, y_vals):
 
 #     # Save the plot
 #     fig.savefig('pt_efficiency.png')
-def plot_eff_pur_region(edge_truth, edge_positive, edge_regions, node_r, node_z, node_regions, plot_config):
+def plot_eff_pur_region(
+    edge_truth, edge_positive, edge_regions, node_r, node_z, node_regions, plot_config
+):
     # Draw a few nodes to get a feeling for the geometry
     fig, ax = plt.subplots()
 
     draw_idxs = np.arange(len(node_z))
     np.random.shuffle(draw_idxs)
     draw_idxs = draw_idxs[:1000]
-    ax.scatter(node_z[draw_idxs], node_r[draw_idxs], s=1, color='lightgrey')
+    ax.scatter(node_z[draw_idxs], node_r[draw_idxs], s=1, color="lightgrey")
 
-    colors = ['r', 'g', 'b', 'y', 'c', 'm']
+    colors = ["r", "g", "b", "y", "c", "m"]
     for region, color in zip(range(1, 7), colors):
-        edge_mask = (edge_regions == region)
-        node_mask = (node_regions == region)
+        edge_mask = edge_regions == region
+        node_mask = node_regions == region
         true = edge_truth[edge_mask]
         positive = edge_positive[edge_mask]
         true_positive = np.logical_and(true, positive)
@@ -208,15 +214,16 @@ def plot_eff_pur_region(edge_truth, edge_positive, edge_regions, node_r, node_z,
 
         fmt_str = "eff: {:.3f} \npur: {:.3f}"
         ax.text(
-            np.mean(z_range) * 1.1 - 0.5,
-            np.mean(r_range),
-            fmt_str.format(eff, pur))
+            np.mean(z_range) * 1.1 - 0.5, np.mean(r_range), fmt_str.format(eff, pur)
+        )
         rectangle_args = {
             "xy": (z_range[0], r_range[0]),
             "width": (z_range[1] - z_range[0]),
             "height": (r_range[1] - r_range[0]),
         }
-        ax.add_patch(plt.Rectangle(**rectangle_args, alpha=0.1, color=color, linewidth=0))
+        ax.add_patch(
+            plt.Rectangle(**rectangle_args, alpha=0.1, color=color, linewidth=0)
+        )
 
     ax.set_xlabel("z")
     ax.set_ylabel("r")
@@ -224,22 +231,42 @@ def plot_eff_pur_region(edge_truth, edge_positive, edge_regions, node_r, node_z,
     return fig, ax
 
 
-def plot_efficiency_rz(target_z: torch.Tensor, target_r: torch.Tensor, true_positive_z: torch.Tensor, true_positive_r: torch.Tensor, plot_config: dict):
-
-    z_range, r_range = plot_config.get("z_range", [-3,3]), plot_config.get("r_range", [0, 1.])
-    z_bins, r_bins = plot_config.get('z_bins', 6* 64), plot_config.get("r_bins", 64)
+def plot_efficiency_rz(
+    target_z: torch.Tensor,
+    target_r: torch.Tensor,
+    true_positive_z: torch.Tensor,
+    true_positive_r: torch.Tensor,
+    plot_config: dict,
+):
+    z_range, r_range = plot_config.get("z_range", [-3, 3]), plot_config.get(
+        "r_range", [0, 1.0]
+    )
+    z_bins, r_bins = plot_config.get("z_bins", 6 * 64), plot_config.get("r_bins", 64)
     z_bins = np.linspace(z_range[0], z_range[1], z_bins, endpoint=True)
     r_bins = np.linspace(r_range[0], r_range[1], r_bins, endpoint=True)
 
-    fig, ax = plt.subplots(1,1, figsize=plot_config.get('fig_size', (12,6)))
-    true_hist, _, _ = np.histogram2d(target_z.numpy(), target_r.numpy(), bins=[z_bins, r_bins], )
-    true_positive_hist, z_edges, r_edges = np.histogram2d(true_positive_z.numpy(), true_positive_r.numpy(), bins=[z_bins, r_bins])
+    fig, ax = plt.subplots(1, 1, figsize=plot_config.get("fig_size", (12, 6)))
+    true_hist, _, _ = np.histogram2d(
+        target_z.numpy(),
+        target_r.numpy(),
+        bins=[z_bins, r_bins],
+    )
+    true_positive_hist, z_edges, r_edges = np.histogram2d(
+        true_positive_z.numpy(), true_positive_r.numpy(), bins=[z_bins, r_bins]
+    )
 
     eff = true_positive_hist / true_hist
 
-    c = ax.pcolormesh(z_bins, r_bins, eff.T, cmap='jet_r', vmin=plot_config.get("vmin", 0.9), vmax=plot_config.get("vmax", 1))
+    c = ax.pcolormesh(
+        z_bins,
+        r_bins,
+        eff.T,
+        cmap="jet_r",
+        vmin=plot_config.get("vmin", 0.9),
+        vmax=plot_config.get("vmax", 1),
+    )
     fig.colorbar(c, ax=ax)
-    ax.set_xlabel('z [m]')
-    ax.set_ylabel('r [m]')
+    ax.set_xlabel("z [m]")
+    ax.set_ylabel("r [m]")
 
     return fig, ax

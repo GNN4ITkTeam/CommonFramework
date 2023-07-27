@@ -1,8 +1,10 @@
 import sys
+
 sys.path.append("../")
 
 import yaml
 import pytest
+
 
 def test_model_load():
     """
@@ -17,6 +19,7 @@ def test_model_load():
     model = InteractionGNN(config)
 
     assert model is not None
+
 
 def test_data_load():
     """
@@ -56,6 +59,7 @@ def test_data_load():
 
     pytest.raises(AssertionError, model.setup, stage="fit")
 
+
 def setup_and_test(model):
     model.setup(stage="fit")
 
@@ -63,9 +67,10 @@ def setup_and_test(model):
     assert model.valset is not None
     assert model.testset is not None
 
+
 def test_construct_weighting():
     """
     TODO
     """
-    
+
     pass

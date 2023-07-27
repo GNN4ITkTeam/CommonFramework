@@ -31,7 +31,7 @@ def load_dataset(
     noise=False,
     triplets=False,
     input_cut=None,
-    **kwargs
+    **kwargs,
 ):
     if input_subdir is not None:
         all_events = os.listdir(input_subdir)
@@ -67,7 +67,6 @@ def process_data(events, pt_background_cut, pt_signal_cut, noise, triplets, inpu
     # NOTE: Cutting background by pT BY DEFINITION removes noise
     if pt_background_cut > 0 or not noise:
         for i, event in tqdm(enumerate(events)):
-
             if triplets:  # Keep all event data for posterity!
                 event = convert_triplet_graph(event)
 
@@ -75,10 +74,13 @@ def process_data(events, pt_background_cut, pt_signal_cut, noise, triplets, inpu
                 event = background_cut_event(event, pt_background_cut, pt_signal_cut)
 
     for i, event in tqdm(enumerate(events)):
-
         # Ensure PID definition is correct
-        event.y_pid = (event.pid[event.edge_index[0]] == event.pid[event.edge_index[1]]) & event.pid[event.edge_index[0]].bool()
-        event.pid_signal = torch.isin(event.edge_index, event.signal_true_edges).all(0) & event.y_pid
+        event.y_pid = (
+            event.pid[event.edge_index[0]] == event.pid[event.edge_index[1]]
+        ) & event.pid[event.edge_index[0]].bool()
+        event.pid_signal = (
+            torch.isin(event.edge_index, event.signal_true_edges).all(0) & event.y_pid
+        )
 
         if (input_cut is not None) and "scores" in event.keys:
             score_mask = event.scores > input_cut
@@ -87,8 +89,13 @@ def process_data(events, pt_background_cut, pt_signal_cut, noise, triplets, inpu
 
     return events
 
+
 def background_cut_event(event, pt_background_cut=0, pt_signal_cut=0):
-    edge_mask = ((event.pt[event.edge_index] > pt_background_cut) & (event.pid[event.edge_index] == event.pid[event.edge_index]) & (event.pid[event.edge_index] != 0)).any(0)
+    edge_mask = (
+        (event.pt[event.edge_index] > pt_background_cut)
+        & (event.pid[event.edge_index] == event.pid[event.edge_index])
+        & (event.pid[event.edge_index] != 0)
+    ).any(0)
     event.edge_index = event.edge_index[:, edge_mask]
     event.y = event.y[edge_mask]
 
@@ -103,16 +110,23 @@ def background_cut_event(event, pt_background_cut=0, pt_signal_cut=0):
         "signal_true_edges" in event.__dict__.keys()
         and event.signal_true_edges is not None
     ):
-        signal_mask = (
-            event.pt[event.signal_true_edges] > pt_signal_cut
-        ).all(0)
+        signal_mask = (event.pt[event.signal_true_edges] > pt_signal_cut).all(0)
         event.signal_true_edges = event.signal_true_edges[:, signal_mask]
 
     return event
 
 
 class LargeDataset(Dataset):
-    def __init__(self, root, subdir, num_events, hparams, transform=None, pre_transform=None, pre_filter=None):
+    def __init__(
+        self,
+        root,
+        subdir,
+        num_events,
+        hparams,
+        transform=None,
+        pre_transform=None,
+        pre_filter=None,
+    ):
         super().__init__(root, transform, pre_transform, pre_filter)
 
         self.subdir = subdir
@@ -124,7 +138,9 @@ class LargeDataset(Dataset):
         else:
             random.shuffle(self.input_paths)
 
-        self.input_paths = [os.path.join(root, subdir, event) for event in self.input_paths][:num_events]
+        self.input_paths = [
+            os.path.join(root, subdir, event) for event in self.input_paths
+        ][:num_events]
 
     def len(self):
         return len(self.input_paths)
@@ -134,11 +150,17 @@ class LargeDataset(Dataset):
 
         # Process event with pt cuts
         if self.hparams["pt_background_cut"] > 0:
-            event = background_cut_event(event, self.hparams["pt_background_cut"], self.hparams["pt_signal_cut"])
+            event = background_cut_event(
+                event, self.hparams["pt_background_cut"], self.hparams["pt_signal_cut"]
+            )
 
         # Ensure PID definition is correct
-        event.y_pid = (event.pid[event.edge_index[0]] == event.pid[event.edge_index[1]]) & event.pid[event.edge_index[0]].bool()
-        event.pid_signal = torch.isin(event.edge_index, event.signal_true_edges).all(0) & event.y_pid
+        event.y_pid = (
+            event.pid[event.edge_index[0]] == event.pid[event.edge_index[1]]
+        ) & event.pid[event.edge_index[0]].bool()
+        event.pid_signal = (
+            torch.isin(event.edge_index, event.signal_true_edges).all(0) & event.y_pid
+        )
 
         # if ("delta_eta" in self.hparams.keys()) and ((self.subdir == "train") or (self.subdir == "val" and self.hparams["n_graph_iters"] == 0)):
         if "delta_eta" in self.hparams.keys():
@@ -147,11 +169,14 @@ class LargeDataset(Dataset):
                 if edge_attr in event.keys:
                     event[edge_attr] = event[edge_attr][..., eta_mask]
 
-        if ("input_cut" in self.hparams.keys()) and (self.hparams["input_cut"] is not None) and "scores" in event.keys:
+        if (
+            ("input_cut" in self.hparams.keys())
+            and (self.hparams["input_cut"] is not None)
+            and "scores" in event.keys
+        ):
             score_mask = event.scores > self.hparams["input_cut"]
             for edge_attr in ["edge_index", "y", "y_pid", "pid_signal", "scores"]:
                 if edge_attr in event.keys:
                     event[edge_attr] = event[edge_attr][..., eta_mask]
 
         return event
-

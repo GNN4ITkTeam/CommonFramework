@@ -33,6 +33,7 @@ import torch
 
 from .core_utils import str_to_class, find_latest_checkpoint
 
+
 @click.command()
 @click.argument("config_file")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose mode")
@@ -48,8 +49,8 @@ def main(config_file, verbose):
 
     evaluate(config_file)
 
-def evaluate(config_file):
 
+def evaluate(config_file):
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -60,15 +61,20 @@ def evaluate(config_file):
     stage_module = str_to_class(stage, model)
 
     if issubclass(stage_module, LightningModule):
-        checkpoint_path = find_latest_checkpoint(config["stage_dir"], templates=["best*.ckpt", "*.ckpt"])
+        checkpoint_path = find_latest_checkpoint(
+            config["stage_dir"], templates=["best*.ckpt", "*.ckpt"]
+        )
         if not checkpoint_path:
             print("No checkpoint found")
             sys.exit(1)
         print(f"Loading checkpoint: {checkpoint_path}")
-        checkpoint_config = torch.load(checkpoint_path, map_location=torch.device("cpu"))["hyper_parameters"]
+        checkpoint_config = torch.load(
+            checkpoint_path, map_location=torch.device("cpu")
+        )["hyper_parameters"]
         config = {**checkpoint_config, **config}
 
     stage_module.evaluate(config)
+
 
 if __name__ == "__main__":
     main()
