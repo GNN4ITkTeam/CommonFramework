@@ -15,6 +15,7 @@
 import torch.nn as nn
 import torch
 
+
 def make_mlp(
     input_size,
     sizes,
@@ -23,7 +24,7 @@ def make_mlp(
     layer_norm=False,
     batch_norm=False,
     input_dropout=0,
-    hidden_dropout=0
+    hidden_dropout=0,
 ):
     """Construct an MLP with specified fully-connected layers."""
     hidden_activation = getattr(nn, hidden_activation)
@@ -34,13 +35,15 @@ def make_mlp(
     sizes = [input_size] + sizes
     # Hidden layers
     for i in range(n_layers - 1):
-        if i==0 and input_dropout>0:
+        if i == 0 and input_dropout > 0:
             layers.append(nn.Dropout(input_dropout))
         layers.append(nn.Linear(sizes[i], sizes[i + 1]))
         if layer_norm:
             layers.append(nn.LayerNorm(sizes[i + 1], elementwise_affine=False))
         if batch_norm:
-            layers.append(nn.BatchNorm1d(sizes[i + 1], track_running_stats=False, affine=False))
+            layers.append(
+                nn.BatchNorm1d(sizes[i + 1], track_running_stats=False, affine=False)
+            )
         layers.append(hidden_activation())
         if hidden_dropout > 0:
             layers.append(nn.Dropout(hidden_dropout))
@@ -50,9 +53,12 @@ def make_mlp(
         if layer_norm:
             layers.append(nn.LayerNorm(sizes[-1], elementwise_affine=False))
         if batch_norm:
-            layers.append(nn.BatchNorm1d(sizes[-1], track_running_stats=False, affine=False))
+            layers.append(
+                nn.BatchNorm1d(sizes[-1], track_running_stats=False, affine=False)
+            )
         layers.append(output_activation())
     return nn.Sequential(*layers)
+
 
 def get_optimizers(parameters, hparams):
     optimizer = [
@@ -65,7 +71,11 @@ def get_optimizers(parameters, hparams):
         )
     ]
 
-    if "scheduler" not in hparams or hparams["scheduler"] is None or hparams["scheduler"] == "StepLR":
+    if (
+        "scheduler" not in hparams
+        or hparams["scheduler"] is None
+        or hparams["scheduler"] == "StepLR"
+    ):
         scheduler = [
             {
                 "scheduler": torch.optim.lr_scheduler.StepLR(

@@ -28,6 +28,7 @@ from pytorch_lightning import LightningModule
 
 from .core_utils import str_to_class, get_trainer, get_stage_module
 
+
 @click.command()
 @click.argument("config_file")
 # Add an optional click argument to specify the checkpoint to use
@@ -43,12 +44,13 @@ def main(config_file, checkpoint):
 # 1. We cannot init a model before we know if we are resuming or not
 # 2. First check if the module is a lightning module
 
+
 def train(config_file, checkpoint=None):
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
-    print(config) 
+    print(config)
     # load stage
     stage = config["stage"]
     model = config["model"]
@@ -65,11 +67,14 @@ def train(config_file, checkpoint=None):
         stage_module.setup(stage="fit")
         stage_module.train()
 
-def lightning_train(config, stage_module_class, checkpoint=None):
 
-    stage_module, config, default_root_dir = get_stage_module(config, stage_module_class, checkpoint_path=checkpoint)
+def lightning_train(config, stage_module_class, checkpoint=None):
+    stage_module, config, default_root_dir = get_stage_module(
+        config, stage_module_class, checkpoint_path=checkpoint
+    )
     trainer = get_trainer(config, default_root_dir)
     trainer.fit(stage_module)
+
 
 if __name__ == "__main__":
     main()
