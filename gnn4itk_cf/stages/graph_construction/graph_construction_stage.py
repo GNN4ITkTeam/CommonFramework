@@ -24,6 +24,7 @@ TODO: Update structure with the latest Gravnet base class
 """
 
 import sys
+
 sys.path.append("../")
 import os
 import re
@@ -43,6 +44,7 @@ from gnn4itk_cf.utils import run_data_tests, get_ratio, plot_eff_pur_region
 from gnn4itk_cf.utils import eval_utils
 from gnn4itk_cf.utils.mapping_utils import get_condition_lambda
 
+
 class GraphConstructionStage:
     def __init__(self):
         super().__init__()
@@ -51,7 +53,9 @@ class GraphConstructionStage:
         """
 
         self.trainset, self.valset, self.testset = None, None, None
-        self.use_pyg = False  # You can set this to True if you want to use the PyG LightningModule
+        self.use_pyg = (
+            False  # You can set this to True if you want to use the PyG LightningModule
+        )
         self.use_csv = False  # You can set this to True if you want to use CSV Reading
         self.dataset_class = EventDataset
 
@@ -72,28 +76,52 @@ class GraphConstructionStage:
         elif stage == "test":
             self.load_data(self.hparams["stage_dir"])
 
-
     def load_data(self, input_dir):
         """
         Load in the data for training, validation and testing.
         """
 
-        for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
-            dataset = self.dataset_class(input_dir, data_name, data_num,
-                                         use_pyg=self.use_pyg, use_csv=self.use_csv,
-                                         hparams=self.hparams)
+        for data_name, data_num in zip(
+            ["trainset", "valset", "testset"], self.hparams["data_split"]
+        ):
+            dataset = self.dataset_class(
+                input_dir,
+                data_name,
+                data_num,
+                use_pyg=self.use_pyg,
+                use_csv=self.use_csv,
+                hparams=self.hparams,
+            )
             setattr(self, data_name, dataset)
 
-        print(f"Loaded {len(self.trainset)} training events, {len(self.valset)} validation events and {len(self.testset)} testing events")
+        print(
+            f"Loaded {len(self.trainset)} training events,"
+            f" {len(self.valset)} validation events and {len(self.testset)} testing"
+            " events"
+        )
 
     def test_data(self):
         """
         Test the data to ensure it is of the right format and loaded correctly.
         """
         required_features = ["x", "track_edges"]
-        optional_features = ["pid", "n_hits", "primary", "pdg_id", "ghost", "shared", "module_id", "region_id", "hit_id"]
+        optional_features = [
+            "pid",
+            "n_hits",
+            "primary",
+            "pdg_id",
+            "ghost",
+            "shared",
+            "module_id",
+            "region_id",
+            "hit_id",
+        ]
 
-        run_data_tests([self.trainset, self.valset, self.testset], required_features, optional_features)
+        run_data_tests(
+            [self.trainset, self.valset, self.testset],
+            required_features,
+            optional_features,
+        )
 
         # TODO: Add test for the building of input data
         # assert self.trainset[0].x.shape[1] == self.hparams["spatial_channels"], "Input dimension does not match the data"
@@ -106,8 +134,12 @@ class GraphConstructionStage:
         The gateway for the inference stage. This class method is called from the infer_stage.py script.
         """
         if isinstance(cls, LightningModule):
-            graph_constructor = cls.load_from_checkpoint(os.path.join(config["input_dir"], "checkpoints", "last.ckpt"))
-            graph_constructor.hparams.update(config)  # Update the configs used in training with those to be used in inference
+            graph_constructor = cls.load_from_checkpoint(
+                os.path.join(config["input_dir"], "checkpoints", "last.ckpt")
+            )
+            graph_constructor.hparams.update(
+                config
+            )  # Update the configs used in training with those to be used in inference
         else:
             graph_constructor = cls(config)
 
@@ -116,8 +148,8 @@ class GraphConstructionStage:
         for data_name in ["trainset", "valset", "testset"]:
             if hasattr(graph_constructor, data_name):
                 graph_constructor.build_graphs(
-                    dataset=getattr(graph_constructor, data_name),
-                    data_name=data_name)
+                    dataset=getattr(graph_constructor, data_name), data_name=data_name
+                )
 
     def build_graphs(self, dataset, data_name):
         """
@@ -151,7 +183,9 @@ class GraphConstructionStage:
 
         for event in tqdm(self.testset):
             edge_truth.append(event.y)
-            edge_regions.append(event.x_region[event.edge_index[0]])  # Assign region depending on first node in edge
+            edge_regions.append(
+                event.x_region[event.edge_index[0]]
+            )  # Assign region depending on first node in edge
 
             node_r.append(event.x_r)
             node_z.append(event.x_z)
@@ -165,7 +199,15 @@ class GraphConstructionStage:
         node_z = torch.cat(node_z).cpu().numpy()
         node_regions = torch.cat(node_regions).cpu().numpy()
 
-        fig, ax = plot_eff_pur_region(edge_truth, edge_positive, edge_regions, node_r, node_z, node_regions, plot_config)
+        fig, ax = plot_eff_pur_region(
+            edge_truth,
+            edge_positive,
+            edge_regions,
+            node_r,
+            node_z,
+            node_regions,
+            plot_config,
+        )
         fig.savefig(os.path.join(config["stage_dir"], "region_eff_pur.png"))
 
     def apply_target_conditions(self, event, target_tracks):
@@ -181,12 +223,26 @@ class GraphConstructionStage:
 
         event.target_mask = passing_tracks
 
+
 class EventDataset(Dataset):
     """
     The custom default GNN dataset to load graphs off the disk
     """
 
-    def __init__(self, input_dir, data_name, num_events, use_pyg=False, use_csv=False, preload=False, hparams=None, transform=None, pre_transform=None, pre_filter=None, **kwargs):
+    def __init__(
+        self,
+        input_dir,
+        data_name,
+        num_events,
+        use_pyg=False,
+        use_csv=False,
+        preload=False,
+        hparams=None,
+        transform=None,
+        pre_transform=None,
+        pre_filter=None,
+        **kwargs,
+    ):
         super().__init__(input_dir, transform, pre_transform, pre_filter)
 
         self.input_dir = input_dir
@@ -215,16 +271,44 @@ class EventDataset(Dataset):
 
         if self.use_pyg:
             # Check if file event{self.evt_ids[idx]}-graph.pyg exists
-            if os.path.exists(os.path.join(self.input_dir, self.data_name, f"event{self.evt_ids[idx]}-graph.pyg")):
-                graph = torch.load(os.path.join(self.input_dir, self.data_name, f"event{self.evt_ids[idx]}-graph.pyg"))
+            if os.path.exists(
+                os.path.join(
+                    self.input_dir,
+                    self.data_name,
+                    f"event{self.evt_ids[idx]}-graph.pyg",
+                )
+            ):
+                graph = torch.load(
+                    os.path.join(
+                        self.input_dir,
+                        self.data_name,
+                        f"event{self.evt_ids[idx]}-graph.pyg",
+                    )
+                )
             else:
-                graph = torch.load(os.path.join(self.input_dir, self.data_name, f"event{self.evt_ids[idx]}.pyg"))
+                graph = torch.load(
+                    os.path.join(
+                        self.input_dir, self.data_name, f"event{self.evt_ids[idx]}.pyg"
+                    )
+                )
             if not self.use_csv:
                 return graph
 
         if self.use_csv:
-            particles = pd.read_csv(os.path.join(self.input_dir, self.data_name, f"event{self.evt_ids[idx]}-particles.csv"))
-            hits = pd.read_csv(os.path.join(self.input_dir, self.data_name, f"event{self.evt_ids[idx]}-truth.csv"))
+            particles = pd.read_csv(
+                os.path.join(
+                    self.input_dir,
+                    self.data_name,
+                    f"event{self.evt_ids[idx]}-particles.csv",
+                )
+            )
+            hits = pd.read_csv(
+                os.path.join(
+                    self.input_dir,
+                    self.data_name,
+                    f"event{self.evt_ids[idx]}-truth.csv",
+                )
+            )
             if not self.use_pyg:
                 return particles, hits
 
@@ -237,15 +321,26 @@ class EventDataset(Dataset):
 
         all_files = os.listdir(os.path.join(self.input_dir, self.data_name))
         all_files = [f for f in all_files if f.endswith(".csv") or f.endswith(".pyg")]
-        all_event_ids = sorted(list({re.findall("[0-9]+", file)[-1] for file in all_files}))
+        all_event_ids = sorted(
+            list({re.findall("[0-9]+", file)[-1] for file in all_files})
+        )
         if self.num_events is not None:
-            all_event_ids = all_event_ids[:self.num_events]
+            all_event_ids = all_event_ids[: self.num_events]
 
         # Check that events are present for the requested filetypes
         if self.use_csv:
-            all_event_ids = [evt_id for evt_id in all_event_ids if (f"event{evt_id}-truth.csv" in all_files) and (f"event{evt_id}-particles.csv" in all_files)]
+            all_event_ids = [
+                evt_id
+                for evt_id in all_event_ids
+                if (f"event{evt_id}-truth.csv" in all_files)
+                and (f"event{evt_id}-particles.csv" in all_files)
+            ]
         if self.use_pyg:
-            all_event_ids = [evt_id for evt_id in all_event_ids if f"event{evt_id}-graph.pyg" or f"event{evt_id}.pyg" in all_files]
+            all_event_ids = [
+                evt_id
+                for evt_id in all_event_ids
+                if f"event{evt_id}-graph.pyg" or f"event{evt_id}.pyg" in all_files
+            ]
 
         return all_event_ids
 

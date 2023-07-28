@@ -31,8 +31,14 @@ import torch
 import pandas as pd
 from tqdm import tqdm
 
-from gnn4itk_cf.utils import run_data_tests, load_datafiles_in_dir, handle_hard_cuts, handle_weighting
+from gnn4itk_cf.utils import (
+    run_data_tests,
+    load_datafiles_in_dir,
+    handle_hard_cuts,
+    handle_weighting,
+)
 from . import utils
+
 
 class TrackBuildingStage:
     def __init__(self, hparams):
@@ -64,9 +70,13 @@ class TrackBuildingStage:
         """
 
         # if stage == "fit":
-        for data_name, data_num in zip(["trainset", "valset", "testset"], self.hparams["data_split"]):
+        for data_name, data_num in zip(
+            ["trainset", "valset", "testset"], self.hparams["data_split"]
+        ):
             if data_num > 0:
-                dataset = self.dataset_class(input_dir, data_name, data_num, stage, self.hparams)
+                dataset = self.dataset_class(
+                    input_dir, data_name, data_num, stage, self.hparams
+                )
                 setattr(self, data_name, dataset)
 
     def test_data(self, stage):
@@ -74,9 +84,24 @@ class TrackBuildingStage:
         Test the data to ensure it is of the right format and loaded correctly.
         """
         required_features = ["x", "edge_index", "track_edges", "truth_map", "y"]
-        optional_features = ["particle_id", "nhits", "primary", "pdgId", "ghost", "shared", "module_id", "region", "hit_id", "pt"]
+        optional_features = [
+            "particle_id",
+            "nhits",
+            "primary",
+            "pdgId",
+            "ghost",
+            "shared",
+            "module_id",
+            "region",
+            "hit_id",
+            "pt",
+        ]
 
-        run_data_tests([self.trainset, self.valset, self.testset], required_features, optional_features)
+        run_data_tests(
+            [self.trainset, self.valset, self.testset],
+            required_features,
+            optional_features,
+        )
 
     @classmethod
     def infer(cls, config):
@@ -88,9 +113,9 @@ class TrackBuildingStage:
 
         for data_name in ["trainset", "valset", "testset"]:
             if hasattr(graph_constructor, data_name):
-                graph_constructor.build_tracks(dataset=getattr(graph_constructor, data_name),
-                                               data_name=data_name)
-
+                graph_constructor.build_tracks(
+                    dataset=getattr(graph_constructor, data_name), data_name=data_name
+                )
 
     def build_tracks(self, dataset, data_name):
         """
@@ -125,32 +150,47 @@ class TrackBuildingStage:
 
         evaluated_events = []
         for event in tqdm(self.testset):
-            evaluated_events.append(utils.evaluate_labelled_graph(event,
-                                    matching_fraction=config["matching_fraction"],
-                                    matching_style=config["matching_style"],
-                                    min_track_length=config["min_track_length"],
-                                    min_particle_length=config["min_particle_length"]))
+            evaluated_events.append(
+                utils.evaluate_labelled_graph(
+                    event,
+                    matching_fraction=config["matching_fraction"],
+                    matching_style=config["matching_style"],
+                    min_track_length=config["min_track_length"],
+                    min_particle_length=config["min_particle_length"],
+                )
+            )
 
         evaluated_events = pd.concat(evaluated_events)
 
         particles = evaluated_events[evaluated_events["is_reconstructable"]]
-        reconstructed_particles = particles[particles["is_reconstructed"] & particles["is_matchable"]]
+        reconstructed_particles = particles[
+            particles["is_reconstructed"] & particles["is_matchable"]
+        ]
         tracks = evaluated_events[evaluated_events["is_matchable"]]
         matched_tracks = tracks[tracks["is_matched"]]
 
-        n_particles = len(particles.drop_duplicates(subset=['event_id', 'particle_id']))
-        n_reconstructed_particles = len(reconstructed_particles.drop_duplicates(subset=['event_id', 'particle_id']))
+        n_particles = len(particles.drop_duplicates(subset=["event_id", "particle_id"]))
+        n_reconstructed_particles = len(
+            reconstructed_particles.drop_duplicates(subset=["event_id", "particle_id"])
+        )
 
-        n_tracks = len(tracks.drop_duplicates(subset=['event_id', 'track_id']))
-        n_matched_tracks = len(matched_tracks.drop_duplicates(subset=['event_id', 'track_id']))
+        n_tracks = len(tracks.drop_duplicates(subset=["event_id", "track_id"]))
+        n_matched_tracks = len(
+            matched_tracks.drop_duplicates(subset=["event_id", "track_id"])
+        )
 
-        n_dup_reconstructed_particles = len(reconstructed_particles) - n_reconstructed_particles
+        n_dup_reconstructed_particles = (
+            len(reconstructed_particles) - n_reconstructed_particles
+        )
 
         logging.info(f"Number of reconstructed particles: {n_reconstructed_particles}")
         logging.info(f"Number of particles: {n_particles}")
         logging.info(f"Number of matched tracks: {n_matched_tracks}")
         logging.info(f"Number of tracks: {n_tracks}")
-        logging.info(f"Number of duplicate reconstructed particles: {n_dup_reconstructed_particles}")
+        logging.info(
+            "Number of duplicate reconstructed particles:"
+            f" {n_dup_reconstructed_particles}"
+        )
 
         # Plot the results across pT and eta
         eff = n_reconstructed_particles / n_particles
@@ -162,15 +202,27 @@ class TrackBuildingStage:
         logging.info(f"Duplication rate: {dup_rate:.3f}")
 
         # First get the list of particles without duplicates
-        grouped_reco_particles = particles.groupby('particle_id')["is_reconstructed"].any()
+        grouped_reco_particles = particles.groupby("particle_id")[
+            "is_reconstructed"
+        ].any()
         # particles["is_reconstructed"] = particles["particle_id"].isin(grouped_reco_particles[grouped_reco_particles].index.values)
-        particles.loc[particles["particle_id"].isin(grouped_reco_particles[grouped_reco_particles].index.values), "is_reconstructed"] = True
-        particles = particles.drop_duplicates(subset=['particle_id'])
+        particles.loc[
+            particles["particle_id"].isin(
+                grouped_reco_particles[grouped_reco_particles].index.values
+            ),
+            "is_reconstructed",
+        ] = True
+        particles = particles.drop_duplicates(subset=["particle_id"])
 
         # Plot the results across pT and eta
         pt_units = plot_config["pt_units"] if "pt_units" in plot_config else "GeV"
-        utils.plot_pt_eff(particles, pt_units,
-                          save_path=os.path.join(self.hparams["stage_dir"], "track_reconstruction_eff_vs_pt.png"))
+        utils.plot_pt_eff(
+            particles,
+            pt_units,
+            save_path=os.path.join(
+                self.hparams["stage_dir"], "track_reconstruction_eff_vs_pt.png"
+            ),
+        )
 
     def apply_target_conditions(self, event, target_tracks):
         """
@@ -182,7 +234,11 @@ class TrackBuildingStage:
         for key, values in target_tracks.items():
             if isinstance(values, list):
                 # passing_tracks = passing_tracks & (values[0] <= event[key]).bool() & (event[key] <= values[1]).bool()
-                passing_tracks = passing_tracks * (values[0] <= event[key].float()) * (event[key].float() <= values[1])
+                passing_tracks = (
+                    passing_tracks
+                    * (values[0] <= event[key].float())
+                    * (event[key].float() <= values[1])
+                )
             else:
                 passing_tracks = passing_tracks * (event[key] == values)
 
@@ -194,9 +250,17 @@ class GraphDataset(Dataset):
     The custom default GNN dataset to load graphs off the disk
     """
 
-    def __init__(self, input_dir, data_name=None,
-                 num_events=None,
-                 stage="fit", hparams=None, transform=None, pre_transform=None, pre_filter=None):
+    def __init__(
+        self,
+        input_dir,
+        data_name=None,
+        num_events=None,
+        stage="fit",
+        hparams=None,
+        transform=None,
+        pre_transform=None,
+        pre_filter=None,
+    ):
         super().__init__(input_dir, transform, pre_transform, pre_filter)
 
         self.input_dir = input_dir
@@ -205,14 +269,15 @@ class GraphDataset(Dataset):
         self.num_events = num_events
         self.stage = stage
 
-        self.input_paths = load_datafiles_in_dir(self.input_dir, self.data_name, self.num_events)
+        self.input_paths = load_datafiles_in_dir(
+            self.input_dir, self.data_name, self.num_events
+        )
         self.input_paths.sort()  # We sort here for reproducibility
 
     def len(self):
         return len(self.input_paths)
 
     def get(self, idx):
-
         event_path = self.input_paths[idx]
         event = torch.load(event_path, map_location=torch.device("cpu"))
         self.preprocess_event(event)
@@ -236,8 +301,14 @@ class GraphDataset(Dataset):
         2. Pruning the input graph to only include nodes that are connected to these edges.
         """
 
-        if self.hparams is not None and "hard_cuts" in self.hparams.keys() and self.hparams["hard_cuts"]:
-            assert isinstance(self.hparams["hard_cuts"], dict), "Hard cuts must be a dictionary"
+        if (
+            self.hparams is not None
+            and "hard_cuts" in self.hparams.keys()
+            and self.hparams["hard_cuts"]
+        ):
+            assert isinstance(
+                self.hparams["hard_cuts"], dict
+            ), "Hard cuts must be a dictionary"
             handle_hard_cuts(event, self.hparams["hard_cuts"])
 
     def construct_weighting(self, event):
@@ -245,10 +316,15 @@ class GraphDataset(Dataset):
         Construct the weighting for the event
         """
 
-        assert event.y.shape[0] == event.edge_index.shape[1], f"Input graph has {event.edge_index.shape[1]} edges, but {event.y.shape[0]} truth labels"
+        assert event.y.shape[0] == event.edge_index.shape[1], (
+            f"Input graph has {event.edge_index.shape[1]} edges, but"
+            f" {event.y.shape[0]} truth labels"
+        )
 
         if self.hparams is not None and "weighting" in self.hparams.keys():
-            assert isinstance(self.hparams["weighting"], list) & isinstance(self.hparams["weighting"][0], dict), "Weighting must be a list of dictionaries"
+            assert isinstance(self.hparams["weighting"], list) & isinstance(
+                self.hparams["weighting"][0], dict
+            ), "Weighting must be a list of dictionaries"
             event.weights = handle_weighting(event, self.hparams["weighting"])
         else:
             event.weights = torch.ones_like(event.y, dtype=torch.float32)
