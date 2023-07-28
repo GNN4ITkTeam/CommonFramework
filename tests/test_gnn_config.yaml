@@ -1,9 +1,10 @@
 stage: edge_classifier 
-project: ITk_1GeVSignal_GNN # Used in logging
 model: InteractionGNN # The model class to be loaded
 
-input_dir: test_construction_project # Should contain the files used in training and inference
-stage_dir: test_gnn_project # A directory to be created that will store logs, artifacts, and output data
+project: ITk_1GeVSignal_GNN # Used in logging
+
+input_dir: test_pipeline_project/module_map # Should contain the files used in training and inference
+stage_dir: test_pipeline_project/gnn # A directory to be created that will store logs, artifacts, and output data
 gpus: 0
 nodes: 1
 
@@ -13,15 +14,16 @@ data_split: [1, 1, 1] # Number of [training, validation, testing] examples
 # Define overwriting weight/truth config - the default is all true edges set to +1, all negative edges set to -1
 # TODO: Add ignore_split_module option
 weighting:
-  - weight: 10 
-    y: True
-    pt: [1000., .inf]
-    primary: True 
-    n_hits: [3, .inf]
+  - weight: 2.
+    conditions:
+      y: True
+      pt: [1000, .inf]
+      nhits: [3, .inf]
+      primary: True
+      pdgId: [not_in, [11, -11]]
 
-  - weight: 0
-    y: True 
-    pt: [0., 1000.]
+hard_cuts:
+  pt: [1000, .inf]
 
 # Model parameters
 edge_cut: 0.5
@@ -44,5 +46,4 @@ scheduler: StepLR
 lr: 0.001
 factor: 0.9
 patience: 10
-max_epochs: 100
-
+max_epochs: 1
