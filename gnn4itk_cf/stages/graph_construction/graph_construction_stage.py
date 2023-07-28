@@ -34,13 +34,11 @@ from torch_geometric.data import Dataset
 import torch
 import numpy as np
 import pandas as pd
-from atlasify import atlasify
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-from gnn4itk_cf.utils import run_data_tests, get_ratio, plot_eff_pur_region
+from gnn4itk_cf.utils import run_data_tests, plot_eff_pur_region
 from gnn4itk_cf.utils import eval_utils
 from gnn4itk_cf.utils.mapping_utils import get_condition_lambda
 
@@ -173,7 +171,9 @@ class GraphConstructionStage:
         # TODO: Handle the list of plots properly
         for plot_function, plot_config in all_plots.items():
             if hasattr(eval_utils, plot_function):
-                getattr(eval_utils, plot_function)(graph_constructor, plot_config, config)
+                getattr(eval_utils, plot_function)(
+                    graph_constructor, plot_config, config
+                )
             else:
                 print(f"Plot {plot_function} not implemented")
 
@@ -215,7 +215,9 @@ class GraphConstructionStage:
         Apply the target conditions to the event. This is used for the evaluation stage.
         Target_tracks is a list of dictionaries, each of which contains the conditions to be applied to the event.
         """
-        passing_tracks = torch.ones(event.truth_map.shape[0], dtype=torch.bool).to(self.device)
+        passing_tracks = torch.ones(event.truth_map.shape[0], dtype=torch.bool).to(
+            self.device
+        )
 
         for condition_key, condition_val in target_tracks.items():
             condition_lambda = get_condition_lambda(condition_key, condition_val)
