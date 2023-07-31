@@ -87,7 +87,7 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
                 r" $t \bar{t}$ and soft interactions) "
             )
             + "\n"
-            r"$p_T > 1$GeV, $|\eta < 4$" + "\n"
+            r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
             r"Mean graph size: "
             + f"{np.mean(graph_size):.2e}"
             + r"$\pm$"
@@ -107,28 +107,28 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
     """
     Plot the graph construction efficiency vs. pT of the edge.
     """
-    print("Plotting efficiency against pT")
-    true_positive, target_pt, target_eta = [], [], []
+    print("Plotting efficiency against pT and eta")
+    true_positive, target_pt, target_eta  = [], [], []
     pred = []
     graph_truth = []
 
     for event in tqdm(lightning_module.testset):
         event = event.to(lightning_module.device)
-
-        # Need to apply score cut and remap the truth_map
+        
+        # Need to apply score cut and remap the truth_map 
         if "score_cut" in config:
             lightning_module.apply_score_cut(event, config["score_cut"])
         if "target_tracks" in config:
             lightning_module.apply_target_conditions(event, config["target_tracks"])
         else:
-            event.target_mask = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
-
+            event.target_mask = torch.ones(event.truth_map.shape[0], dtype = torch.bool)
+        
         # get all target true positives
         true_positive.append((event.truth_map[event.target_mask] > -1).cpu())
         # get all target pt. Length = number of target true
         target_pt.append(event.pt[event.target_mask].cpu())
         # target_eta.append(event.eta[event.target_mask])
-        target_eta.append(event.eta[event.track_edges[:, event.target_mask][0]])
+        target_eta.append(event.eta[event.track_edges[:, event.target_mask][0] ])
         # get all edges passing edge cut
         if "scores" in event.keys:
             pred.append((event.scores >= config["score_cut"]).cpu())
@@ -136,7 +136,7 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
             pred.append(event.y.cpu())
         # get all target edges in input graphs
         graph_truth.append((event.graph_truth_map[event.target_mask] > -1))
-
+    
     # concat all target pt and eta
     target_pt = torch.cat(target_pt).cpu().numpy()
     target_eta = torch.cat(target_eta).cpu().numpy()
@@ -147,7 +147,7 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
     # get all positive
     graph_truth = torch.cat(graph_truth).cpu().numpy()
 
-    # count number of graphs to calculate mean efficiency
+    #count number of graphs to calculate mean efficiency
     n_graphs = len(pred)
 
     # get all predictions
@@ -156,7 +156,7 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
     # get mean graph size
     mean_graph_size = pred.sum() / n_graphs
 
-    # get mean target efficiency
+    # get mean target efficiency 
     target_efficiency = true_positive.sum() / len(target_pt)
     target_purity = true_positive.sum() / pred.sum()
 
@@ -172,54 +172,57 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
 
     eta_bins = np.linspace(-4, 4)
 
-    true_pt_hist, true_pt_bins = np.histogram(target_pt, bins=pt_bins)
-    true_pos_pt_hist, _ = np.histogram(target_pt[true_positive], bins=pt_bins)
+    true_pt_hist, true_pt_bins = np.histogram(target_pt, bins = pt_bins)
+    true_pos_pt_hist, _ = np.histogram(target_pt[true_positive], bins = pt_bins)
 
     true_eta_hist, true_eta_bins = np.histogram(target_eta, bins=eta_bins)
     true_pos_eta_hist, _ = np.histogram(target_eta[true_positive], bins=eta_bins)
 
     pt_units = "GeV" if "pt_units" not in plot_config else plot_config["pt_units"]
 
+    filename = plot_config.get('filename', "edgewise_efficiency")
+
     for true_pos_hist, true_hist, bins, xlabel, logx, filename in zip(
-        [true_pos_pt_hist, true_pos_eta_hist],
-        [true_pt_hist, true_eta_hist],
-        [true_pt_bins, true_eta_bins],
-        [f"$p_T [{pt_units}]$", r"$\eta$"],
-        [True, False],
-        ["edgewise_efficiency_pt.png", "edgewise_efficiency_eta.png"],
-    ):
+            [true_pos_pt_hist, true_pos_eta_hist], 
+            [true_pt_hist, true_eta_hist], 
+            [true_pt_bins, true_eta_bins], 
+            [f'$p_T [{pt_units}]$', r'$\eta$'], 
+            [True, False], 
+            [f"{filename}_pt.png", f"{filename}_eta.png"]):
+
         # Divide the two histograms to get the edgewise efficiency
         hist, err = get_ratio(true_pos_hist, true_hist)
 
-        fig, ax = plot_1d_histogram(
-            hist,
-            bins,
-            err,
-            xlabel,
-            plot_config["title"],
-            plot_config.get("ylim", [0.9, 1.04]),
-            "Efficiency",
-            logx=logx,
-        )
+        fig, ax = plot_1d_histogram(hist, bins, err, xlabel, plot_config["title"], plot_config.get('ylim', [0.9, 1.04]), "Efficiency", logx=logx)
 
         # Save the plot
-        atlasify(
-            "Internal",
-            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-            r" \bar{t}$ and soft interactions) " + "\n"
+        atlasify("Internal", 
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
             r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
-            r"Edge score cut: " + str(config["score_cut"]) + "\n"
-            f"Mean graph size: {mean_graph_size:.0f}, Graph Construction Efficiency:"
-            f" {graph_construction_efficiency:.3f}" + "\n"
-            f"Signal Efficiency: {target_efficiency:.3f}" + "\n"
-            #  f"Signal Purity: {target_purity:.4f}" + "\n"
-        )
-        fig.savefig(os.path.join(config["stage_dir"], filename))
-        print(
-            "Finish plotting. Find the plot at"
-            f' {os.path.join(config["stage_dir"], filename)}'
+            r"Edge score cut: " + str(config["score_cut"]) + "\n" 
+            f"Input graph size: {pred.shape[0]/n_graphs:.2e}, Graph Construction Efficiency: {graph_construction_efficiency:.3f}" + "\n"
+            f"Mean graph size: {mean_graph_size:.2e}, Signal Efficiency: {target_efficiency:.3f}" 
         )
 
+        fig.savefig(os.path.join(config["stage_dir"], filename))
+        print(f'Finish plotting. Find the plot at {os.path.join(config["stage_dir"], filename)}')
+
+def multi_edgecut_graph_scoring_efficiency(lightning_module, plot_config, config):
+    """Plot graph scoring efficiency across multiple score cuts
+
+    Args:
+        lightning_module (_type_): lightning module from which to draw evaluation 
+        plot_config (_type_): Plot config, must contain 
+            'score_cuts: LIST OF CUTS
+            'filename_template': A TEMPLATE FOR FILENAME
+        config (_type_): Usual config from lightning module and evaluation config
+    """
+    
+    filenames = [f"{plot_config['template_filename']}_{cut*100:.0f}" for cut in plot_config['score_cuts']]
+    for score_cut, filename in zip(plot_config['score_cuts'], filenames):
+        config['score_cut'] = score_cut
+        plot_config['filename'] = filename
+        graph_scoring_efficiency(lightning_module, plot_config, config)
 
 def graph_roc_curve(lightning_module, plot_config, config):
     """
