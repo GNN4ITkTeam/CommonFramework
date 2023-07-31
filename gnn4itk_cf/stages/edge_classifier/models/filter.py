@@ -49,17 +49,21 @@ class Filter(EdgeClassifierStage):
         )
 
     def forward(self, batch):
-
-        x = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()
-        output = self.net(torch.cat([x[batch.edge_index[0]], x[batch.edge_index[1]]], dim=-1))
+        x = torch.stack(
+            [batch[feature] for feature in self.hparams["node_features"]], dim=-1
+        ).float()
+        output = self.net(
+            torch.cat([x[batch.edge_index[0]], x[batch.edge_index[1]]], dim=-1)
+        )
         return output.squeeze(-1)
 
     def training_step(self, batch, batch_idx):
-
         if self.hparams["ratio"] not in [0, None]:
             with torch.no_grad():
                 no_grad_output = self.memory_robust_eval(batch)
-                batch = self.subsample(batch, torch.sigmoid(no_grad_output), self.hparams["ratio"])
+                batch = self.subsample(
+                    batch, torch.sigmoid(no_grad_output), self.hparams["ratio"]
+                )
 
         output = self.memory_robust_eval(batch)
         loss = self.loss_function(output, batch)
@@ -69,14 +73,18 @@ class Filter(EdgeClassifierStage):
         return loss
 
     def shared_evaluation(self, batch, batch_idx):
-
         output = self.memory_robust_eval(batch)
         loss = self.loss_function(output, batch)
 
         all_truth = batch.y.bool()
         target_truth = (batch.weights > 0) & all_truth
 
-        return {"loss": loss, "all_truth": all_truth, "target_truth": target_truth, "output": output}
+        return {
+            "loss": loss,
+            "all_truth": all_truth,
+            "target_truth": target_truth,
+            "output": output,
+        }
 
     def subsample(self, batch, scores, ratio):
         """
@@ -85,9 +93,13 @@ class Filter(EdgeClassifierStage):
         """
         sample_signal_true = torch.where(batch.y.bool() & (batch.weights > 0))[0]
         num_signal_true = sample_signal_true.shape[0]
-        sample_hard_negatives, sample_easy_negatives = self.get_negatives(batch, scores, num_signal_true, ratio)
+        sample_hard_negatives, sample_easy_negatives = self.get_negatives(
+            batch, scores, num_signal_true, ratio
+        )
 
-        sample_combined = torch.cat([sample_signal_true, sample_hard_negatives, sample_easy_negatives])
+        sample_combined = torch.cat(
+            [sample_signal_true, sample_hard_negatives, sample_easy_negatives]
+        )
         sample_combined = sample_combined[torch.randperm(sample_combined.shape[0])]
         batch.edge_index = batch.edge_index[:, sample_combined]
         batch.y = batch.y[sample_combined]
@@ -102,19 +114,31 @@ class Filter(EdgeClassifierStage):
         """
         negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
         sample_negatives = torch.where(negative_mask)[0]
-        sample_hard_negatives = torch.where(negative_mask)[0][scores[negative_mask] > self.hparams["edge_cut"]]
-        sample_easy_negatives = torch.where(negative_mask)[0][scores[negative_mask] <= self.hparams["edge_cut"]]
+        sample_hard_negatives = torch.where(negative_mask)[0][
+            scores[negative_mask] > self.hparams["edge_cut"]
+        ]
+        sample_easy_negatives = torch.where(negative_mask)[0][
+            scores[negative_mask] <= self.hparams["edge_cut"]
+        ]
 
         # Handle where there are no hard negatives
         if sample_hard_negatives.shape[0] == 0:
-            sample_hard_negatives = sample_negatives[torch.randint(sample_negatives.shape[0], (num_true * ratio,))]
+            sample_hard_negatives = sample_negatives[
+                torch.randint(sample_negatives.shape[0], (num_true * ratio,))
+            ]
         else:
-            sample_hard_negatives = sample_hard_negatives[torch.randint(sample_hard_negatives.shape[0], (num_true * ratio,))]
+            sample_hard_negatives = sample_hard_negatives[
+                torch.randint(sample_hard_negatives.shape[0], (num_true * ratio,))
+            ]
         # Handle where there are no easy negatives
         if sample_easy_negatives.shape[0] == 0:
-            sample_easy_negatives = sample_negatives[torch.randint(sample_negatives.shape[0], (num_true * ratio,))]
+            sample_easy_negatives = sample_negatives[
+                torch.randint(sample_negatives.shape[0], (num_true * ratio,))
+            ]
         else:
-            sample_easy_negatives = sample_easy_negatives[torch.randint(sample_easy_negatives.shape[0], (num_true * ratio,))]
+            sample_easy_negatives = sample_easy_negatives[
+                torch.randint(sample_easy_negatives.shape[0], (num_true * ratio,))
+            ]
 
         return sample_hard_negatives, sample_easy_negatives
 

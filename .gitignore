@@ -1,6 +1,9 @@
 *.csv*
+**.csv**
 *.pt*
+**.pt**
 *.pyg*
+**.pyg**
 **wandb*
 **logs*
 *.ckpt*

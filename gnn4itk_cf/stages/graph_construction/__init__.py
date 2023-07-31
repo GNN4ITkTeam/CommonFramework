@@ -18,8 +18,8 @@ from .models.transformer_metric import TransformerMetricLearning
 from .models.gravnet import GravNetMetricLearning
 
 __all__ = [
-    'MetricLearning',
-    'PyModuleMap',
-    'TransformerMetricLearning',
-    'GravNetMetricLearning',
-    ]
+    "MetricLearning",
+    "PyModuleMap",
+    "TransformerMetricLearning",
+    "GravNetMetricLearning",
+]
