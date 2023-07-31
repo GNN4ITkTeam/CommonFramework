@@ -182,6 +182,7 @@ def get_ratio(x_vals, y_vals):
 #     ax.set_xlabel('$p_T [GeV]$', fontsize=16)
 #     ax.set_ylabel('Efficiency', fontsize=16)
 
+
 #     # Save the plot
 #     fig.savefig('pt_efficiency.png')
 def plot_eff_pur_region(
