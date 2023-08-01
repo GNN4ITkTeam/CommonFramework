@@ -23,6 +23,7 @@ This script:
 import os
 import yaml
 import click
+
 try:
     import wandb
 except ImportError:
@@ -59,8 +60,8 @@ def train(config_file, checkpoint=None):
         wandb.init(
             project=config["project"],
             # track hyperparameters and run metadata
-            config=config
-        )    
+            config=config,
+        )
         config.update(dict(wandb.config))
 
     print(config)
