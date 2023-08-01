@@ -80,6 +80,8 @@ class EdgeClassifierStage(LightningModule):
         if stage in ["fit", "predict"]:
             self.load_data(stage, self.hparams[input_dir], preprocess)
             self.test_data(stage)
+            # turn off warning message
+            torch.set_float32_matmul_precision("medium" if stage == "fit" else "high")
         elif stage == "test":
             # during test stage, allow the possibility of
             if not self.hparams.get("reprocess_classifier"):
@@ -87,7 +89,7 @@ class EdgeClassifierStage(LightningModule):
                 input_dir = "stage_dir"
                 preprocess = False
             self.load_data(stage, self.hparams[input_dir], preprocess)
-
+            torch.set_float32_matmul_precision("high")
         try:
             print("Defining figures of merit")
             self.logger.experiment.define_metric("val_loss", summary="min")
@@ -443,17 +445,20 @@ class EdgeClassifierStage(LightningModule):
         Apply a score cut to the event. This is used for the evaluation stage.
         """
         passing_edges_mask = event.scores >= score_cut
-        edge_index = event.edge_index
+
+        # flip edge direction if points inward
+        event.edge_index = rearrange_by_distance(event, event.edge_index)
+        event.track_edges = rearrange_by_distance(event, event.track_edges)
         if self.hparams["undirected"]:
             # treat graph level first
-            edge_index = rearrange_by_distance(event, event.edge_index)
+            edge_index = event.edge_index
             get_directed_prediction(event, passing_edges_mask, edge_index)
 
             # treat track level, simply drop the later half of all track-level features
-            track_edges = rearrange_by_distance(event, event.track_edges)
+            track_edges = event.track_edges
             num_track_edges = track_edges.shape[1]
             event.track_edges = track_edges.T.view(2, -1, 2)[0].T
-            # print(track_edges.T.view(2, -1, 2))
+
             for key in event.keys:
                 if isinstance(event[key], torch.Tensor) and (
                     (event[key].shape[0] == num_track_edges)

@@ -357,13 +357,22 @@ def get_directed_prediction(event: Data, edge_pred, edge_index):
         edge_index: must be sorted by distance
     """
     num_edges = edge_pred.shape[0]
+
+    # sort edge index by the node id of source node
     inner_sorted_indices = torch.argsort(edge_index[1])
+
+    # rearrange prediction and edge index by this order
     edge_pred = edge_pred[inner_sorted_indices]
     edge_index = edge_index[:, inner_sorted_indices]
+
+    # sort edge index by the node id of destination node
     outter_sorted_indices = torch.argsort(edge_index[0])
+
+    # rearrange
     edge_pred = edge_pred[outter_sorted_indices]
     event["edge_index"] = edge_index[:, outter_sorted_indices].T.view(-1, 2, 2)[:, 0].T
-    # print(event.edge_index)
+
+    # rearrange edge-level features as well
     for key in event.keys:
         if isinstance(event[key], torch.Tensor) and (
             (event[key].shape[0] == num_edges)
@@ -372,6 +381,7 @@ def get_directed_prediction(event: Data, edge_pred, edge_index):
                 2, -1
             )[0]
 
+    # do paired prediction
     paired_pred = edge_pred.view(-1, 2)
     for matching in ["loose", "tight"]:
         if matching == "loose":
