@@ -66,6 +66,8 @@ class MetricLearning(GraphConstructionStage, LightningModule):
                     hparams["weight_bit_width_hidden"],
                     hparams["weight_bit_width_output"],
                 ],
+                bias=hparams["bias"],
+                bias_quant=hparams["bias_quant"],
                 activation_qnn=hparams["activation_qnn"],
                 activation_bit_width=[
                     hparams["activation_bit_width_input"],

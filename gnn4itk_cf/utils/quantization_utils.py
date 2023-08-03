@@ -5,6 +5,7 @@ from scipy.integrate import simps
 
 import torch.nn.utils.prune as prune
 from brevitas.quant_tensor import QuantTensor
+from brevitas.quant import Int8Bias, Int16Bias, Int24Bias, Int32Bias  # noqa
 from brevitas.export import export_qonnx
 from qonnx.util.cleanup import cleanup
 from qonnx.util.inference_cost import inference_cost
@@ -34,13 +35,15 @@ def make_quantized_mlp(
     input_size,  # input parameters of neural net
     sizes,
     weight_bit_width,  # providing weights in form of array now
+    bias=True,
+    bias_quant=Int8Bias,
     activation_qnn=True,
     activation_bit_width=4,
     output_activation=False,
     output_activation_quantization=False,
     input_layer_quantization=False,
     input_layer_bitwidth=11,
-    layer_norm=True,
+    batch_norm=True,
 ):
     """Construct a Qunatized MLP with specified fully-connected layers."""
 
@@ -62,12 +65,13 @@ def make_quantized_mlp(
             qnn.QuantLinear(
                 sizes[i],
                 sizes[i + 1],
-                bias=False,
+                bias=bias,
+                bias_quant=bias_quant,
                 weight_bit_width=weight_bit_width[0 if i == 0 else 1],
                 return_quant_tensor=True,
             )
         )  # adding first and hidden layer weights
-        if layer_norm:  # using batch norm
+        if batch_norm:  # using batch norm
             layers.append(nn.BatchNorm1d(sizes[i + 1]))
         if activation_qnn:  # if qnn activation is on , we use QuantReLU else nn.ReLU
             if i == 0:
@@ -94,7 +98,8 @@ def make_quantized_mlp(
         qnn.QuantLinear(
             sizes[-2],
             sizes[-1],
-            bias=False,
+            bias=bias,
+            bias_quant=bias_quant,
             weight_bit_width=weight_bit_width[-1],
             return_quant_tensor=output_activation,
         )
@@ -102,13 +107,13 @@ def make_quantized_mlp(
 
     if output_activation:
         # print(f"adding output activation! {output_activation} {output_activation_quantization}")
-        if layer_norm:
+        if batch_norm:
             layers.append(nn.BatchNorm1d(sizes[-1]))
 
         if output_activation_quantization:
             layers.append(
                 qnn.QuantReLU(
-                    bit_width=activation_bit_width[-1], return_quant_tensor=True
+                    bit_width=activation_bit_width[-1], return_quant_tensor=False
                 )
             )
         else:

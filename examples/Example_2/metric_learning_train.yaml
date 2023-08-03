@@ -70,12 +70,15 @@ quantized_dataset: False
 weight_bit_width_input: 8
 weight_bit_width_hidden: 8
 weight_bit_width_output: 8
+bias: True
+bias_quant: Int8Bias
 activation_qnn: False ## tlling the network to use quantReLU()
 activation_bit_width_input: 8
 activation_bit_width_hidden: 8
 activation_bit_width_output: 8
 output_activation: False
 output_activation_quantization: False
+batch_norm: True
 
 # Input quantization Parameters, only using fixed point representation
 input_quantization: False # also enables QuantIdentity
