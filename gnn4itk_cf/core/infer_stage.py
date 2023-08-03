@@ -33,6 +33,7 @@ from pytorch_lightning import LightningModule
 
 from .core_utils import str_to_class, find_latest_checkpoint
 
+
 @click.command()
 @click.argument("config_file")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose mode")
@@ -48,8 +49,8 @@ def main(config_file, verbose):
 
     infer(config_file)
 
-def infer(config_file):
 
+def infer(config_file):
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -65,8 +66,11 @@ def infer(config_file):
     else:
         stage_module.infer(config)
 
+
 def lightning_infer(config, stage_module):
-    checkpoint_path = find_latest_checkpoint(config["stage_dir"], templates=["best*.ckpt", "*.ckpt"])
+    checkpoint_path = find_latest_checkpoint(
+        config["stage_dir"], templates=["best*.ckpt", "*.ckpt"]
+    )
     if not checkpoint_path:
         print("No checkpoint found")
         sys.exit(1)

@@ -1,7 +1,9 @@
 *.csv*
-*.txt*
+**.csv**
 *.pt*
+**.pt**
 *.pyg*
+**.pyg**
 **wandb*
 **logs*
 *.ckpt*
@@ -12,3 +14,5 @@
 **__pycache__*
 *master*
 **master**
+*env*
+*dist*

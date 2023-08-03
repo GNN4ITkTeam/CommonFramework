@@ -1,23 +1,25 @@
 import sys
+
 sys.path.append("../")
 
 import yaml
 import pytest
 
+
 def test_model_load():
     """
-    Test the model to ensure it is of the right format and loaded correctly.
+    Test the model to ensure it is of the right format and loaded correctly. It uses the configuration given in test_gnn_config.yaml.
     """
-    from stages.edge_classifier.gnn_stage import GNNStage
+    from gnn4itk_cf.stages.edge_classifier import InteractionGNN
 
     # load test_gnn_config.yaml
     with open("test_gnn_config.yaml", "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
-    model = GNNStage(config)
+    model = InteractionGNN(config)
 
     assert model is not None
-    assert model.model is not None 
+
 
 def test_data_load():
     """
@@ -28,7 +30,7 @@ def test_data_load():
     3. Test a data load without enough events
     4. Missing directory
     """
-    from stages.edge_classifier.gnn_stage import GNNStage
+    from gnn4itk_cf.stages.edge_classifier import InteractionGNN
 
     # load test_gnn_config.yaml
     with open("test_gnn_config.yaml", "r") as f:
@@ -36,39 +38,39 @@ def test_data_load():
 
     # Test 1
     config["data_split"] = [1, 1, 1]
-    model = GNNStage(config)
-    model.setup(stage="fit")
-
-    assert model.trainset is not None
-    assert model.valset is not None
-    assert model.testset is not None
+    model = InteractionGNN(config)
+    setup_and_test(model)
 
     # Test 2
     config["data_split"] = [1, 1, 0]
-    model = GNNStage(config)
-    model.setup(stage="fit")
-
-    assert model.trainset is not None
-    assert model.valset is not None
-    assert model.testset is None
+    model = InteractionGNN(config)
+    pytest.raises(AssertionError, setup_and_test, model)
 
     # Test 3
     config["data_split"] = [100, 1, 1]
-    model = GNNStage(config)
+    model = InteractionGNN(config)
 
     pytest.raises(AssertionError, model.setup, stage="fit")
 
     # Test 4
     config["data_split"] = [1, 1, 1]
     config["input_dir"] = "a_missing_directory"
-    model = GNNStage(config)
+    model = InteractionGNN(config)
 
-    pytest.raises(FileNotFoundError, model.setup, stage="fit")
+    pytest.raises(AssertionError, model.setup, stage="fit")
+
+
+def setup_and_test(model):
+    model.setup(stage="fit")
+
+    assert model.trainset is not None
+    assert model.valset is not None
+    assert model.testset is not None
 
 
 def test_construct_weighting():
     """
     TODO
     """
-    
+
     pass

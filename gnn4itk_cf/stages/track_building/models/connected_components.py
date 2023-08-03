@@ -26,6 +26,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 from ..track_building_stage import TrackBuildingStage
 from torch_geometric.utils import to_scipy_sparse_matrix
 
+
 class ConnectedComponents(TrackBuildingStage):
     def __init__(self, hparams):
         super().__init__(hparams)
@@ -49,7 +50,6 @@ class ConnectedComponents(TrackBuildingStage):
         logging.info(f"Saving tracks to {output_dir}")
 
         for graph in tqdm(dataset):
-
             # Apply score cut
             edge_mask = graph.scores > self.hparams["score_cut"]
 
@@ -64,10 +64,14 @@ class ConnectedComponents(TrackBuildingStage):
                 num_nodes = graph.edge_index.max().item() + 1
 
             # Convert to sparse scipy array
-            sparse_edges = to_scipy_sparse_matrix(graph.edge_index[:, edge_mask], num_nodes=num_nodes)
+            sparse_edges = to_scipy_sparse_matrix(
+                graph.edge_index[:, edge_mask], num_nodes=num_nodes
+            )
 
             # Run connected components
-            _, candidate_labels = sps.csgraph.connected_components(sparse_edges, directed=False, return_labels=True)
+            _, candidate_labels = sps.csgraph.connected_components(
+                sparse_edges, directed=False, return_labels=True
+            )
             graph.labels = torch.from_numpy(candidate_labels).long()
             graph.config.append(self.hparams)
 

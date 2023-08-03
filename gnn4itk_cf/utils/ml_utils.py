@@ -14,7 +14,6 @@
 
 import torch.nn as nn
 import torch
-
 import brevitas.nn as qnn
 
 
@@ -25,6 +24,8 @@ def make_mlp(
     output_activation=None,
     layer_norm=False,
     batch_norm=False,
+    input_dropout=0,
+    hidden_dropout=0,
 ):
     """Construct an MLP with specified fully-connected layers."""
     hidden_activation = getattr(nn, hidden_activation)
@@ -35,87 +36,117 @@ def make_mlp(
     sizes = [input_size] + sizes
     # Hidden layers
     for i in range(n_layers - 1):
+        if i == 0 and input_dropout > 0:
+            layers.append(nn.Dropout(input_dropout))
         layers.append(nn.Linear(sizes[i], sizes[i + 1]))
         if layer_norm:
             layers.append(nn.LayerNorm(sizes[i + 1], elementwise_affine=False))
         if batch_norm:
-            layers.append(nn.BatchNorm1d(sizes[i + 1], track_running_stats=False, affine=False))
+            layers.append(
+                nn.BatchNorm1d(sizes[i + 1], track_running_stats=False, affine=False)
+            )
         layers.append(hidden_activation())
+        if hidden_dropout > 0:
+            layers.append(nn.Dropout(hidden_dropout))
     # Final layer
     layers.append(nn.Linear(sizes[-2], sizes[-1]))
     if output_activation is not None:
         if layer_norm:
             layers.append(nn.LayerNorm(sizes[-1], elementwise_affine=False))
         if batch_norm:
-            layers.append(nn.BatchNorm1d(sizes[-1], track_running_stats=False, affine=False))
+            layers.append(
+                nn.BatchNorm1d(sizes[-1], track_running_stats=False, affine=False)
+            )
         layers.append(output_activation())
     return nn.Sequential(*layers)
 
+
 def make_quantized_mlp(
-
-    input_size,  ##input parameters of neural net
-    sizes,  
-    weight_bit_width,  ##providing weights in form of array now
-    activation_qnn = True,
+    input_size,  # input parameters of neural net
+    sizes,
+    weight_bit_width,  # providing weights in form of array now
+    activation_qnn=True,
     activation_bit_width=4,
-    output_activation = False,
-    output_activation_quantization = False,
+    output_activation=False,
+    output_activation_quantization=False,
     input_layer_quantization=False,
-    input_layer_bitwidth = 11,
-    layer_norm = True,
-
+    input_layer_bitwidth=11,
+    layer_norm=True,
 ):
     """Construct a Qunatized MLP with specified fully-connected layers."""
-    
-    layers = []  
+
+    layers = []
     n_layers = len(sizes)
     sizes = [input_size] + sizes
-    ##adding first layer for quantizng the input
+    # adding first layer for quantizng the input
 
-    if(input_layer_quantization):
-        ##quantizing the input layer
-        layers.append(qnn.QuantIdentity(
-                bit_width=input_layer_bitwidth,return_quant_tensor = True ))
+    if input_layer_quantization:
+        # quantizing the input layer
+        layers.append(
+            qnn.QuantIdentity(bit_width=input_layer_bitwidth, return_quant_tensor=True)
+        )
 
-    
     # Hidden layers of a quantized neural network
 
-    for i in range(n_layers-1):
-
-        layers.append(qnn.QuantLinear(sizes[i], sizes[i + 1],bias=False,
-         weight_bit_width=weight_bit_width[0 if i ==0 else 1],return_quant_tensor = True))  ##adding first and hidden layer weights
-        if layer_norm:   ##using batch norm
+    for i in range(n_layers - 1):
+        layers.append(
+            qnn.QuantLinear(
+                sizes[i],
+                sizes[i + 1],
+                bias=False,
+                weight_bit_width=weight_bit_width[0 if i == 0 else 1],
+                return_quant_tensor=True,
+            )
+        )  # adding first and hidden layer weights
+        if layer_norm:  # using batch norm
             layers.append(nn.BatchNorm1d(sizes[i + 1]))
-        if activation_qnn:   ##if qnn activation is on , we use QuantReLU else nn.ReLU
-            if i==0:
+        if activation_qnn:  # if qnn activation is on , we use QuantReLU else nn.ReLU
+            if i == 0:
                 activation_bit_index = 0
                 print("first quantRelu")
-            elif (i==n_layers-2 and (not output_activation)):
+            elif i == n_layers - 2 and (not output_activation):
                 activation_bit_index = 2
                 print("last quantRelu")
             else:
                 activation_bit_index = 1
                 print("hidden quantRelu")
-            layers.append(qnn.QuantReLU(bit_width = activation_bit_width[activation_bit_index],return_quant_tensor = True))
-           
+            layers.append(
+                qnn.QuantReLU(
+                    bit_width=activation_bit_width[activation_bit_index],
+                    return_quant_tensor=True,
+                )
+            )
+
         else:
             layers.append(nn.ReLU())
 
     # Final layer
-    layers.append(qnn.QuantLinear(sizes[-2], sizes[-1],bias=False, 
-    weight_bit_width=weight_bit_width[-1],return_quant_tensor = output_activation)) # if no output activation, have to returned not-quant tensor!
+    layers.append(
+        qnn.QuantLinear(
+            sizes[-2],
+            sizes[-1],
+            bias=False,
+            weight_bit_width=weight_bit_width[-1],
+            return_quant_tensor=output_activation,
+        )
+    )  # if no output activation, have to returned not-quant tensor!
 
     if output_activation:
-        #print(f"adding output activation! {output_activation} {output_activation_quantization}")
+        # print(f"adding output activation! {output_activation} {output_activation_quantization}")
         if layer_norm:
             layers.append(nn.BatchNorm1d(sizes[-1]))
 
         if output_activation_quantization:
-            layers.append(qnn.QuantReLU(bit_width = activation_bit_width[-1],return_quant_tensor = True))
+            layers.append(
+                qnn.QuantReLU(
+                    bit_width=activation_bit_width[-1], return_quant_tensor=True
+                )
+            )
         else:
             layers.append(nn.ReLU())
 
     return nn.Sequential(*layers)
+
 
 def get_optimizers(parameters, hparams):
     optimizer = [
@@ -128,7 +159,11 @@ def get_optimizers(parameters, hparams):
         )
     ]
 
-    if "scheduler" not in hparams or hparams["scheduler"] is None or hparams["scheduler"] == "StepLR":
+    if (
+        "scheduler" not in hparams
+        or hparams["scheduler"] is None
+        or hparams["scheduler"] == "StepLR"
+    ):
         scheduler = [
             {
                 "scheduler": torch.optim.lr_scheduler.StepLR(

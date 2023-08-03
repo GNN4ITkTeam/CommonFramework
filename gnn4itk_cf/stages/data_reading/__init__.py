@@ -13,13 +13,15 @@
 # limitations under the License.
 
 from .models.athena_reader import AthenaReader
+from .models.athena_root_reader import AthenaRootReader
 from .models.athena_cluster_reader import AthenaClusterReader
 from .models.trackml_reader import TrackMLReader
 from .models.acts_reader import ActsReader
 
 __all__ = [
-    'AthenaReader',
-    'AthenaClusterReader',
-    'TrackMLReader',
-    'ActsReader',
+    "AthenaReader",
+    "AthenaRootReader",
+    "AthenaClusterReader",
+    "TrackMLReader",
+    "ActsReader",
 ]
