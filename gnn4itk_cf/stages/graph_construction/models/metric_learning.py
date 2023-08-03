@@ -53,7 +53,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
                 [hparams["emb_hidden"]] * hparams["nb_layer"] + [hparams["emb_dim"]],
                 hidden_activation=hparams["activation"],
                 output_activation=None,
-                batch_norm=True,
+                layer_norm=True,
             )
         else:
             print("QUANTIZED NETWORK IS BEING USED")
@@ -94,8 +94,10 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
     def forward(self, x):
         x_out = self.network(x)
-        # add parameter to remove normalization
-        return F.normalize(x_out)
+        if self.hparams["norm"]:
+            return F.normalize(x_out)
+        else:
+            return x_out
 
     def train_dataloader(self):
         if self.trainset is None:

@@ -6,7 +6,7 @@ stage_dir: MY_DATA_DIR/Example_2/metric_learning/ # A directory to be created th
 project: CF_Example_2_MetricLearning # Used in logging
 gpus: 1
 nodes: 1
-num_workers: [0,0]
+num_workers: [0, 0]
 
 # Dataset parameters
 data_split: [80, 10, 10] # Number of [training, validation, testing] examples
@@ -18,7 +18,7 @@ data_split: [80, 10, 10] # Number of [training, validation, testing] examples
   # All other tracks follow the default: If a true edge, weight=0. If a fake edge, weight=1.
 weighting:
   - weight: 1.
-    conditions: 
+    conditions:
       y: False
   - weight: 0.
     conditions:
@@ -38,8 +38,8 @@ weighting:
 
 # Model parameters
 undirected: True
-node_features: [r,    phi,  z]
-node_scales:   [1000, 3.14, 1000]
+node_features: [r, phi, z]
+node_scales: [1000, 3.14, 1000]
 emb_hidden: 1024
 nb_layer: 4
 emb_dim: 12
@@ -50,6 +50,7 @@ r_train: 0.1
 knn: 50
 knn_val: 500
 knn_test: 100
+norm: True
 
 # Training parameters
 warmup: 5
@@ -81,9 +82,7 @@ input_quantization: False # also enables QuantIdentity
 integer_part: 3
 fractional_part: 24
 
-
-
-##pruning 
+# pruning
 pruning_allow: False
 l1_loss: False
 rewind_lr: False # for rewinding learning rate after pruning
@@ -94,5 +93,3 @@ pruning_val_loss: 0.000002
 pruning_fn: "l1_unstructured"
 pruning_amount: 0.1
 pruning_freq: 149
-
-

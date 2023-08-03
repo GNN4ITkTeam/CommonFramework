@@ -194,57 +194,118 @@ class InteractionGNN(EdgeClassifierStage):
                 + hparams["fractional_part"],
                 layer_norm=True,
             )
-
-            self.edge_network = make_quantized_mlp(
-                3 * hparams["hidden"],
-                [hparams["hidden"]] * hparams["nb_edge_layer"],
-                weight_bit_width=[
-                    hparams["weight_bit_width_input"],
-                    hparams["weight_bit_width_hidden"],
-                    hparams["weight_bit_width_output"],
-                ],
-                activation_qnn=hparams["activation_qnn"],
-                activation_bit_width=[
-                    hparams["activation_bit_width_input"],
-                    hparams["activation_bit_width_hidden"],
-                    hparams["activation_bit_width_output"],
-                ],
-                output_activation=hparams["output_activation"],
-                output_activation_quantization=hparams[
-                    "output_activation_quantization"
-                ],
-                input_layer_quantization=hparams["input_quantization"],
-                input_layer_bitwidth=1
-                + hparams["integer_part"]
-                + hparams["fractional_part"],
-                layer_norm=True,
-            )
-
+            # The edge network computes new edge features from connected nodes
+            if not hparams["edge_net_recurrent"]:
+                self.edge_networks = nn.ModuleList(
+                    [
+                        make_quantized_mlp(
+                            3 * hparams["hidden"],
+                            [hparams["hidden"]] * hparams["nb_edge_layer"],
+                            weight_bit_width=[
+                                hparams["weight_bit_width_input"],
+                                hparams["weight_bit_width_hidden"],
+                                hparams["weight_bit_width_output"],
+                            ],
+                            activation_qnn=hparams["activation_qnn"],
+                            activation_bit_width=[
+                                hparams["activation_bit_width_input"],
+                                hparams["activation_bit_width_hidden"],
+                                hparams["activation_bit_width_output"],
+                            ],
+                            output_activation=hparams["output_activation"],
+                            output_activation_quantization=hparams[
+                                "output_activation_quantization"
+                            ],
+                            input_layer_quantization=hparams["input_quantization"],
+                            input_layer_bitwidth=1
+                            + hparams["integer_part"]
+                            + hparams["fractional_part"],
+                            layer_norm=True,
+                        )
+                        for _ in range(hparams["n_graph_iters"])
+                    ]
+                )
+            else:
+                self.edge_network = make_quantized_mlp(
+                    3 * hparams["hidden"],
+                    [hparams["hidden"]] * hparams["nb_edge_layer"],
+                    weight_bit_width=[
+                        hparams["weight_bit_width_input"],
+                        hparams["weight_bit_width_hidden"],
+                        hparams["weight_bit_width_output"],
+                    ],
+                    activation_qnn=hparams["activation_qnn"],
+                    activation_bit_width=[
+                        hparams["activation_bit_width_input"],
+                        hparams["activation_bit_width_hidden"],
+                        hparams["activation_bit_width_output"],
+                    ],
+                    output_activation=hparams["output_activation"],
+                    output_activation_quantization=hparams[
+                        "output_activation_quantization"
+                    ],
+                    input_layer_quantization=hparams["input_quantization"],
+                    input_layer_bitwidth=1
+                    + hparams["integer_part"]
+                    + hparams["fractional_part"],
+                    layer_norm=True,
+                )
             # The node network computes new node features
-            self.node_network = make_quantized_mlp(
-                self.network_input_size,
-                [hparams["hidden"]] * hparams["nb_node_layer"],
-                weight_bit_width=[
-                    hparams["weight_bit_width_input"],
-                    hparams["weight_bit_width_hidden"],
-                    hparams["weight_bit_width_output"],
-                ],
-                activation_qnn=hparams["activation_qnn"],
-                activation_bit_width=[
-                    hparams["activation_bit_width_input"],
-                    hparams["activation_bit_width_hidden"],
-                    hparams["activation_bit_width_output"],
-                ],
-                output_activation=hparams["output_activation"],
-                output_activation_quantization=hparams[
-                    "output_activation_quantization"
-                ],
-                input_layer_quantization=hparams["input_quantization"],
-                input_layer_bitwidth=1
-                + hparams["integer_part"]
-                + hparams["fractional_part"],
-                layer_norm=True,
-            )
+            if not hparams["edge_net_recurrent"]:
+                self.node_networks = nn.ModuleList(
+                    [
+                        make_quantized_mlp(
+                            3 * hparams["hidden"],
+                            [hparams["hidden"]] * hparams["nb_edge_layer"],
+                            weight_bit_width=[
+                                hparams["weight_bit_width_input"],
+                                hparams["weight_bit_width_hidden"],
+                                hparams["weight_bit_width_output"],
+                            ],
+                            activation_qnn=hparams["activation_qnn"],
+                            activation_bit_width=[
+                                hparams["activation_bit_width_input"],
+                                hparams["activation_bit_width_hidden"],
+                                hparams["activation_bit_width_output"],
+                            ],
+                            output_activation=hparams["output_activation"],
+                            output_activation_quantization=hparams[
+                                "output_activation_quantization"
+                            ],
+                            input_layer_quantization=hparams["input_quantization"],
+                            input_layer_bitwidth=1
+                            + hparams["integer_part"]
+                            + hparams["fractional_part"],
+                            layer_norm=True,
+                        )
+                        for _ in range(hparams["n_graph_iters"])
+                    ]
+                )
+            else:
+                self.node_network = make_quantized_mlp(
+                    self.network_input_size,
+                    [hparams["hidden"]] * hparams["nb_node_layer"],
+                    weight_bit_width=[
+                        hparams["weight_bit_width_input"],
+                        hparams["weight_bit_width_hidden"],
+                        hparams["weight_bit_width_output"],
+                    ],
+                    activation_qnn=hparams["activation_qnn"],
+                    activation_bit_width=[
+                        hparams["activation_bit_width_input"],
+                        hparams["activation_bit_width_hidden"],
+                        hparams["activation_bit_width_output"],
+                    ],
+                    output_activation=hparams["output_activation"],
+                    output_activation_quantization=hparams[
+                        "output_activation_quantization"
+                    ],
+                    input_layer_quantization=hparams["input_quantization"],
+                    input_layer_bitwidth=1
+                    + hparams["integer_part"]
+                    + hparams["fractional_part"],
+                    layer_norm=True,
+                )
 
             # Final edge output classification network
             self.output_edge_classifier = make_quantized_mlp(
