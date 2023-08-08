@@ -34,23 +34,24 @@ def quantize_features(
 def make_quantized_mlp(
     input_size,  # input parameters of neural net
     sizes,
-    weight_bit_width,  # providing weights in form of array now
+    weight_bit_width=[8, 8, 8],  # providing weights in form of array now
     bias=True,
     bias_quant=Int8Bias,
     activation_qnn=True,
-    activation_bit_width=4,
+    activation_bit_width=[8, 8, 8],
     output_activation=False,
     output_activation_quantization=False,
-    input_layer_quantization=False,
+    input_layer_quantization=True,
     input_layer_bitwidth=11,
     batch_norm=True,
+    layer_norm=False,
 ):
     """Construct a Qunatized MLP with specified fully-connected layers."""
 
     layers = []
     n_layers = len(sizes)
     sizes = [input_size] + sizes
-    # adding first layer for quantizng the input
+    # adding first layer for quantizing the input
 
     if input_layer_quantization:
         # quantizing the input layer
@@ -71,8 +72,12 @@ def make_quantized_mlp(
                 return_quant_tensor=True,
             )
         )  # adding first and hidden layer weights
+        if layer_norm:
+            layers.append(nn.LayerNorm(sizes[i + 1], elementwise_affine=False))
         if batch_norm:  # using batch norm
-            layers.append(nn.BatchNorm1d(sizes[i + 1]))
+            layers.append(
+                nn.BatchNorm1d(sizes[i + 1], track_running_stats=True, affine=True)
+            )  # check parameters!
         if activation_qnn:  # if qnn activation is on , we use QuantReLU else nn.ReLU
             if i == 0:
                 activation_bit_index = 0
@@ -107,8 +112,12 @@ def make_quantized_mlp(
 
     if output_activation:
         # print(f"adding output activation! {output_activation} {output_activation_quantization}")
+        if layer_norm:
+            layers.append(nn.LayerNorm(sizes[-1], elementwise_affine=False))
         if batch_norm:
-            layers.append(nn.BatchNorm1d(sizes[-1]))
+            layers.append(
+                nn.BatchNorm1d(sizes[-1], track_running_stats=True, affine=True)
+            )  # check parameters!)
 
         if output_activation_quantization:
             layers.append(

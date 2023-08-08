@@ -26,13 +26,14 @@ import torch
 import logging
 
 # Local imports
-from .utils import make_mlp, build_edges, graph_intersection, make_quantized_mlp
+from .utils import make_mlp, build_edges, graph_intersection
 from ..utils import build_signal_edges  # handle_weighting
 from gnn4itk_cf.utils import (
     load_datafiles_in_dir,
     handle_hard_node_cuts,
     handle_weighting,
     quantize_features,
+    make_quantized_mlp,
 )
 
 
@@ -59,8 +60,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             print("QUANTIZED NETWORK IS BEING USED")
 
             self.network = make_quantized_mlp(
-                in_channels,
-                [hparams["emb_hidden"]] * hparams["nb_layer"] + [hparams["emb_dim"]],
+                input_size=in_channels,
+                sizes=[hparams["emb_hidden"]] * hparams["nb_layer"]
+                + [hparams["emb_dim"]],
                 weight_bit_width=[
                     hparams["weight_bit_width_input"],
                     hparams["weight_bit_width_hidden"],
@@ -82,7 +84,8 @@ class MetricLearning(GraphConstructionStage, LightningModule):
                 input_layer_bitwidth=1
                 + hparams["integer_part"]
                 + hparams["fractional_part"],
-                layer_norm=True,
+                batch_norm=hparams["batch_norm"],
+                layer_norm=hparams["layer_norm"],
             )
 
         self.dataset_class = GraphDataset
