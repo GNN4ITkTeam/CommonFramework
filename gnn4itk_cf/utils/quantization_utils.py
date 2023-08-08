@@ -133,61 +133,64 @@ def make_quantized_mlp(
 
 class onnx_export(Callback):
     def on_train_epoch_end(self, trainer, pl_module):
-        model = pl_module
-        if trainer.current_epoch != 0:
-            self.get_onnx_dir(trainer)  # setting up the onnx and pickle dir path
+        if trainer.is_global_zero:
+            model = pl_module
+            if trainer.current_epoch != 0:
+                self.get_onnx_dir(trainer)  # setting up the onnx and pickle dir path
 
-            model_copy = model.deepcopy_model()
+                model_copy = model.deepcopy_model()
 
-            if model.hparams["quantized_network"]:
-                parameters_to_prune_copy = [
-                    (model_copy[1], "weight"),
-                    (model_copy[4], "weight"),
-                    (model_copy[7], "weight"),
-                    (model_copy[10], "weight"),
-                    (model_copy[13], "weight"),
-                ]
-            else:
-                parameters_to_prune_copy = [
-                    (model_copy[0], "weight"),
-                    (model_copy[3], "weight"),
-                    (model_copy[6], "weight"),
-                    (model_copy[9], "weight"),
-                    (model_copy[12], "weight"),
-                ]
-            if model.last_pruned > -1:
-                for paras in parameters_to_prune_copy:
-                    prune.remove(paras[0], name="weight")
+                if model.hparams["quantized_network"]:
+                    parameters_to_prune_copy = [
+                        (model_copy[1], "weight"),
+                        (model_copy[4], "weight"),
+                        (model_copy[7], "weight"),
+                        (model_copy[10], "weight"),
+                        (model_copy[13], "weight"),
+                    ]
+                else:
+                    parameters_to_prune_copy = [
+                        (model_copy[0], "weight"),
+                        (model_copy[3], "weight"),
+                        (model_copy[6], "weight"),
+                        (model_copy[9], "weight"),
+                        (model_copy[12], "weight"),
+                    ]
+                if model.last_pruned > -1:
+                    for paras in parameters_to_prune_copy:
+                        prune.remove(paras[0], name="weight")
 
-            export_path, export_path_cleanup, export_json = self.get_onnx_paths(
-                trainer.current_epoch
-            )
+                export_path, export_path_cleanup, export_json = self.get_onnx_paths(
+                    trainer.current_epoch
+                )
 
-            export_qonnx(
-                model_copy,
-                export_path=export_path,
-                input_t=self.input_tensor(model.hparams).to("cuda"),
-                export_params="True",
-            )  # exporting the model to calculate BOPs just before we do pruning
+                export_qonnx(
+                    model_copy,
+                    export_path=export_path,
+                    input_t=self.input_tensor(model.hparams).to("cuda"),
+                    export_params="True",
+                )  # exporting the model to calculate BOPs just before we do pruning
 
-            # pickle_file_path = self.pickle_directory + f"/model_{trainer.current_epoch}_.pkl"
-            # with open(pickle_file_path,'wb') as file:
-            #     model.voila(dir(model_copy))
-            #     pickle.dump(model.network,file)
-            # file.close()
+                # pickle_file_path = self.pickle_directory + f"/model_{trainer.current_epoch}_.pkl"
+                # with open(pickle_file_path,'wb') as file:
+                #     model.voila(dir(model_copy))
+                #     pickle.dump(model.network,file)
+                # file.close()
 
-            del model_copy
-            cleanup(export_path, out_file=export_path_cleanup)
-            inf_cost = inference_cost(
-                export_path_cleanup, output_json=export_json, discount_sparsity=True
-            )
-            model.log_dict(
-                {
-                    "total_bops": inf_cost["total_bops"],
-                    "total_mem_w_bits": inf_cost["total_mem_w_bits"],
-                    "total_mem_o_bits": inf_cost["total_mem_o_bits"],
-                }
-            )
+                del model_copy
+                cleanup(
+                    export_path, out_file=export_path_cleanup
+                )  # I experience issues here running with more than 1 GPU! multi GPU handling to be investigated
+                inf_cost = inference_cost(
+                    export_path_cleanup, output_json=export_json, discount_sparsity=True
+                )
+                model.log_dict(
+                    {
+                        "total_bops": inf_cost["total_bops"],
+                        "total_mem_w_bits": inf_cost["total_mem_w_bits"],
+                        "total_mem_o_bits": inf_cost["total_mem_o_bits"],
+                    }
+                )
 
     def input_tensor(self, config):
         batch_size = 1000

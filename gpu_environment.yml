@@ -21,5 +21,8 @@ dependencies:
     - pytorch-lightning=1.9.2
     - pyg=2.2
     - uproot
+    - class-resolver
     - brevitas
     - qonnx
+    - onnx
+    - onnxoptimizer

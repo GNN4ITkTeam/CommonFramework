@@ -318,7 +318,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
                 reg_loss += l1_crit(param, target=torch.zeros_like(param))
 
             loss += self.hparams["l1_factor"] * reg_loss
-        self.log("train_loss", loss, batch_size=1)
+        self.log("train_loss", loss, batch_size=1, sync_dist=True)
 
         return loss
 
@@ -512,6 +512,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
                 "f1": f1,
             },
             batch_size=1,
+            sync_dist=True,
         )
 
     def validation_step(self, batch, batch_idx):
@@ -650,7 +651,8 @@ class MetricLearning(GraphConstructionStage, LightningModule):
                 "pur_95": pur_95,
                 "pur_98": pur_98,
                 "eff_95": eff_95,
-            }
+            },
+            sync_dist=True,
         )
 
     def get_signal_pur(self, batch, embedding, radius, knn_num, signal_true_edges):
