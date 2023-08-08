@@ -193,7 +193,7 @@ class onnx_export(Callback):
                 )
 
     def input_tensor(self, config):
-        batch_size = 1000
+        batch_size = 1  # to measure BOPs per spacepoint
         input_tensor = torch.randn(batch_size, len(config["node_features"]))
 
         if config["quantized_network"]:
