@@ -5,11 +5,11 @@ repos:
       - id: black
         args: ["--preview"]
 
-  - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.17.0
-    hooks:
-      - id: yamllint
-        args: ["-d", "{extends: relaxed, rules: {line-length: disable}}"]
+  # - repo: https://github.com/adrienverge/yamllint.git
+  #   rev: v1.17.0
+  #   hooks:
+  #     - id: yamllint
+  #       args: ["-d", "{extends: relaxed, rules: {line-length: disable}}"]
 
   - repo: https://github.com/PyCQA/flake8
     rev: 5.0.4

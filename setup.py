@@ -15,6 +15,7 @@ dependencies = [
     "seaborn",
     "pyyaml",
     "click",
+    "torch",
     "pytorch-lightning===1.8.6",
     "pytest",
     "pytest-cov",
