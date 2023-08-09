@@ -178,9 +178,7 @@ class onnx_export(Callback):
                 # file.close()
 
                 del model_copy
-                cleanup(
-                    export_path, out_file=export_path_cleanup
-                )  # I experience issues here running with more than 1 GPU! multi GPU handling to be investigated
+                cleanup(export_path, out_file=export_path_cleanup)
                 inf_cost = inference_cost(
                     export_path_cleanup, output_json=export_json, discount_sparsity=True
                 )
@@ -248,9 +246,10 @@ class auc_score(Callback):
 
     """
 
-    def on_train_end(self, trainer, pl_module):
-        if trainer.current_epoch != 0:
-            self.auc(pl_module)
+    # removed AUC score calculation callback on_train_end, since it leads to crashes at the end
+    # def on_train_end(self, trainer, pl_module):
+    #    if trainer.current_epoch != 0:
+    #        self.auc(pl_module)
 
     def auc(self, model):
         model.eval()
@@ -284,8 +283,10 @@ class auc_score(Callback):
         auc_value_total = simps(total_pur_arr, total_eff_arr)  # y axis is purity
         auc_value_signal = simps(signal_pur_arr, signal_eff_arr)  # y axis is purity
 
-        model.log("auc_score_total", auc_value_total)
-        model.log("auc_score_signal", auc_value_signal)
+        # below crashes!
+        # lightning_fabric.utilities.exceptions.MisconfigurationException: You can't `self.log()` inside `on_train_end`. HINT: You can still log directly to the logger by using `self.logger.experiment`.
+        # model.log("auc_score_total", auc_value_total)
+        # model.log("auc_score_signal", auc_value_signal)
 
     def eff_and_pur(self, model, batch, radius_arr, knn):
         """

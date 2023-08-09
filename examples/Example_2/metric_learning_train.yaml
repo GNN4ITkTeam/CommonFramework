@@ -1,21 +1,23 @@
 # CommonFramework configuration
 stage: graph_construction
 model: MetricLearning
-input_dir: MY_DATA_DIR/Example_2/feature_store/ # Should contain the files used in training and inference
-stage_dir: MY_DATA_DIR/Example_2/metric_learning/ # A directory to be created that will store logs, artifacts, and output data
-project: CF_Example_2_MetricLearning # Used in logging
-gpus: 1
+input_dir: /mnt/data0/dittmeier/data/gnn4itk/feature_store/ # Should contain the files used in training and inference
+stage_dir: /mnt/data0/dittmeier/data/gnn4itk/QAT_MetricLearning_ITK/ # A directory to be created that will store logs, artifacts, and output data
+project: CF_QAT_MetricLearning_ITK # Used in logging
+gpus: 2
 nodes: 1
 num_workers: [0, 0]
 
 # Dataset parameters
-data_split: [80, 10, 10] # Number of [training, validation, testing] examples
+data_split: [800, 100, 100] # Number of [training, validation, testing] examples
 
 # Truth and weighting parameters. The syntax is as follows:
   # Single value: track[key] == value
   # List of 2 floats: value1 <= track[key] <= value2
   # List with a string as the first value: First value defines the boolean test, the second value is a list or value. Boolean tests are: (in, not_in, is, is_not, within, not_within)
   # All other tracks follow the default: If a true edge, weight=0. If a fake edge, weight=1.
+
+  # NOTE: let parameter sweep find good configuration? evaluated signal purity at 98% signal efficiency?
 weighting:
   - weight: 1.
     conditions:
@@ -26,7 +28,7 @@ weighting:
   - weight: 3.
     conditions:
       y: True
-      pt: [1000, .inf]
+      pt: [500, .inf]
       nhits: [3, .inf]
       primary: True
       pdgId: [not_in, [11, -11]]
@@ -40,7 +42,7 @@ weighting:
 undirected: True
 node_features: [r, phi, z]
 node_scales: [1000, 3.14, 1000]
-emb_hidden: 1024
+emb_hidden: 512
 nb_layer: 4
 emb_dim: 12
 activation: ReLU
@@ -61,7 +63,8 @@ patience: 10
 max_epochs: 150
 metric_to_monitor: f1
 metric_mode: max
-log_working_metrics: False
+# below: to measure purity at fixed efficiency!
+log_working_metrics: True
 
 
 ##QNN Parameters
@@ -79,6 +82,7 @@ activation_bit_width_output: 8
 output_activation: False
 output_activation_quantization: False
 batch_norm: True
+layer_norm: False
 
 # Input quantization Parameters, only using fixed point representation
 input_quantization: False # also enables QuantIdentity
