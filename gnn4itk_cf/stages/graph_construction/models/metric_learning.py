@@ -199,15 +199,12 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             [batch[feature] for feature in self.hparams["node_features"]], dim=-1
         ).float()
         input_data[input_data != input_data] = 0  # Replace NaNs with 0s
-        if self.hparams["quantized_dataset"]:
-            fixed_point, pre_point, post_point = (
-                self.hparams["input_quantization"],
+        if self.hparams["input_quantization"]:
+            pre_point, post_point = (
                 self.hparams["integer_part"],
                 self.hparams["fractional_part"],
             )
-            input_data = quantize_features(
-                input_data, False, fixed_point, pre_point, post_point
-            )
+            input_data = quantize_features(input_data, pre_point, post_point)
 
         return input_data
 

@@ -3,9 +3,12 @@ import numpy as np
 import torch
 from scipy.integrate import simps
 
+import torch.nn as nn
 import torch.nn.utils.prune as prune
+import brevitas.nn as qnn
 from brevitas.quant_tensor import QuantTensor
 from brevitas.quant import Int8Bias, Int16Bias, Int24Bias, Int32Bias  # noqa
+from brevitas.quant import Int8ActPerTensorFloat  # noqa
 from brevitas.export import export_qonnx
 from qonnx.util.cleanup import cleanup
 from qonnx.util.inference_cost import inference_cost
@@ -16,9 +19,7 @@ from gnn4itk_cf.stages.graph_construction.models.utils import (
 from gnn4itk_cf.stages.graph_construction.utils import build_signal_edges
 
 
-def quantize_features(
-    features, verbose=False, fixed_point=False, pre_point: int = 0, post_point: int = 0
-):
+def quantize_features(features, pre_point: int = 0, post_point: int = 0):
     features = torch.clamp(
         features, -(2**pre_point), 2**pre_point - 2 ** (-post_point)
     )
@@ -66,8 +67,9 @@ def make_quantized_mlp(
             qnn.QuantLinear(
                 sizes[i],
                 sizes[i + 1],
-                bias=bias,
-                bias_quant=bias_quant,
+                # input_quant = Int8ActPerTensorFloat, # it can tolerate biases like that, but that is not desired
+                bias=bias,  # do not use until fixesd
+                bias_quant=Int24Bias,  # to be made configurable
                 weight_bit_width=weight_bit_width[0 if i == 0 else 1],
                 return_quant_tensor=True,
             )
@@ -103,8 +105,9 @@ def make_quantized_mlp(
         qnn.QuantLinear(
             sizes[-2],
             sizes[-1],
-            bias=bias,
-            bias_quant=bias_quant,
+            # input_quant = Int8ActPerTensorFloat, # it can tolerate biases like that, but that is not desired
+            bias=bias,  # do not use until fixesd
+            bias_quant=Int24Bias,  # to be made configurable
             weight_bit_width=weight_bit_width[-1],
             return_quant_tensor=output_activation,
         )

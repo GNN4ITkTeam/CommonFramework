@@ -69,15 +69,14 @@ target_purity: 0.14 # 0.006  # reference value from unquantized network
 
 onnx_export: True
 
-##QNN Parameters
-quantized_network: False
-quantized_dataset: False
+# QNN Parameters
+quantized_network: True
 weight_bit_width_input: 8
 weight_bit_width_hidden: 8
 weight_bit_width_output: 8
-bias: True
-bias_quant: Int8Bias
-activation_qnn: False ## tlling the network to use quantReLU()
+bias: False # does not work yet
+bias_quant: Int8Bias  # also does not work yet
+activation_qnn: False # tlling the network to use quantReLU()
 activation_bit_width_input: 8
 activation_bit_width_hidden: 8
 activation_bit_width_output: 8
@@ -87,7 +86,7 @@ batch_norm: True
 layer_norm: False
 
 # Input quantization Parameters, only using fixed point representation
-input_quantization: False # also enables QuantIdentity
+input_quantization: True # also enables QuantIdentity
 integer_part: 3
 fractional_part: 24
 
