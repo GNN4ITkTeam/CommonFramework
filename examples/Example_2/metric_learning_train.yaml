@@ -4,12 +4,12 @@ model: MetricLearning
 input_dir: /mnt/data0/dittmeier/data/gnn4itk/feature_store/ # Should contain the files used in training and inference
 stage_dir: /mnt/data0/dittmeier/data/gnn4itk/QAT_MetricLearning_ITK/ # A directory to be created that will store logs, artifacts, and output data
 project: CF_QAT_MetricLearning_ITK # Used in logging
-gpus: 2
+gpus: 1
 nodes: 1
 num_workers: [0, 0]
 
 # Dataset parameters
-data_split: [800, 100, 100] # Number of [training, validation, testing] examples
+data_split: [80, 10, 10] # Number of [training, validation, testing] examples
 
 # Truth and weighting parameters. The syntax is as follows:
   # Single value: track[key] == value
@@ -35,8 +35,8 @@ weighting:
 
 # A list of hard cut conditions. Any hits not passing these conditions will be removed from the training and validation dataset.
 # By definition, noise will not pass any of these cuts, so any hard cuts will remove noise.
-# hard_cuts:
-#   pt: [1000, .inf]
+hard_cuts:
+  pt: [1000, .inf]
 
 # Model parameters
 undirected: True
@@ -60,12 +60,14 @@ margin: 0.1
 lr: 0.01
 factor: 0.7
 patience: 10
-max_epochs: 150
+max_epochs: 10
 metric_to_monitor: f1
 metric_mode: max
 # below: to measure purity at fixed efficiency!
 log_working_metrics: True
+target_purity: 0.14 # 0.006  # reference value from unquantized network
 
+onnx_export: True
 
 ##QNN Parameters
 quantized_network: False
@@ -90,13 +92,12 @@ integer_part: 3
 fractional_part: 24
 
 # pruning
-pruning_allow: False
+pruning_allow: True
 l1_loss: False
 rewind_lr: False # for rewinding learning rate after pruning
 
-prune_list: []
 l1_factor: 0.000005
 pruning_val_loss: 0.000002
 pruning_fn: "l1_unstructured"
-pruning_amount: 0.1
-pruning_freq: 149
+pruning_amount: 0.5
+pruning_freq: 5

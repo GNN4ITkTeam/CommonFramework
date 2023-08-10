@@ -96,6 +96,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         self.last_pruned = -1
         self.val_loss = []
         self.pruned = 0
+        # added variables for purtity vs BOPs optimization
+        self.pur_98 = -1
+        self.eff_98 = -1
 
     def forward(self, x):
         x_out = self.network(x)
@@ -623,7 +626,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
     def log_working_points(
         self, batch, embedding, true_edges, knn_num
-    ):  # these are the working points of fixed signal efficiency
+    ):  # these are the working points of fixed signal efficiency; limiting ourselfs right now to 98 % working point
         signal_true_edges = build_signal_edges(
             batch, self.hparams["weighting"], true_edges
         )
@@ -633,27 +636,29 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         )
         d, i = torch.sort(d)
 
-        R_95 = d[int(len(d) * 0.95)]
+        # R_95 = d[int(len(d) * 0.95)]
         R_98 = d[int(len(d) * 0.98)]
-        R_99 = d[int(len(d) * 0.99)]
+        # R_99 = d[int(len(d) * 0.99)]
 
-        eff_95, pur_95 = self.get_signal_pur(
-            batch, embedding, R_95, knn_num, signal_true_edges
-        )
+        # eff_95, pur_95 = self.get_signal_pur(
+        #    batch, embedding, R_95, knn_num, signal_true_edges
+        # )
         eff_98, pur_98 = self.get_signal_pur(
             batch, embedding, R_98, knn_num, signal_true_edges
         )
 
         self.log_dict(
             {
-                "R_95": R_95,
+                # "R_95": R_95,
                 "R_98": R_98,
-                "pur_95": pur_95,
+                # "pur_95": pur_95,
                 "pur_98": pur_98,
-                "eff_95": eff_95,
+                # "eff_95": eff_95,
+                "eff_98": eff_98,
             },
             sync_dist=True,
         )
+        self.eff_98, self.pur_98 = eff_98, pur_98
 
     def get_signal_pur(self, batch, embedding, radius, knn_num, signal_true_edges):
         batch.edge_index = build_edges(

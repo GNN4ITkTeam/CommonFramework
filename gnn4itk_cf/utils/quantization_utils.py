@@ -139,25 +139,13 @@ class onnx_export(Callback):
                 self.get_onnx_dir(trainer)  # setting up the onnx and pickle dir path
 
                 model_copy = model.deepcopy_model()
-
-                if model.hparams["quantized_network"]:
-                    parameters_to_prune_copy = [
-                        (model_copy[1], "weight"),
-                        (model_copy[4], "weight"),
-                        (model_copy[7], "weight"),
-                        (model_copy[10], "weight"),
-                        (model_copy[13], "weight"),
-                    ]
-                else:
-                    parameters_to_prune_copy = [
-                        (model_copy[0], "weight"),
-                        (model_copy[3], "weight"),
-                        (model_copy[6], "weight"),
-                        (model_copy[9], "weight"),
-                        (model_copy[12], "weight"),
-                    ]
+                parameters_to_prune = [
+                    (x, "weight")
+                    for x in model_copy
+                    if (hasattr(x, "weight") and (x.__class__.__name__ != "LayerNorm"))
+                ]
                 if model.last_pruned > -1:
-                    for paras in parameters_to_prune_copy:
+                    for paras in parameters_to_prune:
                         prune.remove(paras[0], name="weight")
 
                 export_path, export_path_cleanup, export_json = self.get_onnx_paths(
@@ -177,16 +165,32 @@ class onnx_export(Callback):
                 #     pickle.dump(model.network,file)
                 # file.close()
 
-                del model_copy
                 cleanup(export_path, out_file=export_path_cleanup)
                 inf_cost = inference_cost(
                     export_path_cleanup, output_json=export_json, discount_sparsity=True
                 )
+
+                del model_copy
+
+                # check if efficiency is actually fine; at least 95% efficient
+                if np.isclose(model.eff_98, 0.98, atol=0.03):
+                    if (
+                        model.pur_98 >= 0.95 * model.hparams["target_purity"]
+                    ):  # within at least 5 % of target purity
+                        weighted_bops = inf_cost["total_bops"]
+                    else:
+                        weighted_bops = inf_cost["total_bops"] * np.exp(
+                            model.hparams["target_purity"] / model.pur_98
+                        )  # exponential penalty factor
+                else:  # if not, than blow it up
+                    weighted_bops = np.inf
+
                 model.log_dict(
                     {
                         "total_bops": inf_cost["total_bops"],
                         "total_mem_w_bits": inf_cost["total_mem_w_bits"],
                         "total_mem_o_bits": inf_cost["total_mem_o_bits"],
+                        "weighted_bops": weighted_bops,  # we can use this to minimize BOPs for a decent performance
                     }
                 )
 

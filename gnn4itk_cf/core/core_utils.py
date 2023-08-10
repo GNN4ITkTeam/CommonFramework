@@ -23,7 +23,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from gnn4itk_cf import stages
 
-from gnn4itk_cf.utils.quantization_utils import *  # noqa
 from gnn4itk_cf.stages import *  # noqa
 from pytorch_lightning.strategies import DDPStrategy
 
@@ -35,7 +34,9 @@ try:
 except ImportError:
     wandb = None
     logging.info("Wandb not found, using CSVLogger")
-    from pytorch_lightning.loggers import CSVLogger
+from pytorch_lightning.loggers import (
+    CSVLogger,
+)  # I'd like to have it anyways, also with wandb
 
 
 def str_to_class(stage, model):
@@ -116,7 +117,15 @@ def get_trainer(config, default_root_dir):
         else None
     )
     logger = (
-        WandbLogger(project=config["project"], save_dir=config["stage_dir"], id=job_id)
+        [
+            WandbLogger(
+                project=config["project"],
+                save_dir=config["stage_dir"],
+                id=job_id,
+                group="DDP",
+            ),
+            CSVLogger(save_dir=config["stage_dir"]),
+        ]  # adding CSV logger in addition
         if wandb is not None
         else CSVLogger(save_dir=config["stage_dir"])
     )
@@ -124,12 +133,13 @@ def get_trainer(config, default_root_dir):
     accelerator = "gpu" if torch.cuda.is_available() else None
     devices = config["gpus"] if config.get("gpus", 0) else 1
 
+    # could add EarlyStopping call back, if model is simply too bad
     return Trainer(
         accelerator=accelerator,
         devices=devices,
         num_nodes=config["nodes"],
         max_epochs=config["max_epochs"],
-        callbacks=[checkpoint_callback, onnx_export(), auc_score()],
+        callbacks=[checkpoint_callback],
         logger=logger,
         strategy=DDPStrategy(find_unused_parameters=False, static_graph=True),
         default_root_dir=default_root_dir,

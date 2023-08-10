@@ -34,6 +34,7 @@ from pytorch_lightning.callbacks import ModelPruning
 
 
 from .core_utils import str_to_class, get_trainer, get_stage_module
+from ..utils import onnx_export
 
 
 @click.command()
@@ -63,6 +64,7 @@ def train(config_file, checkpoint=None):
             project=config["project"],
             # track hyperparameters and run metadata
             config=config,
+            group="DDP",  # all runs for the experiment in one group
         )
         config.update(dict(wandb.config))
 
@@ -85,67 +87,31 @@ def train(config_file, checkpoint=None):
 
 
 def lightning_train(config, stage_module_class, checkpoint=None):
-    global stage_module
+    global stage_module, trainer
     stage_module, config, default_root_dir = get_stage_module(
         config, stage_module_class, checkpoint_path=checkpoint
     )
 
-    def apply_pruning2(epoch):
-        if not config["pruning_allow"]:
-            return False
-
-        stage_module.val_loss.append(
-            trainer.callback_metrics["val_loss"].cpu().numpy()
-        )  # could include feedback from validation or training loss here
-        if (len(stage_module.val_loss) > 10) and (stage_module.last_pruned > -1):
-            stage_module.val_loss.pop(0)
-            if (max(stage_module.val_loss) - min(stage_module.val_loss)) < config[
-                "pruning_val_loss"
-            ]:
-                stage_module.val_loss = []
-                stage_module.last_pruned = epoch
-                stage_module.pruned = stage_module.pruned + 1
-                if config["rewind_lr"]:
-                    stage_module.optimizers().param_groups[0]["lr"] = config["lr"]
-
-                stage_module.log("pruned", stage_module.pruned)
-                return True
-        if ((epoch - stage_module.last_pruned) % config["pruning_freq"]) == 0:
-            stage_module.val_loss = []
-            stage_module.last_pruned = epoch
-            stage_module.pruned = stage_module.pruned + 1
-            if config["rewind_lr"]:
-                stage_module.optimizers().param_groups[0]["lr"] = config["lr"]
-                stage_module.log("pruned", stage_module.pruned)
-            return True
-        else:
-            return False
-
-    if config["quantized_network"]:
-        parameters_to_prune = [
-            (stage_module.network[1], "weight"),
-            (stage_module.network[4], "weight"),
-            (stage_module.network[7], "weight"),
-            (stage_module.network[10], "weight"),
-            (stage_module.network[13], "weight"),
-        ]
-    else:
-        parameters_to_prune = [
-            (stage_module.network[0], "weight"),
-            (stage_module.network[3], "weight"),
-            (stage_module.network[6], "weight"),
-            (stage_module.network[9], "weight"),
-            (stage_module.network[12], "weight"),
-        ]
-
     trainer = get_trainer(config, default_root_dir)
+
+    if config["onnx_export"]:
+        trainer.callbacks.append(onnx_export())
+
     if config["pruning_allow"]:
+        # we only want to prune weights from the Linear or QuantLinear layers;
+        # checking if layer has weights, and excluding LayerNorm (we may need to expand that list)
+        parameters_to_prune = [
+            (x, "weight")
+            for x in stage_module.network[:]
+            if (hasattr(x, "weight") and (x.__class__.__name__ != "LayerNorm"))
+        ]
+
         trainer.callbacks.append(
             ModelPruning(
                 pruning_fn=config["pruning_fn"],
                 parameters_to_prune=parameters_to_prune,
                 amount=config["pruning_amount"],
-                apply_pruning=apply_pruning2,
+                apply_pruning=apply_pruning,
                 # settings below only for structured!
                 #                pruning_dim = metric_learning_configs["pruning_dim"],
                 #                pruning_norm = metric_learning_configs["pruning_norm"],
@@ -153,8 +119,46 @@ def lightning_train(config, stage_module_class, checkpoint=None):
                 verbose=1,  # 2 for per-layer sparsity, #1 for overall sparsity
             )
         )
-
+    # if wanted, add here with another config to the callback function
+    # , auc_score()],
     trainer.fit(stage_module)
+
+
+# ToDo: kinda ugly using global stage_module and global trainer I guess???
+def apply_pruning(epoch):
+    stage_module.val_loss.append(trainer.callback_metrics["val_loss"].cpu().numpy())
+    print(max(stage_module.val_loss), min(stage_module.val_loss))
+    # include feedback from validation loss here
+    if (len(stage_module.val_loss) > 10) and (stage_module.last_pruned > -1):
+        stage_module.val_loss.pop(0)
+        if (
+            max(stage_module.val_loss) - min(stage_module.val_loss)
+        ) < stage_module.hparams["pruning_val_loss"]:
+            stage_module.val_loss = []
+            stage_module.last_pruned = epoch
+            stage_module.pruned = stage_module.pruned + 1
+            # ToDo: set up proper warm up again
+            if stage_module.hparams["rewind_lr"]:
+                stage_module.optimizers().param_groups[0]["lr"] = stage_module.hparams[
+                    "lr"
+                ]
+
+            stage_module.log("pruned", stage_module.pruned)
+            print("pruning val_loss")
+            return True
+    # simply reached pruning frequency
+    if ((epoch - stage_module.last_pruned) % stage_module.hparams["pruning_freq"]) == 0:
+        stage_module.val_loss = []
+        stage_module.last_pruned = epoch
+        stage_module.pruned = stage_module.pruned + 1
+        # ToDo: set up proper warm up again
+        if stage_module.hparams["rewind_lr"]:
+            stage_module.optimizers().param_groups[0]["lr"] = stage_module.hparams["lr"]
+        stage_module.log("pruned", stage_module.pruned)
+        print("pruning freq")
+        return True
+    else:
+        return False
 
 
 if __name__ == "__main__":
