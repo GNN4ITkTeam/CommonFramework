@@ -127,7 +127,7 @@ def lightning_train(config, stage_module_class, checkpoint=None):
 # ToDo: kinda ugly using global stage_module and global trainer I guess???
 def apply_pruning(epoch):
     stage_module.val_loss.append(trainer.callback_metrics["val_loss"].cpu().numpy())
-    print(max(stage_module.val_loss), min(stage_module.val_loss))
+    # print(max(stage_module.val_loss), min(stage_module.val_loss))
     # include feedback from validation loss here
     if (len(stage_module.val_loss) > 10) and (stage_module.last_pruned > -1):
         stage_module.val_loss.pop(0)
@@ -139,10 +139,7 @@ def apply_pruning(epoch):
             stage_module.pruned = stage_module.pruned + 1
             # ToDo: set up proper warm up again
             if stage_module.hparams["rewind_lr"]:
-                stage_module.optimizers().param_groups[0]["lr"] = stage_module.hparams[
-                    "lr"
-                ]
-
+                stage_module.lr_schedulers().last_epoch = 0
             stage_module.log("pruned", stage_module.pruned)
             print("pruning val_loss")
             return True
@@ -153,7 +150,7 @@ def apply_pruning(epoch):
         stage_module.pruned = stage_module.pruned + 1
         # ToDo: set up proper warm up again
         if stage_module.hparams["rewind_lr"]:
-            stage_module.optimizers().param_groups[0]["lr"] = stage_module.hparams["lr"]
+            stage_module.lr_schedulers().last_epoch = 0
         stage_module.log("pruned", stage_module.pruned)
         print("pruning freq")
         return True

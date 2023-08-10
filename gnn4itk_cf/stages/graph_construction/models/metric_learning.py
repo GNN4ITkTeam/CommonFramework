@@ -545,7 +545,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         Use this to manually enforce warm-up. In the future, this may become built-into PyLightning
         """
         logging.info(f"Optimizer step for batch {batch_idx}")
-        # warm up lr
+        # warum up lr
         if (self.hparams["warmup"] is not None) and (
             self.trainer.current_epoch < self.hparams["warmup"]
         ):
@@ -554,6 +554,20 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             )
             for pg in optimizer.param_groups:
                 pg["lr"] = lr_scale * self.hparams["lr"]
+
+        # warm up lr if we want to rewind after pruning
+        if self.hparams["rewind_lr"] and (self.last_pruned > -1):
+            if (self.hparams["warmup"] is not None) and (
+                (self.trainer.current_epoch - (self.last_pruned + 1))
+                < self.hparams["warmup"]
+            ):
+                lr_scale = min(
+                    1.0,
+                    float((self.trainer.current_epoch - self.last_pruned))
+                    / self.hparams["warmup"],
+                )
+                for pg in optimizer.param_groups:
+                    pg["lr"] = lr_scale * self.hparams["lr"]
 
         # update params
         optimizer.step(closure=optimizer_closure)
