@@ -52,7 +52,7 @@ r_train: 0.1
 knn: 50
 knn_val: 500
 knn_test: 100
-norm: True
+norm: True # not yet supported for quantized network
 
 # Training parameters
 warmup: 5
@@ -60,43 +60,42 @@ margin: 0.1
 lr: 0.01
 factor: 0.7
 patience: 10
-max_epochs: 10
-metric_to_monitor: f1
-metric_mode: max
-# below: to measure purity at fixed efficiency!
-log_working_metrics: True
+max_epochs: 150
+# define metric for best model, checkpoint will save that and last model
+metric_to_monitor: final_bops # smallest model that fulfills our purity requirement
+metric_mode: min # minimize the final_bops
+# final_bops requires in addition: config to measure purity at fixed efficiency!
+log_working_metrics: True # purity at 98 % efficiency
 target_purity: 0.14 # 0.006  # reference value from unquantized network
-
-onnx_export: True
+onnx_export: True # config to export to QONNX and evaluate BOPS
 
 # QNN Parameters
-quantized_network: True
+quantized_network: True # if False, uses standard PyTorch MLP
 weight_bit_width_input: 8
 weight_bit_width_hidden: 8
 weight_bit_width_output: 8
-bias: False # does not work yet
-bias_quant: Int8Bias  # also does not work yet
-activation_qnn: False # tlling the network to use quantReLU()
+bias: True
+bias_quant: 8  # allowed settings: 8, 16, 24, 32 (defaults to 32 otherwise)
+activation_qnn: True # telling the network to use quantReLU(); required for bias quantization!!
 activation_bit_width_input: 8
 activation_bit_width_hidden: 8
 activation_bit_width_output: 8
-output_activation: False
-output_activation_quantization: False
-batch_norm: True
-layer_norm: False
+output_activation: False # adds an activation layer at the end
+output_activation_quantization: False # returns QuantTensor if True
+batch_norm: True # comes for free with FINN
+layer_norm: False # layerNorm not yet supported by QONNX
 
-# Input quantization Parameters, only using fixed point representation
+# Input quantization Parameters, only using fixed point representation; also possible with standard PyTorch MLP!
 input_quantization: True # also enables QuantIdentity
-integer_part: 3
-fractional_part: 24
+integer_part: 3 # fixed point representation: < sign + int . frac >
+fractional_part: 20
 
 # pruning
 pruning_allow: True
-l1_loss: False
-rewind_lr: False # for rewinding learning rate after pruning
-
-l1_factor: 0.000005
-pruning_val_loss: 0.000002
+pruning_val_loss: 0.000002 # if validation loss is within this range for 10 epochs, prune
 pruning_fn: "l1_unstructured"
 pruning_amount: 0.5
-pruning_freq: 5
+pruning_freq: 14 # prune first time only after this number of epochs, then val_loss can also lead to pruning
+rewind_lr: True # for rewinding learning rate after pruning
+l1_loss: False # penalize large weights
+l1_factor: 0.000005 # set appropriate value wrt actual training loss

@@ -6,9 +6,8 @@ from scipy.integrate import simps
 import torch.nn as nn
 import torch.nn.utils.prune as prune
 import brevitas.nn as qnn
+import brevitas.quant as quant
 from brevitas.quant_tensor import QuantTensor
-from brevitas.quant import Int8Bias, Int16Bias, Int24Bias, Int32Bias  # noqa
-from brevitas.quant import Int8ActPerTensorFloat  # noqa
 from brevitas.export import export_qonnx
 from qonnx.util.cleanup import cleanup
 from qonnx.util.inference_cost import inference_cost
@@ -37,7 +36,7 @@ def make_quantized_mlp(
     sizes,
     weight_bit_width=[8, 8, 8],  # providing weights in form of array now
     bias=True,
-    bias_quant=Int8Bias,
+    bias_quant=8,
     activation_qnn=True,
     activation_bit_width=[8, 8, 8],
     output_activation=False,
@@ -61,15 +60,24 @@ def make_quantized_mlp(
         )
 
     # Hidden layers of a quantized neural network
+    print(f"bias_quant: {bias_quant}")
+
+    if bias_quant == 8:
+        qnn_bias_quant = quant.Int8Bias
+    elif bias_quant == 16:
+        qnn_bias_quant = quant.Int16Bias
+    elif bias_quant == 24:
+        qnn_bias_quant = quant.Int24Bias
+    else:
+        qnn_bias_quant = quant.Int32Bias
 
     for i in range(n_layers - 1):
         layers.append(
             qnn.QuantLinear(
                 sizes[i],
                 sizes[i + 1],
-                # input_quant = Int8ActPerTensorFloat, # it can tolerate biases like that, but that is not desired
-                bias=bias,  # do not use until fixesd
-                bias_quant=Int24Bias,  # to be made configurable
+                bias=bias,
+                bias_quant=qnn_bias_quant,  # to be made configurable
                 weight_bit_width=weight_bit_width[0 if i == 0 else 1],
                 return_quant_tensor=True,
             )
@@ -106,8 +114,8 @@ def make_quantized_mlp(
             sizes[-2],
             sizes[-1],
             # input_quant = Int8ActPerTensorFloat, # it can tolerate biases like that, but that is not desired
-            bias=bias,  # do not use until fixesd
-            bias_quant=Int24Bias,  # to be made configurable
+            bias=bias,
+            bias_quant=qnn_bias_quant,  # to be made configurable
             weight_bit_width=weight_bit_width[-1],
             return_quant_tensor=output_activation,
         )
@@ -181,9 +189,12 @@ class onnx_export(Callback):
                         model.pur_98 >= 0.95 * model.hparams["target_purity"]
                     ):  # within at least 5 % of target purity
                         weighted_bops = inf_cost["total_bops"]
+                        if weighted_bops < model.final_bops:
+                            model.final_bops = weighted_bops
+                            model.final_pur_98 = model.pur_98
                     else:
-                        weighted_bops = inf_cost["total_bops"] * np.exp(
-                            model.hparams["target_purity"] / model.pur_98
+                        weighted_bops = (inf_cost["total_bops"] + 1) * np.exp(
+                            5 * model.hparams["target_purity"] / model.pur_98
                         )  # exponential penalty factor
                 else:  # if not, than blow it up
                     weighted_bops = np.inf
@@ -194,6 +205,8 @@ class onnx_export(Callback):
                         "total_mem_w_bits": inf_cost["total_mem_w_bits"],
                         "total_mem_o_bits": inf_cost["total_mem_o_bits"],
                         "weighted_bops": weighted_bops,  # we can use this to minimize BOPs for a decent performance
+                        "final_pur_98": model.final_pur_98,
+                        "final_bops": model.final_bops,
                     }
                 )
 

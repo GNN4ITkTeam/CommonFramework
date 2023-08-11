@@ -99,6 +99,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         # added variables for purtity vs BOPs optimization
         self.pur_98 = -1
         self.eff_98 = -1
+        # variables to store best values for plots
+        self.final_pur_98 = -1
+        self.final_bops = float("inf")
 
     def forward(self, x):
         x_out = self.network(x)
