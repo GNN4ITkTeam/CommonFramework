@@ -373,6 +373,11 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         return pred_edges, truth, truth_map, true_edges
 
     def get_weights(self, batch):  # true_edges, truth_map):
+        for weight_spec in self.hparams["weighting"]:
+            # print(weight_spec["weight"])
+            if isinstance(weight_spec["weight"], str):
+                weight_spec["weight"] = float(self.hparams[weight_spec["weight"]])
+            # print(weight_spec["weight"])
         return handle_weighting(
             batch, self.hparams["weighting"]
         )  # true_edges=true_edges, truth_map=truth_map)

@@ -3,13 +3,13 @@ stage: graph_construction
 model: MetricLearning
 input_dir: /mnt/data0/dittmeier/data/gnn4itk/feature_store/ # Should contain the files used in training and inference
 stage_dir: /mnt/data0/dittmeier/data/gnn4itk/QAT_MetricLearning_ITK/ # A directory to be created that will store logs, artifacts, and output data
-project: CF_QAT_MetricLearning_ITK # Used in logging
+project: CF_reference_weighting # Used in logging
 gpus: 1
 nodes: 1
 num_workers: [0, 0]
 
 # Dataset parameters
-data_split: [80, 10, 10] # Number of [training, validation, testing] examples
+data_split: [800, 100, 100] # Number of [training, validation, testing] examples
 
 # Truth and weighting parameters. The syntax is as follows:
   # Single value: track[key] == value
@@ -18,25 +18,31 @@ data_split: [80, 10, 10] # Number of [training, validation, testing] examples
   # All other tracks follow the default: If a true edge, weight=0. If a fake edge, weight=1.
 
   # NOTE: let parameter sweep find good configuration? evaluated signal purity at 98% signal efficiency?
+weight_false: 1
+weight_bckgrnd: 0
+weight_signal: 3
+
 weighting:
-  - weight: 1.
+  - weight: weight_false
     conditions:
       y: False
-  - weight: 0.
+  - weight: weight_bckgrnd
     conditions:
       y: True
-  - weight: 3.
+  - weight: weight_signal
     conditions:
       y: True
-      pt: [500, .inf]
+      pt: [1000, .inf]
       nhits: [3, .inf]
       primary: True
       pdgId: [not_in, [11, -11]]
+      eta: [-4., 4.]
+      radius: [0., 260.]
 
 # A list of hard cut conditions. Any hits not passing these conditions will be removed from the training and validation dataset.
 # By definition, noise will not pass any of these cuts, so any hard cuts will remove noise.
 hard_cuts:
-  pt: [1000, .inf]
+#  pt: [1000, .inf]
 
 # Model parameters
 undirected: True
@@ -60,17 +66,17 @@ margin: 0.1
 lr: 0.01
 factor: 0.7
 patience: 10
-max_epochs: 150
+max_epochs: 60 #looked fine for https://wandb.ai/heidelberg_atlas_pi/CF_QAT_MetricLearning_ITK/runs/qz4okj1x?workspace=user-sebditt
 # define metric for best model, checkpoint will save that and last model
-metric_to_monitor: final_bops # smallest model that fulfills our purity requirement
-metric_mode: min # minimize the final_bops
+metric_to_monitor: pur_98 # final_bops # smallest model that fulfills our purity requirement
+metric_mode: max #min # minimize the final_bops
 # final_bops requires in addition: config to measure purity at fixed efficiency!
 log_working_metrics: True # purity at 98 % efficiency
-target_purity: 0.14 # 0.006  # reference value from unquantized network
+target_purity: 0.006  # reference value from unquantized network
 onnx_export: True # config to export to QONNX and evaluate BOPS
 
 # QNN Parameters
-quantized_network: True # if False, uses standard PyTorch MLP
+quantized_network: False # if False, uses standard PyTorch MLP
 weight_bit_width_input: 8
 weight_bit_width_hidden: 8
 weight_bit_width_output: 8
@@ -86,12 +92,12 @@ batch_norm: True # comes for free with FINN
 layer_norm: False # layerNorm not yet supported by QONNX
 
 # Input quantization Parameters, only using fixed point representation; also possible with standard PyTorch MLP!
-input_quantization: True # also enables QuantIdentity
+input_quantization: False # also enables QuantIdentity
 integer_part: 3 # fixed point representation: < sign + int . frac >
 fractional_part: 20
 
 # pruning
-pruning_allow: True
+pruning_allow: False
 pruning_val_loss: 0.000002 # if validation loss is within this range for 10 epochs, prune
 pruning_fn: "l1_unstructured"
 pruning_amount: 0.5
