@@ -19,13 +19,16 @@ import matplotlib.pyplot as plt
 
 import torch
 
-def get_ratio(x_vals, y_vals):
+def get_ratio(x_vals, y_vals, use_binomial: bool = True):
     res = [x / y if y != 0 else 0.0 for x, y in zip(x_vals, y_vals)]
-    err = [
+    poisson_err = [
         x / y * math.sqrt((x + y) / (x * y)) if y != 0 and x != 0 else 0.0
         for x, y in zip(x_vals, y_vals)
     ]
-    return res, err
+    binomial_err = [
+        math.sqrt(x * (1 - x / y)) / y if y != 0 else 0.0 for x, y in zip(x_vals, y_vals)
+    ]
+    return res, binomial_err if use_binomial else poisson_err
 
 def plot_eff_pur_region(
     edge_truth, edge_positive, edge_regions, node_r, node_z, node_regions, plot_config
