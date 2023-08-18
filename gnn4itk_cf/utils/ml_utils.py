@@ -91,18 +91,20 @@ def get_optimizers(parameters, hparams):
             }
         ]
     elif hparams["scheduler"] == "ReduceLROnPlateau":
+        metric_mode = hparams.get("metric_mode", "min")
+        metric_to_monitor = hparams.get("metric_to_monitor", "val_loss")
         scheduler = [
             {
                 "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer[0],
-                    mode=hparams["metric_mode"],
+                    mode=metric_mode,
                     factor=hparams["factor"],
                     patience=hparams["patience"],
                     verbose=True,
                 ),
                 "interval": "epoch",
                 "frequency": 1,
-                "monitor": hparams["metric_to_monitor"],
+                "monitor": metric_to_monitor,
             }
         ]
     elif hparams["scheduler"] == "CosineAnnealingWarmRestarts":
