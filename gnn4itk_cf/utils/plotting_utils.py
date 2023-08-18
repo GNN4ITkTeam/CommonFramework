@@ -29,18 +29,26 @@ def clopper_pearson(passed: float, total: float, level: float = 0.68):
     """
     alpha = (1 - level) / 2
     lo = scipy.stats.beta.ppf(alpha, passed, total - passed + 1) if passed > 0 else 0.0
-    hi = scipy.stats.beta.ppf(1 - alpha, passed + 1, total - passed) if passed < total else 1.0
+    hi = (
+        scipy.stats.beta.ppf(1 - alpha, passed + 1, total - passed)
+        if passed < total
+        else 1.0
+    )
     average = passed / total
     return (average - lo, hi - average)
 
+
 def get_ratio(passed: List[int], total: List[int]):
     if len(passed) != len(total):
-        raise ValueError("Length of passed and total must be the same"
-                         f"({len(passed)} != {len(total)})")
+        raise ValueError(
+            "Length of passed and total must be the same"
+            f"({len(passed)} != {len(total)})"
+        )
 
     res = np.array([x / y if y != 0 else 0.0 for x, y in zip(passed, total)])
     error = np.array([clopper_pearson(x, y) for x, y in zip(passed, total)]).T
     return res, error
+
 
 def plot_eff_pur_region(
     edge_truth, edge_positive, edge_regions, node_r, node_z, node_regions, plot_config
