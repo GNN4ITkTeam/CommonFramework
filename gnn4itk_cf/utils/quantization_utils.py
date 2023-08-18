@@ -192,6 +192,11 @@ class onnx_export(Callback):
                         if weighted_bops < model.final_bops:
                             model.final_bops = weighted_bops
                             model.final_pur_98 = model.pur_98
+                        if (
+                            weighted_bops == model.final_bops
+                            and model.pur_98 > model.final_pur_98
+                        ):
+                            model.final_pur_98 = model.pur_98
                     else:
                         weighted_bops = (inf_cost["total_bops"] + 1) * np.exp(
                             5 * model.hparams["target_purity"] / model.pur_98
