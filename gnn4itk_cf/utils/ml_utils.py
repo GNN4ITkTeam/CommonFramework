@@ -61,6 +61,8 @@ def make_mlp(
 
 
 def get_optimizers(parameters, hparams):
+    """Get the optimizer and scheduler."""
+    weight_decay = hparams.get("lr_weight_decay", 0.01)
     optimizer = [
         torch.optim.AdamW(
             parameters,
@@ -68,6 +70,7 @@ def get_optimizers(parameters, hparams):
             betas=(0.9, 0.999),
             eps=1e-08,
             amsgrad=True,
+            weight_decay=weight_decay,
         )
     ]
 
@@ -92,13 +95,14 @@ def get_optimizers(parameters, hparams):
             {
                 "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer[0],
-                    mode="min",
+                    mode=hparams["metric_mode"],
                     factor=hparams["factor"],
                     patience=hparams["patience"],
                     verbose=True,
                 ),
                 "interval": "epoch",
                 "frequency": 1,
+                "monitor": hparams["metric_to_monitor"],
             }
         ]
     elif hparams["scheduler"] == "CosineAnnealingWarmRestarts":
