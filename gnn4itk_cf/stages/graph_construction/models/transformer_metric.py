@@ -1,4 +1,3 @@
-import os
 import torch
 import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint
@@ -7,6 +6,7 @@ from .utils import make_mlp
 
 # 3rd party imports
 from .metric_learning import MetricLearning, GraphDataset
+
 
 class TransformerMetricLearning(MetricLearning):
     def __init__(self, hparams):
@@ -18,7 +18,9 @@ class TransformerMetricLearning(MetricLearning):
         # Construct the MLP architecture
         in_channels = len(hparams["node_features"])
 
-        self.network = None # Remove the default metric learning network to save some space
+        self.network = (
+            None  # Remove the default metric learning network to save some space
+        )
 
         self.encoder_network = make_mlp(
             in_channels,
@@ -28,7 +30,9 @@ class TransformerMetricLearning(MetricLearning):
             layer_norm=True,
         )
 
-        decoder_concat_multiple = hparams["steps"] + 1 if hparams["concat_output"] else 1
+        decoder_concat_multiple = (
+            hparams["steps"] + 1 if hparams["concat_output"] else 1
+        )
         self.decoder_network = make_mlp(
             hparams["emb_hidden"] * decoder_concat_multiple,
             [hparams["emb_hidden"]] * hparams["nb_layer"] + [hparams["emb_dim"]],
@@ -41,17 +45,14 @@ class TransformerMetricLearning(MetricLearning):
 
         self.dataset_class = GraphDataset
         self.use_pyg = True
-        self.save_hyperparameters(hparams)  
-            
+        self.save_hyperparameters(hparams)
 
     def forward(self, x):
-
         # Encode the input
         x = self.encoder_network(x)
         all_x = [x]
 
         for i in range(self.hparams["steps"]):
-            
             # Apply the attention layer
             if self.hparams["builtin_transformer"]:
                 x = checkpoint(self.transformer_layers[i], x)
@@ -73,7 +74,7 @@ class TransformerMetricLearning(MetricLearning):
         q = self.q_layers[step_idx](x)
         k = self.k_layers[step_idx](x)
         v = self.v_layers[step_idx](x)
-        
+
         # Normalize the embeddings
         q = F.normalize(q)
         k = F.normalize(k)
@@ -93,16 +94,16 @@ class TransformerMetricLearning(MetricLearning):
         v = self.v_layers[step_idx](x)
 
         # Compute the attention
-        dot_product = torch.matmul(q, k.transpose(0, 1)) / (self.hparams["emb_hidden"] ** 0.5)
+        dot_product = torch.matmul(q, k.transpose(0, 1)) / (
+            self.hparams["emb_hidden"] ** 0.5
+        )
         dot_product = F.softmax(dot_product, dim=1)
 
         # Update the embeddings
         x = x + self.update_networks[step_idx](torch.matmul(dot_product, v))
         return x
 
-
     def setup_transformer_layers(self, hparams):
-
         if not hparams["builtin_transformer"]:
             self.update_networks = torch.nn.ModuleList(
                 [
@@ -160,12 +161,14 @@ class TransformerMetricLearning(MetricLearning):
                 ]
             )
 
+
 class MultiheadedTransformerMetricLearning(MetricLearning):
     """
     The same functionality as the above TransformerMetricLearning class, but with a multihead hyperparameter
     """
+
     def __init__(self, hparams):
-        super().__init__(hparams) 
+        super().__init__(hparams)
         self.num_heads = hparams["num_heads"]
 
     def attention_layer(self, x, step_idx):
@@ -173,7 +176,7 @@ class MultiheadedTransformerMetricLearning(MetricLearning):
         q = self.q_layers[step_idx](x)
         k = self.k_layers[step_idx](x)
         v = self.v_layers[step_idx](x)
-        
+
         # Normalize the embeddings
         q = F.normalize(q)
         k = F.normalize(k)
@@ -181,7 +184,7 @@ class MultiheadedTransformerMetricLearning(MetricLearning):
 
         # Compute the attention
         dot_product = torch.matmul(k.transpose(1, 2), v)
-    
+
         # Update the embeddings
         x = x + self.update_networks[step_idx](torch.matmul(q, dot_product))
         return x

@@ -13,3 +13,5 @@ pages:
   variables:
     GIT_DEPTH: 0
     GIT_STRATEGY: clone
+  only:
+    - mkdocs
