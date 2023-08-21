@@ -213,9 +213,6 @@ class InteractionGNN2(EdgeClassifierStage):
     def __init__(self, hparams):
         super().__init__(hparams)
 
-
-
-
         hparams["batchnorm"] = (
             False if "batchnorm" not in hparams else hparams["batchnorm"]
         )
@@ -332,6 +329,11 @@ class InteractionGNN2(EdgeClassifierStage):
     def forward(self, batch):
 
         x = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()
+
+        # Same fetaures on the 3 channels in the STRIP ENDCAP TODO: Process it in previous stage
+        mask = torch.logical_or(batch.region == 2, batch.region == 6).reshape(-1)
+        x[mask] = torch.cat([x[mask, 0:4], x[mask, 0:4],x[mask, 0:4]], dim=1)
+        
         if "edge_features" in self.hparams and len(self.hparams) != 0:
             edge_attr = torch.stack([batch[feature] for feature in self.hparams["edge_features"]], dim=-1).float()
         else:
@@ -413,8 +415,8 @@ class InteractionGNN2(EdgeClassifierStage):
 
 
     def concat(self, x, y):
-        return torch.cat([x, y], dim=-1) 
-
+        return torch.cat([x, y], dim=-1)
+    
 
 class HeteroMixin:
     """
