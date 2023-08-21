@@ -144,13 +144,14 @@ class EdgeClassifierStage(LightningModule):
         return optimizer, scheduler
 
     def training_step(self, batch, batch_idx):
+        if batch.edge_index.shape[1] < 2800000:
+            output = self(batch)
+            loss = self.loss_function(output, batch)
+            self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1, sync_dist=True)
 
-        output = self(batch)
-        loss = self.loss_function(output, batch)
-
-        self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1, sync_dist=True)
-
-        return loss
+            return loss
+        else:
+            return None
 
     def on_train_epoch_start(self):
         if self.trainset is not None:
@@ -228,6 +229,11 @@ class EdgeClassifierStage(LightningModule):
         true_and_fake_positive = edge_positive - (preds & (~ target_truth) & all_truth).sum().float()
 
         # Eff, pur, auc
+        print("target_true_positive", target_true_positive)
+        print("target_true", target_true)
+        print("edge_positive", edge_positive)
+        print("target_and_fake_edge_positive", target_and_fake_edge_positive)
+
         target_eff = target_true_positive / target_true
         target_pur = target_true_positive / edge_positive
         target_pur_vs_fake = target_true_positive / target_and_fake_edge_positive
@@ -358,6 +364,10 @@ class EdgeClassifierStage(LightningModule):
             passing_tracks = passing_tracks * condition_lambda(event)
 
         event.target_mask = passing_tracks
+        print("+++++++++++++++++++++++++++++++++++++++++++")
+        if event.event_id[0] == '000001681':
+            torch.save(event, './event000001681.pyg')
+        
     
         
 class GraphDataset(Dataset):
