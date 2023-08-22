@@ -45,10 +45,9 @@ plugins:
         type: date
     - mkdocstrings:
         default_handler: python
-        # handlers:
-        #   python:
-        #     rendering:
-        #       show_source: true
+        handlers:
+          python:
+            paths: [gnn4itk_cf]
 
 markdown_extensions:
     - admonition
