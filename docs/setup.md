@@ -2,4 +2,4 @@
 
 This is a test of the Mkdocs-string compiler:
 
-::: stages.graph_construction.models.py_module_map.PyModuleMap
+::: stages.graph_construction.graph_construction_stage.GraphConstructionStage
