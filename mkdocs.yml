@@ -44,7 +44,7 @@ plugins:
         enable_creation_date: true
         type: date
     - mkdocstrings:
-        # default_handler: python
+        default_handler: python
         # handlers:
         #   python:
         #     rendering:
