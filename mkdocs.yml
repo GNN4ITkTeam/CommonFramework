@@ -5,7 +5,7 @@ site_url: https://atlas-gnn-tracking.docs.cern.ch/
 
 repo_name: GitLab
 repo_url: https://gitlab.cern.ch/gnn4itkteam/commonframework
-edit_uri: 'tree/dev/docs'
+edit_uri: 'tree/mkdocs/docs'
 
 theme:
   name: material
