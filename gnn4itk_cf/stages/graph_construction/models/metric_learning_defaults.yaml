@@ -1,0 +1,83 @@
+# A default configuration file for the MetricLearning stage
+
+gpus:
+  value: 1
+  doc: Number of GPUs to use for training
+nodes:
+  value: 1
+  doc: Number of nodes to use for training
+data_split:
+  value: [80, 10, 10]
+  doc: Number of [training, validation, testing] examples
+  type: list
+weighting:
+  value: []
+  doc: A list of dictionaries containing the weighting and conditions for each weighting
+hard_cuts:
+  value: []
+  doc: A list of hard cut conditions. Any hits not passing these conditions will be removed from the training and validation dataset. By definition, noise will not pass any of these cuts, so any hard cuts will remove noise.
+
+undirected:
+  value: True
+  doc: Whether to treat the graph as undirected
+  type: bool
+node_features:
+  value: [r, phi, z]
+  doc: The node features to use
+  type: list
+node_scales:
+  value: [1000, 3.14, 1000]
+  doc: The scales to apply to each node feature
+  type: list
+emb_hidden:
+  value: 1024
+  doc: The hidden dimension of the embedding network
+nb_layer:
+  value: 4
+  doc: The number of layers in the embedding network
+emb_dim:
+  value: 12
+  doc: The output dimension of the embedding
+activation:
+  value: Tanh
+  doc: The activation function to use in the embedding network
+randomisation:
+  value: 1
+  doc: The factor of randomised edges to create in the training loop
+points_per_batch:
+  value: 50000
+  doc: The number of points to use in each batch
+r_train:
+  value: 0.1
+  doc: The radius of the nearest neighbor graph in training
+knn:
+  value: 100
+  doc: The number of nearest neighbors to use in training (maximum)
+knn_val:
+  value: 200
+  doc: The number of nearest neighbors to use in validation (maximum)
+
+warmup:
+  value: 5
+  doc: The number of epochs to linearly increase the learning rate
+margin:
+  value: 0.1
+  doc: The margin for the hinge loss
+lr:
+  value: 0.01
+  doc: The initial learning rate
+factor:
+  value: 0.7
+  doc: The factor to reduce the learning rate by in each after each set of [patience] epochs
+patience:
+  value: 10
+  doc: The number of epochs to wait before reducing the learning rate
+max_epochs:
+  value: 100
+  doc: The maximum number of epochs to train for
+metric_to_monitor:
+  value: f1
+  doc: The metric to monitor for early stopping
+metric_mode:
+  value: max
+  doc: The mode for the metric to monitor. Can be 'min' or 'max'
