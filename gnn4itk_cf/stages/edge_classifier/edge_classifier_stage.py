@@ -19,7 +19,6 @@ from pytorch_lightning import LightningModule
 import torch.nn.functional as F
 from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
-import random
 from sklearn.metrics import roc_auc_score
 import torch
 from class_resolver import ClassResolver
@@ -157,7 +156,7 @@ class EdgeClassifierStage(LightningModule):
             else self.hparams["num_workers"][0]
         )
         return DataLoader(
-            self.trainset, batch_size=1, num_workers=num_workers, shuffle=False
+            self.trainset, batch_size=1, num_workers=num_workers, shuffle=True
         )
 
     def val_dataloader(self):
@@ -230,10 +229,6 @@ class EdgeClassifierStage(LightningModule):
         )
 
         return loss
-
-    def on_train_epoch_start(self):
-        if self.trainset is not None:
-            random.shuffle(self.trainset.input_paths)
 
     def loss_function(self, output, batch):
         """
