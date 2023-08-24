@@ -370,13 +370,16 @@ def get_directed_prediction(event: Data, edge_pred, edge_index):
 
     # rearrange
     edge_pred = edge_pred[outter_sorted_indices]
-    event["edge_index"] = edge_index[:, outter_sorted_indices].T.view(-1, 2, 2)[:, 0].T
+    print(
+        edge_index.shape, edge_index.max(), edge_index[:, outter_sorted_indices].T.shape
+    )
+    event["edge_index"] = edge_index[:, outter_sorted_indices].T.view(2, -1, 2)[0].T
 
     # rearrange edge-level features as well
     for key in event.keys:
-        if isinstance(event[key], torch.Tensor) and (
-            (event[key].shape[0] == num_edges)
-        ):
+        if not isinstance(event[key], torch.Tensor) or not event[key].shape:
+            continue
+        if event[key].shape[0] == num_edges:
             event[key] = event[key][inner_sorted_indices][outter_sorted_indices].view(
                 2, -1
             )[0]

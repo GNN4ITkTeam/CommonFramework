@@ -119,8 +119,9 @@ def get_trainer(config, default_root_dir):
         else CSVLogger(save_dir=config["stage_dir"])
     )
 
-    accelerator = "gpu" if torch.cuda.is_available() else None
-    devices = config["gpus"] if config.get("gpus", 0) else 1
+    gpus = config.get("gpus", 0)
+    accelerator = "gpu" if gpus else None
+    devices = gpus or None
 
     return Trainer(
         accelerator=accelerator,
