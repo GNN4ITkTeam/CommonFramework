@@ -2,4 +2,4 @@
 
 This is a test of the Mkdocs-string compiler:
 
-::: stages.graph_construction.graph_construction_stage.models.metric_learning.MetricLearning
+::: stages.graph_construction.models.metric_learning.MetricLearning
