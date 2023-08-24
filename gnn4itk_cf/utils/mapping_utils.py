@@ -62,10 +62,14 @@ def map_tensor_handler(
     aggr: str = None,
 ):
     """
-    A general function to handle arbitrary maps of one tensor type to another. Types are "node-like", "edge-like" and "track-like".
-    - Node-like: The input tensor is of the same size as the number of nodes in the graph
-    - Edge-like: The input tensor is of the same size as the number of edges in the graph, that is, the *constructed* graph
-    - Track-like: The input tensor is of the same size as the number of true track edges in the event, that is, the *truth* graph
+    A general function to handle arbitrary maps of one tensor type to another
+    Types are "node-like", "edge-like" and "track-like".
+    - node-like: The input tensor is of the same size as the 
+        number of nodes in the graph
+    - edge-like: The input tensor is of the same size as the 
+        number of edges in the graph, that is, the *constructed* graph
+    - track-like: The input tensor is of the same size as the 
+        number of true track edges in the event, that is, the *truth* graph
 
     To visualize:
                     (n)
@@ -79,60 +83,27 @@ def map_tensor_handler(
               /             \
 node_to_edge /               \ node_to_track
             /                 \
-           |                   |
            v     edge_to_track v
           (e) <-------------> (t)
             track_to_edge
 
     Args:
         input_tensor (torch.Tensor): The input tensor to be mapped
-        output_type (str): The type of the output tensor. One of "node-like", "edge-like" or "track-like"
-        input_type (str, optional): The type of the input tensor. One of "node-like", "edge-like" or "track-like". Defaults to None, and will try to infer the type from the input tensor, if num_nodes and/or num_edges are provided.
-        truth_map (torch.Tensor, optional): The truth map tensor. Defaults to None. Used for mappings to/from track-like tensors.
-        num_nodes (int, optional): The number of nodes in the graph. Defaults to None. Used for inferring the input type.
-        num_edges (int, optional): The number of edges in the graph. Defaults to None. Used for inferring the input type.
-        num_track_edges (int, optional): The number of track edges in the graph. Defaults to None. Used for inferring the input type.
+        output_type (str): The type of the output tensor. 
+            One of "node-like", "edge-like" or "track-like"
+        input_type (str, optional): The type of the input tensor. 
+            One of "node-like", "edge-like" or "track-like". Defaults to None,
+            and will try to infer the type from the input tensor, if num_nodes
+            and/or num_edges are provided.
+        truth_map (torch.Tensor, optional): The truth map tensor. 
+            Defaults to None. Used for mappings to/from track-like tensors.
+        num_nodes (int, optional): The number of nodes in the graph. 
+            Defaults to None. Used for inferring the input type.
+        num_edges (int, optional): The number of edges in the graph. 
+            Defaults to None. Used for inferring the input type.
+        num_track_edges (int, optional): The number of track edges in the graph 
+            Defaults to None. Used for inferring the input type.
     """
-
-    # Refactor the above switch case into a dictionary
-    mapping_dict = {
-        (
-            "node-like",
-            "edge-like",
-        ): lambda input_tensor, truth_map, edge_index, track_index, num_nodes, num_edges, num_track_edges, aggr: map_nodes_to_edges(
-            input_tensor, edge_index, aggr
-        ),
-        (
-            "edge-like",
-            "node-like",
-        ): lambda input_tensor, truth_map, edge_index, track_index, num_nodes, num_edges, num_track_edges, aggr: map_edges_to_nodes(
-            input_tensor, edge_index, aggr, num_nodes
-        ),
-        (
-            "node-like",
-            "track-like",
-        ): lambda input_tensor, truth_map, edge_index, track_index, num_nodes, num_edges, num_track_edges, aggr: map_nodes_to_tracks(
-            input_tensor, track_edges, aggr
-        ),
-        (
-            "track-like",
-            "node-like",
-        ): lambda input_tensor, truth_map, edge_index, track_index, num_nodes, num_edges, num_track_edges, aggr: map_tracks_to_nodes(
-            input_tensor, track_edges, aggr, num_nodes
-        ),
-        (
-            "edge-like",
-            "track-like",
-        ): lambda input_tensor, truth_map, edge_index, track_index, num_nodes, num_edges, num_track_edges, aggr: map_edges_to_tracks(
-            input_tensor, truth_map
-        ),
-        (
-            "track-like",
-            "edge-like",
-        ): lambda input_tensor, truth_map, edge_index, track_index, num_nodes, num_edges, num_track_edges, aggr: map_tracks_to_edges(
-            input_tensor, truth_map, num_edges
-        ),
-    }
 
     if num_track_edges is None and truth_map is not None:
         num_track_edges = truth_map.shape[0]
@@ -144,49 +115,71 @@ node_to_edge /               \ node_to_track
         input_type, input_tensor = infer_input_type(
             input_tensor, num_nodes, num_edges, num_track_edges
         )
-
     if input_type == output_type:
         return input_tensor
-    elif (input_type, output_type) in mapping_dict:
-        return mapping_dict[(input_type, output_type)](
-            input_tensor,
-            truth_map,
-            edge_index,
-            track_edges,
-            num_nodes,
-            num_edges,
-            num_track_edges,
-            aggr,
-        )
-    else:
+
+    input_args = {
+        "truth_map": truth_map,
+        "edge_index": edge_index,
+        "track_edges": track_edges,
+        "num_nodes": num_nodes,
+        "num_edges": num_edges,
+        "num_track_edges": num_track_edges,
+        "aggr": aggr,
+    }
+
+    mapping_functions = {
+        ("node-like", "edge-like"): map_nodes_to_edges,
+        ("edge-like", "node-like"): map_edges_to_nodes,
+        ("node-like", "track-like"): map_nodes_to_tracks,
+        ("track-like", "node-like"): map_tracks_to_nodes,
+        ("edge-like", "track-like"): map_edges_to_tracks,
+        ("track-like", "edge-like"): map_tracks_to_edges,
+    }
+    if (input_type, output_type) not in mapping_functions:
         raise ValueError(f"Mapping from {input_type} to {output_type} not supported")
 
+    return mapping_functions[(input_type, output_type)](input_tensor, **input_args)
 
+
+# Returns string and tensor
 def infer_input_type(
     input_tensor: torch.Tensor,
     num_nodes: int = None,
     num_edges: int = None,
     num_track_edges: int = None,
-):
+) -> (str, torch.Tensor):
     """
-    Tries to infer the input type from the input tensor and the number of nodes, edges and track-edges in the graph.
-    If the input tensor cannot be matched to any of the provided types, it is assumed to be node-like.
+    Infers the type of the input tensor based on its shape and the provided number of nodes, edges, and track edges.
+
+    Args:
+        input_tensor (torch.Tensor): The tensor whose type needs to be inferred.
+        num_nodes (int, optional): Number of nodes in the graph.
+        num_edges (int, optional): Number of edges in the graph.
+        num_track_edges (int, optional): Number of track edges in the graph.
+
+    Returns:
+        str: The inferred type of the input tensor. One of ["node-like", "edge-like", "track-like"].
     """
 
+    NODE_LIKE = "node-like"
+    EDGE_LIKE = "edge-like"
+    TRACK_LIKE = "track-like"
+
     if num_nodes is not None and input_tensor.shape[0] == num_nodes:
-        return "node-like", input_tensor
+        return NODE_LIKE, input_tensor
     elif num_edges is not None and num_edges in input_tensor.shape:
-        return "edge-like", input_tensor
+        return EDGE_LIKE, input_tensor
     elif num_track_edges is not None and num_track_edges in input_tensor.shape:
-        return "track-like", input_tensor
+        return TRACK_LIKE, input_tensor
     elif num_track_edges is not None and num_track_edges // 2 in input_tensor.shape:
-        return "track-like", torch.cat([input_tensor, input_tensor], dim=0)
+        return TRACK_LIKE, torch.cat([input_tensor, input_tensor], dim=0)
     else:
-        return "node-like", input_tensor
+        raise ValueError("Unable to infer the type of the input tensor.")
 
 
 def map_nodes_to_edges(
-    nodelike_input: torch.Tensor, edge_index: torch.Tensor, aggr: str = None
+    nodelike_input: torch.Tensor, edge_index: torch.Tensor, aggr: str = None, **kwargs
 ):
     """
     Map a node-like tensor to an edge-like tensor. If the aggregation is None, this is simply done by sending node values to the edges, thus returning a tensor of shape (2, num_edges).
@@ -206,6 +199,7 @@ def map_edges_to_nodes(
     edge_index: torch.Tensor,
     aggr: str = None,
     num_nodes: int = None,
+    **kwargs,
 ):
     """
     Map an edge-like tensor to a node-like tensor. If the aggregation is None, this is simply done by sending edge values to the nodes, thus returning a tensor of shape (num_nodes,).
@@ -228,7 +222,7 @@ def map_edges_to_nodes(
 
 
 def map_nodes_to_tracks(
-    nodelike_input: torch.Tensor, track_edges: torch.Tensor, aggr: str = None
+    nodelike_input: torch.Tensor, track_edges: torch.Tensor, aggr: str = None, **kwargs
 ):
     """
     Map a node-like tensor to a track-like tensor. If the aggregation is None, this is simply done by sending node values to the tracks, thus returning a tensor of shape (2, num_track_edges).
@@ -248,6 +242,7 @@ def map_tracks_to_nodes(
     track_edges: torch.Tensor,
     aggr: str = None,
     num_nodes: int = None,
+    **kwargs,
 ):
     """
     Map a track-like tensor to a node-like tensor. If the aggregation is None, this is simply done by sending track values to the nodes, thus returning a tensor of shape (num_nodes,).
@@ -274,7 +269,10 @@ def map_tracks_to_nodes(
 
 
 def map_tracks_to_edges(
-    tracklike_input: torch.Tensor, truth_map: torch.Tensor, num_edges: int = None
+    tracklike_input: torch.Tensor,
+    truth_map: torch.Tensor,
+    num_edges: int = None,
+    **kwargs,
 ):
     """
     Map an track-like tensor to a edge-like tensor. This is done by sending the track value through the truth map, where the truth map is >= 0. Note that where truth_map == -1,
@@ -291,7 +289,9 @@ def map_tracks_to_edges(
     return edgelike_output
 
 
-def map_edges_to_tracks(edgelike_input: torch.Tensor, truth_map: torch.Tensor):
+def map_edges_to_tracks(
+    edgelike_input: torch.Tensor, truth_map: torch.Tensor, **kwargs
+):
     """
     TODO: Implement this. I don't think it is a meaningful operation, but it is needed for completeness.
     """
