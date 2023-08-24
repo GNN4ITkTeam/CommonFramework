@@ -24,6 +24,11 @@ import os
 import yaml
 import click
 
+try:
+    import wandb
+except ImportError:
+    wandb = None
+
 from pytorch_lightning import LightningModule
 
 from .core_utils import str_to_class, get_trainer, get_stage_module
@@ -49,6 +54,15 @@ def train(config_file, checkpoint=None):
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
+
+    # allows to use wandb.ai sweep functionality
+    if wandb is not None:
+        wandb.init(
+            project=config["project"],
+            # track hyperparameters and run metadata
+            config=config,
+        )
+        config.update(dict(wandb.config))
 
     print(config)
     # load stage
