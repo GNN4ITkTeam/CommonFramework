@@ -19,7 +19,6 @@ from pytorch_lightning import LightningModule
 import torch.nn.functional as F
 from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
-import random
 from sklearn.metrics import roc_auc_score
 import torch
 from class_resolver import ClassResolver
