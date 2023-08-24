@@ -20,8 +20,7 @@ from ..graph_construction_stage import GraphConstructionStage
 from pytorch_lightning import LightningModule
 from torch_geometric.data import DataLoader, Dataset
 import torch
-
-import logging
+import torch.nn.functional as F
 
 # Local imports
 from .utils import make_mlp, build_edges, graph_intersection
@@ -96,32 +95,11 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         return DataLoader(self.testset, batch_size=1, num_workers=num_workers)
 
     def predict_dataloader(self):
-        self.datasets = []
-        dataloaders = []
-        for i, (data_name, data_num) in enumerate(
-            zip(["trainset", "valset", "testset"], self.hparams["data_split"])
-        ):
-            if data_num > 0:
-                dataset = self.dataset_class(
-                    self.hparams["input_dir"],
-                    data_name,
-                    data_num,
-                    "predict",
-                    self.hparams,
-                )
-                self.datasets.append(dataset)
-                num_workers = (
-                    16
-                    if (
-                        "num_workers" not in self.hparams
-                        or self.hparams["num_workers"] is None
-                    )
-                    else self.hparams["num_workers"][i]
-                )
-                dataloaders.append(
-                    DataLoader(dataset, batch_size=1, num_workers=num_workers)
-                )
-        return dataloaders
+        return [
+            self.train_dataloader(),
+            self.val_dataloader(),
+            self.test_dataloader(),
+        ]
 
     def configure_optimizers(self):
         optimizer = [
@@ -463,23 +441,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         """
         return self.shared_evaluation(batch, self.hparams["r_train"], 1000)
 
-    def optimizer_step(
-        self,
-        epoch,
-        batch_idx,
-        optimizer,
-        optimizer_idx,
-        optimizer_closure=None,
-        on_tpu=False,
-        using_native_amp=False,
-        using_lbfgs=False,
-    ):
-        """
-        Use this to manually enforce warm-up. In the future, this may become built-into PyLightning
-        """
-        logging.info(f"Optimizer step for batch {batch_idx}")
+    def on_before_optimizer_step(self, optimizer, *args, **kwargs):
         # warm up lr
-        if (self.hparams["warmup"] is not None) and (
+        if self.hparams.get("warmup", 0) and (
             self.trainer.current_epoch < self.hparams["warmup"]
         ):
             lr_scale = min(
@@ -488,11 +452,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             for pg in optimizer.param_groups:
                 pg["lr"] = lr_scale * self.hparams["lr"]
 
-        # update params
-        optimizer.step(closure=optimizer_closure)
-        optimizer.zero_grad()
-
-        logging.info(f"Optimizer step done for batch {batch_idx}")
+        # after reaching minimum learning rate, stop LR decay
+        for pg in optimizer.param_groups:
+            pg["lr"] = max(pg["lr"], self.hparams.get("min_lr", 0))
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         """
@@ -511,7 +473,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         if self.hparams["undirected"]:
             self.remove_duplicate_edges(batch)
 
-        dataset = self.datasets[dataloader_idx]
+        dataset = self.predict_dataloader()[dataloader_idx].dataset
         dataset.unscale_features(batch)
         datatype = dataset.data_name
 
@@ -520,11 +482,14 @@ class MetricLearning(GraphConstructionStage, LightningModule):
     def save_graph(self, event, datatype):
         event.config.append(self.hparams)
         os.makedirs(os.path.join(self.hparams["stage_dir"], datatype), exist_ok=True)
+
+        # event.event_id might be of format [event_id] in which case convert to str
+        event_id = (
+            event.event_id[0] if isinstance(event.event_id, list) else event.event_id
+        )
         torch.save(
             event.cpu(),
-            os.path.join(
-                self.hparams["stage_dir"], datatype, f"event{event.event_id}.pyg"
-            ),
+            os.path.join(self.hparams["stage_dir"], datatype, f"event{event_id}.pyg"),
         )
 
     def remove_duplicate_edges(self, event):
