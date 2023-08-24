@@ -18,7 +18,7 @@ import os
 from ..graph_construction_stage import GraphConstructionStage
 
 from pytorch_lightning import LightningModule
-from torch_geometric.data import DataLoader, Dataset
+from torch_geometric.data import DataLoader, Dataset, Data
 import torch
 import yaml
 
@@ -257,14 +257,15 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         return d
 
-    def training_step(self, batch, batch_idx):
+    # def training_step(self, batch, batch_idx):
+    def training_step(self, batch: Data, batch_idx: int) -> torch.Tensor:
         """
         Args:
             batch (``list``, required): A list of ``torch.tensor`` objects
             batch (``int``, required): The index of the batch
 
         Returns:
-            ``torch.tensor``: The loss function as a tensor
+            ``torch.Tensor``: The loss function as a tensor
         """
 
         batch.edge_index, embedding = self.get_training_edges(batch)
