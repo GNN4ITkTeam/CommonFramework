@@ -2,6 +2,7 @@ from atlasify import atlasify
 import os
 from matplotlib import pyplot as plt
 import numpy as np
+from pytorch_lightning import LightningModule
 from sklearn.metrics import auc, roc_curve
 import torch
 from tqdm import tqdm
@@ -24,7 +25,8 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
     graph_size = []
 
     for event in tqdm(lightning_module.testset):
-        event = event.to(lightning_module.device)
+        if isinstance(lightning_module, LightningModule):
+            event = event.to(lightning_module.device)
         if "target_tracks" in config:
             lightning_module.apply_target_conditions(event, config["target_tracks"])
         else:
@@ -67,6 +69,8 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
         ["edgewise_efficiency_pt.png", "edgewise_efficiency_eta.png"],
     ):
         hist, err = get_ratio(true_pos_hist, true_hist)
+        if plot_config.get("filename_template") is not None:
+            filename = config["filename_template"] + "_" + filename
 
         fig, ax = plot_1d_histogram(
             hist,
