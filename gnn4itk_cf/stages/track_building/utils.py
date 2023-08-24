@@ -15,10 +15,10 @@
 import torch
 import pandas as pd
 import numpy as np
-import math
 from atlasify import atlasify
 
 import matplotlib.pyplot as plt
+from gnn4itk_cf.utils.plotting_utils import get_ratio
 
 # ------------- MATCHING UTILS ----------------
 
@@ -210,15 +210,6 @@ def plot_pt_eff(particles, pt_units, save_path="track_reconstruction_eff_vs_pt.p
 
     # Save the plot
     fig.savefig(save_path)
-
-
-def get_ratio(x_vals, y_vals):
-    res = [x / y if y != 0 else 0.0 for x, y in zip(x_vals, y_vals)]
-    err = [
-        x / y * math.sqrt((x + y) / (x * y)) if y != 0 and x != 0 else 0.0
-        for x, y in zip(x_vals, y_vals)
-    ]
-    return res, err
 
 
 # ------------- MAPPING UTILS ----------------
