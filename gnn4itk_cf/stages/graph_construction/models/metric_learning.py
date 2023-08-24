@@ -264,7 +264,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             batch (``int``, required): The index of the batch
 
         Returns:
-            ``torch.tensor`` The loss function as a tensor
+            ``torch.tensor``: The loss function as a tensor
         """
 
         batch.edge_index, embedding = self.get_training_edges(batch)
@@ -373,7 +373,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             d (``torch.tensor``, required): The distance tensor between nodes at edges[0] and edges[1] of shape (E,)
             weights (``torch.tensor``, required): The weight tensor of shape (E,)
         Returns:
-            ``torch.tensor`` The weighted hinge loss mean as a tensor
+            ``torch.tensor``: The weighted hinge loss mean as a tensor
         """
 
         negative_mask = ((truth == 0) & (weights != 0)) | (weights < 0)
