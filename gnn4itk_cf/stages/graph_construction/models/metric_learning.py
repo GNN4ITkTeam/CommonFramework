@@ -361,7 +361,10 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         return self.weighted_hinge_loss(truth, d, weights)
 
-    def weighted_hinge_loss(self, truth, d, weights):
+    # def weighted_hinge_loss(self, truth, d, weights):
+    def weighted_hinge_loss(
+        self, truth: torch.Tensor, d: torch.Tensor, weights: torch.Tensor
+    ) -> torch.Tensor:
         """
         Calculates the weighted hinge loss
 
@@ -370,11 +373,11 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         Weights below 0 are treated as false, such that background true edges can be treated as false edges. The same behavior is used in calculating metrics.
 
         Args:
-            truth (``torch.tensor``, required): The truth tensor of composed of 0s and 1s, of shape (E,)
-            d (``torch.tensor``, required): The distance tensor between nodes at edges[0] and edges[1] of shape (E,)
-            weights (``torch.tensor``, required): The weight tensor of shape (E,)
+            truth (``torch.Tensor``, required): The truth tensor of composed of 0s and 1s, of shape (E,)
+            d (``torch.Tensor``, required): The distance tensor between nodes at edges[0] and edges[1] of shape (E,)
+            weights (``torch.Tensor``, required): The weight tensor of shape (E,)
         Returns:
-            ``torch.tensor``: The weighted hinge loss mean as a tensor
+            ``torch.Tensor``: The weighted hinge loss mean as a tensor
         """
 
         negative_mask = ((truth == 0) & (weights != 0)) | (weights < 0)
