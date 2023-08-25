@@ -44,17 +44,20 @@ def generate_docstring(hparams):
 
 
 class MetricLearning(GraphConstructionStage, LightningModule):
+    """
+    This is a test docstring
+    """
+    __doc__ = "This is a different docstring"
+    
     with open(
         os.path.join(os.path.dirname(__file__), "metric_learning_defaults.yaml"), "r"
     ) as f:
         DEFAULT_HYPERPARAMS = yaml.load(f, Loader=yaml.FullLoader)
 
     # __doc__ = generate_docstring(DEFAULT_HYPERPARAMS)
-    """
-    This is a test docstring
-    """
+    
 
-    __doc__ = "This is a different docstring"
+    
 
     def __init__(self, hparams):
         super().__init__()
