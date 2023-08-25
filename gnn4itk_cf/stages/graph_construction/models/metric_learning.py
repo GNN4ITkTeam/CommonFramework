@@ -18,7 +18,7 @@ import os
 from ..graph_construction_stage import GraphConstructionStage
 
 from pytorch_lightning import LightningModule
-from torch_geometric.data import DataLoader, Dataset
+from torch_geometric.data import DataLoader, Dataset, Data
 import torch
 import torch.nn.functional as F
 
@@ -33,26 +33,46 @@ from gnn4itk_cf.utils import (
 
 
 class MetricLearning(GraphConstructionStage, LightningModule):
+    """
+    This is a test docstring
+    """
+    __doc__ = "This is a different docstring"
+    
+    with open(
+        os.path.join(os.path.dirname(__file__), "metric_learning_defaults.yaml"), "r"
+    ) as f:
+        DEFAULT_HYPERPARAMS = yaml.load(f, Loader=yaml.FullLoader)
+
+    # __doc__ = generate_docstring(DEFAULT_HYPERPARAMS)
+    
+
+    
+
     def __init__(self, hparams):
         super().__init__()
         """
         Initialise the Lightning Module that can scan over different embedding training regimes
         """
 
-        # Construct the MLP architecture
-        in_channels = len(hparams["node_features"])
-
-        self.network = make_mlp(
-            in_channels,
-            [hparams["emb_hidden"]] * hparams["nb_layer"] + [hparams["emb_dim"]],
-            hidden_activation=hparams["activation"],
-            output_activation=None,
-            layer_norm=True,
-        )
-
         self.dataset_class = GraphDataset
         self.use_pyg = True
         self.save_hyperparameters(hparams)
+        self.hparams = {
+            key: param["value"] for key, param in self.DEFAULT_HYPERPARAMS.items()
+        }
+        self.hparams.update(hparams)
+
+        # Construct the MLP architecture
+        in_channels = len(self.hparams["node_features"])
+
+        self.network = make_mlp(
+            in_channels,
+            [self.hparams["emb_hidden"]] * self.hparams["nb_layer"]
+            + [self.hparams["emb_dim"]],
+            hidden_activation=self.hparams["activation"],
+            output_activation=None,
+            layer_norm=True,
+        )
 
     def forward(self, x):
         x_out = self.network(x)
@@ -213,14 +233,15 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         return d
 
-    def training_step(self, batch, batch_idx):
+    # def training_step(self, batch, batch_idx):
+    def training_step(self, batch: Data, batch_idx: int) -> torch.Tensor:
         """
         Args:
             batch (``list``, required): A list of ``torch.tensor`` objects
             batch (``int``, required): The index of the batch
 
         Returns:
-            ``torch.tensor`` The loss function as a tensor
+            ``torch.Tensor``: The loss function as a tensor
         """
 
         batch.edge_index, embedding = self.get_training_edges(batch)
@@ -316,7 +337,10 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         return self.weighted_hinge_loss(truth, d, weights)
 
-    def weighted_hinge_loss(self, truth, d, weights):
+    # def weighted_hinge_loss(self, truth, d, weights):
+    def weighted_hinge_loss(
+        self, truth: torch.Tensor, d: torch.Tensor, weights: torch.Tensor
+    ) -> torch.Tensor:
         """
         Calculates the weighted hinge loss
 
@@ -325,11 +349,11 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         Weights below 0 are treated as false, such that background true edges can be treated as false edges. The same behavior is used in calculating metrics.
 
         Args:
-            truth (``torch.tensor``, required): The truth tensor of composed of 0s and 1s, of shape (E,)
-            d (``torch.tensor``, required): The distance tensor between nodes at edges[0] and edges[1] of shape (E,)
-            weights (``torch.tensor``, required): The weight tensor of shape (E,)
+            truth (``torch.Tensor``, required): The truth tensor of composed of 0s and 1s, of shape (E,)
+            d (``torch.Tensor``, required): The distance tensor between nodes at edges[0] and edges[1] of shape (E,)
+            weights (``torch.Tensor``, required): The weight tensor of shape (E,)
         Returns:
-            ``torch.tensor`` The weighted hinge loss mean as a tensor
+            ``torch.Tensor``: The weighted hinge loss mean as a tensor
         """
 
         negative_mask = ((truth == 0) & (weights != 0)) | (weights < 0)
