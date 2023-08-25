@@ -1,9 +1,10 @@
-name: gnn4itk-lasagna
+name: gnn4itk
 
 channels:
     - rapidsai
     - nvidia
     - pytorch
+    - pyg
     - conda-forge
 
 dependencies:
@@ -17,3 +18,6 @@ dependencies:
     - cugraph=22.08
     - cudatoolkit=11.6
     - pytorch=1.12.1
+    - pytorch-lightning=1.9.2
+    - pyg=2.2
+    - uproot

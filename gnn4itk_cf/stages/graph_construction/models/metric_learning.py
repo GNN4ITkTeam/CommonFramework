@@ -20,10 +20,6 @@ from ..graph_construction_stage import GraphConstructionStage
 from pytorch_lightning import LightningModule
 from torch_geometric.data import DataLoader, Dataset
 import torch
-from sklearn.cluster import KMeans
-import torch.nn.functional as F
-import numpy as np
-
 
 import logging
 
@@ -418,41 +414,12 @@ class MetricLearning(GraphConstructionStage, LightningModule):
                 batch, loss, batch.edge_index, true_edges, batch.y, weights
             )
 
-            cluster_labels = self.build_and_log_clustering(
-                batch, embedding, batch.edge_index
-            )
-        else:
-            cluster_labels = None
-
         return {
             "loss": loss,
             "distances": d,
             "preds": embedding,
             "truth_graph": true_edges,
-            "cluster_labels": cluster_labels,
         }
-
-    def build_and_log_clustering(self, batch, embedding, pred_edges):
-        """
-        We use k-means with k=[2, 4, 8, 16] to create a set of labels for each hit.
-        We calculate the "cross-over" rate: The number of edges that cross a cluster, divided by the total number of edges.
-        """
-
-        cluster_labels = []
-        for k in [2, 4, 8, 16]:
-            kmeans = KMeans(n_clusters=k, random_state=0, n_init=10).fit_predict(
-                embedding.cpu()
-            )
-            cluster_labels.append(kmeans)
-
-            # Calculate cross-over rate
-            edge_clusters = kmeans[pred_edges.cpu()]
-            cross_over = (edge_clusters[0] != edge_clusters[1]).sum().astype(float)
-            cross_over_rate = cross_over / edge_clusters.shape[1]
-
-            self.log(f"cross_over_rate_{k}", cross_over_rate, batch_size=1)
-
-        return torch.from_numpy(np.stack(cluster_labels))
 
     def log_metrics(self, batch, loss, pred_edges, true_edges, truth, weights):
         signal_true_edges = build_signal_edges(
