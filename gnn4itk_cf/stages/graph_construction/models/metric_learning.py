@@ -49,7 +49,12 @@ class MetricLearning(GraphConstructionStage, LightningModule):
     ) as f:
         DEFAULT_HYPERPARAMS = yaml.load(f, Loader=yaml.FullLoader)
 
-    __doc__ = generate_docstring(DEFAULT_HYPERPARAMS)
+    # __doc__ = generate_docstring(DEFAULT_HYPERPARAMS)
+    """
+    This is a test docstring
+    """
+
+    __doc__ = "This is a different docstring"
 
     def __init__(self, hparams):
         super().__init__()
