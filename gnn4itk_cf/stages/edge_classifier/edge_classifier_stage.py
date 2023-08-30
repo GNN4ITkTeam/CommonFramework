@@ -203,7 +203,7 @@ class EdgeClassifierStage(LightningModule):
         )
 
         scores = torch.sigmoid(output)
-
+        # TODO: Remove the test for dataset class
         if (
             self.hparams.get("undirected")
             and scores.size(0) == (2 * batch.weights.size(0))
@@ -266,6 +266,7 @@ class EdgeClassifierStage(LightningModule):
 
     def log_metrics(self, output, all_truth, target_truth, loss):
         scores = torch.sigmoid(output)
+        # TODO: Remove the test for dataset class
         if (
             self.hparams.get("undirected")
             and scores.size(0) == (2 * all_truth.size(0))
@@ -363,6 +364,7 @@ class EdgeClassifierStage(LightningModule):
 
     def save_edge_scores(self, event, output, dataset):
         event.scores = torch.sigmoid(output)
+        # TODO: Remove the test for dataset class
         if (
             self.hparams.get("undirected")
             and event.scores.size(0) == 2 * event.edge_index.size(1)
