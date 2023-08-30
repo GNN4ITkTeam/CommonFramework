@@ -205,7 +205,11 @@ class EdgeClassifierStage(LightningModule):
 
         scores = torch.sigmoid(output)
 
-        if self.hparams.get('undirected') and scores.size(0) == (2 * batch.weights.size(0)) and self.hparams['dataset_class']!="HeteroGraphDataset":
+        if (
+            self.hparams.get("undirected")
+            and scores.size(0) == (2 * batch.weights.size(0))
+            and self.hparams["dataset_class"] != "HeteroGraphDataset"
+        ):
             scores = torch.mean(scores.view(2, -1), dim=0)
 
         negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
@@ -262,9 +266,12 @@ class EdgeClassifierStage(LightningModule):
         return self.shared_evaluation(batch, batch_idx)
 
     def log_metrics(self, output, all_truth, target_truth, loss):
-        
         scores = torch.sigmoid(output)
-        if self.hparams.get('undirected') and scores.size(0) == (2 * all_truth.size(0)) and self.hparams['dataset_class']!="HeteroGraphDataset":
+        if (
+            self.hparams.get("undirected")
+            and scores.size(0) == (2 * all_truth.size(0))
+            and self.hparams["dataset_class"] != "HeteroGraphDataset"
+        ):
             scores = torch.mean(scores.view(2, -1), dim=0)
         preds = scores > self.hparams["edge_cut"]
 
@@ -357,7 +364,11 @@ class EdgeClassifierStage(LightningModule):
 
     def save_edge_scores(self, event, output, dataset):
         event.scores = torch.sigmoid(output)
-        if self.hparams.get('undirected') and event.scores.size(0) == 2 * event.edge_index.size(1)  and self.hparams['dataset_class']!="HeteroGraphDataset":
+        if (
+            self.hparams.get("undirected")
+            and event.scores.size(0) == 2 * event.edge_index.size(1)
+            and self.hparams["dataset_class"] != "HeteroGraphDataset"
+        ):
             event.scores = torch.mean(event.scores.view(2, -1), dim=0)
         event = dataset.unscale_features(event)
 
@@ -767,7 +778,6 @@ class HeteroGraphDataset(GraphDataset, HeteroGraphMixin):
         )
 
     def preprocess_event(self, event):
-
         if self.hparams.get("undirected"):
             event = self.to_undirected(event)
         event = self.apply_hard_cuts(event)

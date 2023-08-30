@@ -28,10 +28,7 @@ from .gnn_submodule.updater import (
     HeteroEdgeConv,
     EdgeUpdater,
 )
-from .gnn_submodule.igcn import (
-    InteractionConv,
-    InteractionConv2
-)
+from .gnn_submodule.igcn import InteractionConv, InteractionConv2
 from .gnn_submodule.decoder import HeteroEdgeDecoder
 from itertools import product, combinations_with_replacement
 
@@ -241,7 +238,6 @@ class InteractionGNN(EdgeClassifierStage):
 
 
 class InteractionGNNWithPyG(EdgeClassifierStage):
-
     def __init__(self, hparams):
         super().__init__(hparams)
         """
@@ -290,9 +286,19 @@ class InteractionGNNWithPyG(EdgeClassifierStage):
         )
 
         self.convs = nn.ModuleList([])
-        conv = InteractionConv(self.network_input_size, aggr=self.hparams['aggregation'], **self.hparams)
-        for i in range(self.hparams['n_graph_iters']):
-            self.convs.append(conv if self.hparams.get('recurrent') else InteractionConv(self.network_input_size, aggr=self.hparams['aggregation'], **self.hparams))
+        conv = InteractionConv(
+            self.network_input_size, aggr=self.hparams["aggregation"], **self.hparams
+        )
+        for i in range(self.hparams["n_graph_iters"]):
+            self.convs.append(
+                conv
+                if self.hparams.get("recurrent")
+                else InteractionConv(
+                    self.network_input_size,
+                    aggr=self.hparams["aggregation"],
+                    **self.hparams
+                )
+            )
 
         # Final edge output classification network
         self.output_edge_classifier = make_mlp(
@@ -307,20 +313,27 @@ class InteractionGNNWithPyG(EdgeClassifierStage):
         self.save_hyperparameters(hparams)
 
     def forward(self, batch, **kwargs):
-
-        x = torch.stack([batch[feature] for feature in self.hparams["node_features"]], dim=-1).float()
+        x = torch.stack(
+            [batch[feature] for feature in self.hparams["node_features"]], dim=-1
+        ).float()
         edge_index = batch.edge_index
         if "undirected" in self.hparams and self.hparams["undirected"]:
             edge_index = torch.cat([edge_index, edge_index.flip(0)], dim=1)
 
         start, end = edge_index
         x = checkpoint(self.node_encoder, x, use_reentrant=False)
-        e = checkpoint(self.edge_encoder, torch.cat([x[start], x[end]], dim=1), use_reentrant=False)
+        e = checkpoint(
+            self.edge_encoder, torch.cat([x[start], x[end]], dim=1), use_reentrant=False
+        )
 
         for i in range(self.hparams["n_graph_iters"]):
-            conv = partial(checkpoint, self.convs[i], use_reentrant=False) if self.hparams.get('checkpoint') else self.convs[i]
+            conv = (
+                partial(checkpoint, self.convs[i], use_reentrant=False)
+                if self.hparams.get("checkpoint")
+                else self.convs[i]
+            )
             x, e = conv(edge_index, x, e)
-        
+
         classifier_inputs = torch.cat([x[start], x[end], e], dim=1)
 
         return self.output_edge_classifier(classifier_inputs).squeeze(-1)
@@ -338,6 +351,7 @@ class InteractionGNNWithPyG(EdgeClassifierStage):
             )
         else:
             raise ValueError("Unknown aggregation type")
+
 
 class InteractionGNN2(EdgeClassifierStage):
     """
