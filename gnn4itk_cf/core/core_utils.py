@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import logging
 from pathlib import Path
 
 import torch
