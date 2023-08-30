@@ -203,18 +203,23 @@ class EdgeClassifierStage(LightningModule):
             " weighting is handled in preprocessing."
         )
 
+        scores = torch.sigmoid(output)
+
+        if self.hparams.get('undirected') and scores.size(0) == (2 * batch.weights.size(0)) and self.hparams['dataset_class']!="HeteroGraphDataset":
+            scores = torch.mean(scores.view(2, -1), dim=0)
+
         negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
 
-        negative_loss = F.binary_cross_entropy_with_logits(
-            output[negative_mask],
-            torch.zeros_like(output[negative_mask]),
+        negative_loss = F.binary_cross_entropy(
+            scores[negative_mask],
+            torch.zeros_like(scores[negative_mask]),
             weight=batch.weights[negative_mask].abs(),
         )
 
         positive_mask = (batch.y == 1) & (batch.weights > 0)
-        positive_loss = F.binary_cross_entropy_with_logits(
-            output[positive_mask],
-            torch.ones_like(output[positive_mask]),
+        positive_loss = F.binary_cross_entropy(
+            scores[positive_mask],
+            torch.ones_like(scores[positive_mask]),
             weight=batch.weights[positive_mask].abs(),
         )
 
@@ -257,7 +262,11 @@ class EdgeClassifierStage(LightningModule):
         return self.shared_evaluation(batch, batch_idx)
 
     def log_metrics(self, output, all_truth, target_truth, loss):
-        preds = torch.sigmoid(output) > self.hparams["edge_cut"]
+        
+        scores = torch.sigmoid(output)
+        if self.hparams.get('undirected') and scores.size(0) == (2 * all_truth.size(0)) and self.hparams['dataset_class']!="HeteroGraphDataset":
+            scores = torch.mean(scores.view(2, -1), dim=0)
+        preds = scores > self.hparams["edge_cut"]
 
         # Positives
         edge_positive = preds.sum().float()
@@ -270,7 +279,7 @@ class EdgeClassifierStage(LightningModule):
         # add torch.sigmoid(output).float() to convert to float in case training is done with 16-bit precision
         target_auc = roc_auc_score(
             target_truth.bool().cpu().detach(),
-            torch.sigmoid(output).float().cpu().detach(),
+            scores.float().cpu().detach(),
         )
         true_and_fake_positive = (
             edge_positive - (preds & (~target_truth) & all_truth).sum().float()
@@ -348,6 +357,8 @@ class EdgeClassifierStage(LightningModule):
 
     def save_edge_scores(self, event, output, dataset):
         event.scores = torch.sigmoid(output)
+        if self.hparams.get('undirected') and event.scores.size(0) == 2 * event.edge_index.size(1)  and self.hparams['dataset_class']!="HeteroGraphDataset":
+            event.scores = torch.mean(event.scores.view(2, -1), dim=0)
         event = dataset.unscale_features(event)
 
         event.config.append(self.hparams)
@@ -404,35 +415,6 @@ class EdgeClassifierStage(LightningModule):
         # flip edge direction if points inward
         event.edge_index = rearrange_by_distance(event, event.edge_index)
         event.track_edges = rearrange_by_distance(event, event.track_edges)
-        if self.hparams["undirected"]:
-            # treat graph level first
-            edge_index = event.edge_index
-            get_directed_prediction(event, passing_edges_mask, edge_index)
-
-            # treat track level, simply drop the later half of all track-level features
-            track_edges = event.track_edges
-            num_track_edges = track_edges.shape[1]
-            event.track_edges = track_edges.T.view(2, -1, 2)[0].T
-
-            for key in event.keys:
-                if not isinstance(event[key], torch.Tensor) or not event[key].shape:
-                    continue
-                if event[key].shape[0] == num_track_edges:
-                    event[key] = event[key].view(2, -1)[0]
-            # hard code to choose tight passing edge masks as the default edge mask to compute truth map for now for backward compatibility
-            event.truth_map_loose = graph_intersection(
-                event.edge_index[:, event.passing_edge_mask_loose],
-                event.track_edges,
-                return_y_pred=False,
-                return_truth_to_pred=True,
-            )
-            event.truth_map_tight = graph_intersection(
-                event.edge_index[:, event.passing_edge_mask_tight],
-                event.track_edges,
-                return_y_pred=False,
-                return_truth_to_pred=True,
-            )
-            passing_edges_mask = event.passing_edge_mask_tight
 
         event.graph_truth_map = graph_intersection(
             event.edge_index,
@@ -455,7 +437,7 @@ class EdgeClassifierStage(LightningModule):
         Target_tracks is a list of dictionaries, each of which contains the conditions to be applied to the event.
         """
         passing_tracks = torch.ones(event.truth_map.shape[0], dtype=torch.bool).to(
-            device
+            self.device
         )
 
         for condition_key, condition_val in target_tracks.items():
@@ -516,8 +498,8 @@ class GraphDataset(Dataset):
         Process event before it is used in training and validation loops
         """
         # print(event)
-        if self.hparams.get("undirected"):
-            event = self.to_undirected(event)
+        # if self.hparams.get("undirected"):
+        #     event = self.to_undirected(event)
         event = self.apply_hard_cuts(event)
         event = self.construct_weighting(event)
         event = self.handle_edge_list(event)
@@ -785,7 +767,14 @@ class HeteroGraphDataset(GraphDataset, HeteroGraphMixin):
         )
 
     def preprocess_event(self, event):
-        event = super().preprocess_event(event)
+
+        if self.hparams.get("undirected"):
+            event = self.to_undirected(event)
+        event = self.apply_hard_cuts(event)
+        event = self.construct_weighting(event)
+        event = self.handle_edge_list(event)
+        event = self.add_edge_features(event)
+        event = self.scale_features(event)
         event = Data(**event.to_dict())
         event = self.get_input_data(event)
         event = self.get_node_type(event)

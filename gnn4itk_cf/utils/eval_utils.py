@@ -404,19 +404,6 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
             target[key] = torch.cat([item, event[key][target_edges[0]]], dim=0)
         for key, item in all_target.items():
             all_target[key] = torch.cat([item, event[key][all_target_edges[0]]], dim=0)
-        if lightning_module.hparams.get("undirected"):
-            for threshold in ["loose", "tight"]:
-                target_true_positive_edges = event.track_edges[
-                    :, event.target_mask & (event[f"truth_map_{threshold}"] > -1)
-                ]
-                for key in ["r", "z"]:
-                    true_positive[f"{key}_{threshold}"] = torch.cat(
-                        [
-                            true_positive[f"{key}_{threshold}"],
-                            event[key][target_true_positive_edges[0]],
-                        ],
-                        dim=0,
-                    )
 
         # indices of all true positive target edges
         target_true_positive_edges = event.track_edges[
@@ -470,69 +457,6 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
     fig.savefig(save_dir)
     print(f"Finish plotting. Find the plot at {save_dir}")
     plt.close()
-    if lightning_module.hparams.get("undirected"):
-        for threshold in ["loose", "tight"]:
-            fig, ax = plot_efficiency_rz(
-                target["z"],
-                target["r"],
-                true_positive[f"z_{threshold}"],
-                true_positive[f"r_{threshold}"],
-                plot_config,
-            )
-            atlasify(
-                "Internal",
-                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
-                r" $t \bar{t}$ and soft interactions) " + "\n"
-                r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
-                r"Edge score cut: "
-                + str(config["score_cut"])
-                + f", {threshold} prediction matching"
-                + "\n"
-                "Graph Construction Efficiency:"
-                f" {(target['z'].shape[0] / all_target['z'].shape[0]):.3f}" + "\n"
-                "Signal Efficiency:"
-                f" {true_positive[f'z_{threshold}'].shape[0] / target['z'].shape[0] :.3f}"
-                + "\n",
-            )
-            plt.tight_layout()
-            save_dir = os.path.join(
-                config["stage_dir"], f"edgewise_efficiency_rz_{threshold}.png"
-            )
-            fig.savefig(save_dir)
-            print(f"Finish plotting. Find the plot at {save_dir}")
-            plt.close()
-
-            fig, ax = plot_efficiency_rz(
-                all_target["z"],
-                all_target["r"],
-                true_positive[f"z_{threshold}"],
-                true_positive[f"r_{threshold}"],
-                plot_config,
-            )
-            # Save the plot
-            atlasify(
-                "Internal",
-                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
-                r" $t \bar{t}$ and soft interactions) " + "\n"
-                r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
-                r"Edge score cut: "
-                + str(config["score_cut"])
-                + f", {threshold} prediction matching"
-                + "\n"
-                "Graph Construction Efficiency:"
-                f" {(target['z'].shape[0] / all_target['z'].shape[0]):.3f}" + "\n"
-                "Signal Efficiency:"
-                f" {true_positive[f'z_{threshold}'].shape[0] / all_target['z'].shape[0] :.3f}"
-                + "\n",
-            )
-            plt.tight_layout()
-            save_dir = os.path.join(
-                config["stage_dir"],
-                f"cumulative_edgewise_efficiency_rz_{threshold}.png",
-            )
-            fig.savefig(save_dir)
-            print(f"Finish plotting. Find the plot at {save_dir}")
-            plt.close()
 
 
 def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
@@ -588,31 +512,6 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
         target_hit_edge_mask = torch.isin(
             event.edge_index, all_included_target_hits
         ).any(dim=0)
-        # print(target_hit_edge_mask)
-
-        # get target z r
-        # for key, item in pred.items():
-        #     pred[key] = torch.cat([item, event[key][positive_edges[0]]], dim=0)
-        if lightning_module.hparams.get("undirected"):
-            for threshold in ["loose", "tight"]:
-                target_true_positive_edges = event.track_edges[
-                    :, event.target_mask & (event[f"truth_map_{threshold}"] > -1)
-                ]
-                positive_edges = event.edge_index[
-                    :, event[f"passing_edge_mask_{threshold}"] & target_hit_edge_mask
-                ]
-                for key in ["r", "z"]:
-                    true_positive[f"{key}_{threshold}"] = torch.cat(
-                        [
-                            true_positive[f"{key}_{threshold}"],
-                            event[key][target_true_positive_edges[0]],
-                        ],
-                        dim=0,
-                    )
-                    pred[f"{key}_{threshold}"] = torch.cat(
-                        [pred[f"{key}_{threshold}"], event[key][positive_edges[0]]],
-                        dim=0,
-                    )
 
         # indices of all true positive target edges
         target_true_positive_edges = event.track_edges[
@@ -641,44 +540,3 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
     fig.savefig(save_dir)
     print(f"Finish plotting. Find the plot at {save_dir}")
     plt.close()
-
-    # fig, ax = plot_efficiency_rz(all_target['z'], all_target['r'], true_positive['z'], true_positive['r'], plot_config)
-    # # Save the plot
-    # atlasify("Internal",
-    #     r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) " + "\n"
-    #     r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
-    #     r"Edge score cut: " + str(config["score_cut"]) + "\n"
-    # )
-    # plt.tight_layout()
-    # save_dir = os.path.join(config["stage_dir"], "cumulative_edgewise_efficiency_rz.png")
-    # fig.savefig(save_dir)
-    # print(f'Finish plotting. Find the plot at {save_dir}')
-    # plt.close()
-    if lightning_module.hparams.get("undirected"):
-        for threshold in ["loose", "tight"]:
-            fig, ax = plot_efficiency_rz(
-                pred[f"z_{threshold}"],
-                pred[f"r_{threshold}"],
-                true_positive[f"z_{threshold}"],
-                true_positive[f"r_{threshold}"],
-                plot_config,
-            )
-            atlasify(
-                "Internal",
-                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
-                r" $t \bar{t}$ and soft interactions) " + "\n"
-                r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
-                r"Edge score cut: "
-                + str(config["score_cut"])
-                + f", {threshold} prediction matching"
-                + "\n"
-                r"Global average purity: "
-                + f"{len(true_positive[f'z_{threshold}']) / len(pred[f'z_{threshold}']) : .3f}",
-            )
-            plt.tight_layout()
-            save_dir = os.path.join(
-                config["stage_dir"], f"edgewise_purity_rz_{threshold}.png"
-            )
-            fig.savefig(save_dir)
-            print(f"Finish plotting. Find the plot at {save_dir}")
-            plt.close()

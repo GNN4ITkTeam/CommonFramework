@@ -24,6 +24,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from gnn4itk_cf import stages
 from gnn4itk_cf.stages import *  # noqa
 from pytorch_lightning.strategies import DDPStrategy
+from pytorch_lightning.loggers import WandbLogger, CSVLogger
 
 try:
     import wandb
@@ -115,7 +116,7 @@ def get_trainer(config, default_root_dir):
     )
     logger = (
         WandbLogger(project=config["project"], save_dir=config["stage_dir"], id=job_id)
-        if wandb is not None
+        if (wandb is not None and config.get('log_wandb', True))
         else CSVLogger(save_dir=config["stage_dir"])
     )
 
