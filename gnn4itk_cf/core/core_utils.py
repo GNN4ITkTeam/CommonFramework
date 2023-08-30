@@ -23,18 +23,9 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from gnn4itk_cf import stages
 from gnn4itk_cf.stages import *  # noqa
-from pytorch_lightning.strategies import DDPStrategy
-from pytorch_lightning.loggers import WandbLogger, CSVLogger
-
-try:
-    import wandb
-    from pytorch_lightning.loggers import WandbLogger
-
-    logging.info("Wandb found, using WandbLogger")
-except ImportError:
-    wandb = None
-    logging.info("Wandb not found, using CSVLogger")
-    from pytorch_lightning.loggers import CSVLogger
+from pytorch_lightning.strategies.ddp import DDPStrategy
+from pytorch_lightning.loggers import CSVLogger
+from pytorch_lightning.loggers.wandb import WandbLogger
 
 
 def str_to_class(stage, model):
@@ -114,9 +105,10 @@ def get_trainer(config, default_root_dir):
         and "jupyter" not in os.environ["SLURM_JOB_QOS"]
         else None
     )
+
     logger = (
         WandbLogger(project=config["project"], save_dir=config["stage_dir"], id=job_id)
-        if (wandb is not None and config.get("log_wandb", True))
+        if False
         else CSVLogger(save_dir=config["stage_dir"])
     )
 

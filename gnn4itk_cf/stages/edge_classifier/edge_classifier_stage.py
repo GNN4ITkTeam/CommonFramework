@@ -171,8 +171,8 @@ class EdgeClassifierStage(LightningModule):
         return optimizer, scheduler
 
     def training_step(self, batch, batch_idx):
-        output = self(batch)
-        loss = self.loss_function(output, batch)
+        scores = self(batch)
+        loss = self.loss_function(scores, batch)
 
         self.log(
             "train_loss",
@@ -185,7 +185,7 @@ class EdgeClassifierStage(LightningModule):
 
         return loss
 
-    def loss_function(self, output, batch):
+    def loss_function(self, scores, batch):
         """
         Applies the loss function to the output of the model and the truth labels.
         To balance the positive and negative contribution, simply take the means of each separately.
@@ -201,15 +201,6 @@ class EdgeClassifierStage(LightningModule):
             "The batch does not have a weighting label. Please ensure the batch"
             " weighting is handled in preprocessing."
         )
-
-        scores = torch.sigmoid(output)
-        # TODO: Remove the test for dataset class
-        if (
-            self.hparams.get("undirected")
-            and scores.size(0) == (2 * batch.weights.size(0))
-            and self.hparams["dataset_class"] != "HeteroGraphDataset"
-        ):
-            scores = torch.mean(scores.view(2, -1), dim=0)
 
         negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
 
@@ -229,9 +220,9 @@ class EdgeClassifierStage(LightningModule):
         return positive_loss + negative_loss
 
     def shared_evaluation(self, batch, batch_idx):
-        output = self(batch)
-        loss = self.loss_function(output, batch)
-        batch.output = output.detach()
+        scores = self(batch)
+        loss = self.loss_function(scores, batch)
+        batch.output = scores.detach()
 
         all_truth = batch.y.bool()
         target_truth = (batch.weights > 0) & all_truth
@@ -240,7 +231,7 @@ class EdgeClassifierStage(LightningModule):
             "loss": loss.detach(),
             "all_truth": all_truth,
             "target_truth": target_truth,
-            "output": output.detach(),
+            "output": scores.detach(),
             "batch": batch,
         }
 
@@ -264,15 +255,7 @@ class EdgeClassifierStage(LightningModule):
     def test_step(self, batch, batch_idx):
         return self.shared_evaluation(batch, batch_idx)
 
-    def log_metrics(self, output, all_truth, target_truth, loss):
-        scores = torch.sigmoid(output)
-        # TODO: Remove the test for dataset class
-        if (
-            self.hparams.get("undirected")
-            and scores.size(0) == (2 * all_truth.size(0))
-            and self.hparams["dataset_class"] != "HeteroGraphDataset"
-        ):
-            scores = torch.mean(scores.view(2, -1), dim=0)
+    def log_metrics(self, scores, all_truth, target_truth, loss):
         preds = scores > self.hparams["edge_cut"]
 
         # Positives
@@ -358,19 +341,11 @@ class EdgeClassifierStage(LightningModule):
         ) and self.hparams.get("skip_existing"):
             return
         eval_dict = self.shared_evaluation(batch, batch_idx)
-        output = eval_dict["output"]
+        scores = eval_dict["output"]
         batch = eval_dict["batch"]
-        self.save_edge_scores(batch, output, dataset)
+        self.save_edge_scores(batch, scores, dataset)
 
-    def save_edge_scores(self, event, output, dataset):
-        event.scores = torch.sigmoid(output)
-        # TODO: Remove the test for dataset class
-        if (
-            self.hparams.get("undirected")
-            and event.scores.size(0) == 2 * event.edge_index.size(1)
-            and self.hparams["dataset_class"] != "HeteroGraphDataset"
-        ):
-            event.scores = torch.mean(event.scores.view(2, -1), dim=0)
+    def save_edge_scores(self, event, scores, dataset):
         event = dataset.unscale_features(event)
 
         event.config.append(self.hparams)

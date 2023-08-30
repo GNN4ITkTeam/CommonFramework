@@ -56,7 +56,7 @@ def train(config_file, checkpoint=None):
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     # allows to use wandb.ai sweep functionality
-    if wandb is not None:
+    if wandb is not None and config.get("log_wandb"):
         wandb.init(
             project=config["project"],
             # track hyperparameters and run metadata

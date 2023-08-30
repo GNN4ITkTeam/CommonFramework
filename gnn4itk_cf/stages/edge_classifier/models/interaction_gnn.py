@@ -142,7 +142,7 @@ class InteractionGNN(EdgeClassifierStage):
             [hparams["hidden"]] * hparams["nb_edge_layer"] + [1],
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
-            output_activation=None,
+            output_activation="Sigmoid",
             hidden_activation=hparams["hidden_activation"],
         )
 
@@ -176,17 +176,15 @@ class InteractionGNN(EdgeClassifierStage):
 
     def output_step(self, x, start, end, e):
         classifier_inputs = torch.cat([x[start], x[end], e], dim=1)
-        classifier_output = self.output_edge_classifier(classifier_inputs).squeeze(-1)
+        scores = self.output_edge_classifier(classifier_inputs).squeeze(-1)
 
-        # if (
-        #     "undirected" in self.hparams and self.hparams["undirected"]
-        # ):  # Take mean of outgoing edges and incoming edges
-        #     classifier_output = (
-        #         classifier_output[: classifier_output.shape[0] // 2]
-        #         + classifier_output[classifier_output.shape[0] // 2 :]
-        #     ) / 2
+        if (
+            self.hparams.get("undirected")
+            and self.hparams["dataset_class"] != "HeteroGraphDataset"
+        ):
+            scores = torch.mean(scores.view(2, -1), dim=0)
 
-        return classifier_output
+        return scores
 
     def forward(self, batch, **kwargs):
         x = torch.stack(
@@ -306,7 +304,7 @@ class InteractionGNNWithPyG(EdgeClassifierStage):
             [hparams["hidden"]] * hparams["nb_edge_layer"] + [1],
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
-            output_activation=None,
+            output_activation="Sigmoid",
             hidden_activation=hparams["hidden_activation"],
         )
 
@@ -315,7 +313,7 @@ class InteractionGNNWithPyG(EdgeClassifierStage):
     def forward(self, batch, **kwargs):
         x = torch.stack(
             [batch[feature] for feature in self.hparams["node_features"]], dim=-1
-        ).float()
+        ).to(self.dtype)
         edge_index = batch.edge_index
         if "undirected" in self.hparams and self.hparams["undirected"]:
             edge_index = torch.cat([edge_index, edge_index.flip(0)], dim=1)
@@ -336,7 +334,15 @@ class InteractionGNNWithPyG(EdgeClassifierStage):
 
         classifier_inputs = torch.cat([x[start], x[end], e], dim=1)
 
-        return self.output_edge_classifier(classifier_inputs).squeeze(-1)
+        scores = self.output_edge_classifier(classifier_inputs).squeeze(-1)
+
+        if (
+            self.hparams.get("undirected")
+            and self.hparams["dataset_class"] != "HeteroGraphDataset"
+        ):
+            scores = torch.mean(scores.view(2, -1), dim=0)
+
+        return scores
 
     def setup_aggregation(self):
         if "aggregation" not in self.hparams:
@@ -553,7 +559,7 @@ class InteractionGNN2(EdgeClassifierStage):
                 else:
                     x, e, out = self.message_step(x, e, src, dst, i)
             outputs.append(out)
-        return outputs[-1].squeeze(-1)
+        return torch.sigmoid(outputs[-1].squeeze(-1))
 
     def message_step(self, x, e, src, dst, i=None):
         edge_inputs = torch.cat([e, x[src], x[dst]], dim=-1)  # order dst src x ?
