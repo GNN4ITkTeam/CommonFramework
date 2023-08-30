@@ -28,7 +28,7 @@ from .gnn_submodule.updater import (
     HeteroEdgeConv,
     EdgeUpdater,
 )
-from .gnn_submodule.igcn import InteractionConv, InteractionConv2
+from .gnn_submodule.igcn import InteractionConv
 from .gnn_submodule.decoder import HeteroEdgeDecoder
 from itertools import product, combinations_with_replacement
 

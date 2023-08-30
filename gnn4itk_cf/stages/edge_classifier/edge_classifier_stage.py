@@ -24,7 +24,6 @@ import torch
 from class_resolver import ClassResolver
 
 from gnn4itk_cf.stages.track_building.utils import rearrange_by_distance
-from gnn4itk_cf.utils.mapping_utils import get_directed_prediction
 from gnn4itk_cf.utils import eval_utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
