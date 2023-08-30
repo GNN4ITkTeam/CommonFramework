@@ -1,0 +1,3 @@
+[submodule "model_store"]
+	path = model_store
+	url = ssh://git@gitlab.cern.ch:7999/gnn4itkteam/gnn4itk_modelstore.git

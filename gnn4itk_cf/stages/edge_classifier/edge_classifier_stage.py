@@ -19,7 +19,6 @@ from pytorch_lightning import LightningModule
 import torch.nn.functional as F
 from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
-import random
 from sklearn.metrics import roc_auc_score
 import torch
 from class_resolver import ClassResolver
@@ -80,7 +79,6 @@ class EdgeClassifierStage(LightningModule):
         if stage in ["fit", "predict"]:
             self.load_data(stage, self.hparams[input_dir], preprocess)
             self.test_data(stage)
-            # turn off warning message
             torch.set_float32_matmul_precision("medium" if stage == "fit" else "high")
         elif stage == "test":
             # during test stage, allow the possibility of
@@ -149,68 +147,25 @@ class EdgeClassifierStage(LightningModule):
     def train_dataloader(self):
         if self.trainset is None:
             return None
-        num_workers = (
-            16
-            if (
-                "num_workers" not in self.hparams or self.hparams["num_workers"] is None
-            )
-            else self.hparams["num_workers"][0]
-        )
+        num_workers = self.hparams.get("num_workers", [1, 1, 1])[0]
         return DataLoader(
-            self.trainset, batch_size=1, num_workers=num_workers, shuffle=False
+            self.trainset, batch_size=1, num_workers=num_workers, shuffle=True
         )
 
     def val_dataloader(self):
         if self.valset is None:
             return None
-        num_workers = (
-            16
-            if (
-                "num_workers" not in self.hparams or self.hparams["num_workers"] is None
-            )
-            else self.hparams["num_workers"][1]
-        )
+        num_workers = self.hparams.get("num_workers", [1, 1, 1])[1]
         return DataLoader(self.valset, batch_size=1, num_workers=num_workers)
 
     def test_dataloader(self):
         if self.testset is None:
             return None
-        num_workers = (
-            16
-            if (
-                "num_workers" not in self.hparams or self.hparams["num_workers"] is None
-            )
-            else self.hparams["num_workers"][2]
-        )
+        num_workers = self.hparams.get("num_workers", [1, 1, 1])[2]
         return DataLoader(self.testset, batch_size=1, num_workers=num_workers)
 
     def predict_dataloader(self):
-        self.datasets = []
-        dataloaders = []
-        for i, (data_name, data_num) in enumerate(
-            zip(["trainset", "valset", "testset"], self.hparams["data_split"])
-        ):
-            if data_num > 0:
-                dataset = self.dataset_class(
-                    self.hparams["input_dir"],
-                    data_name,
-                    data_num,
-                    "predict",
-                    self.hparams,
-                )
-                self.datasets.append(dataset)
-                num_workers = (
-                    16
-                    if (
-                        "num_workers" not in self.hparams
-                        or self.hparams["num_workers"] is None
-                    )
-                    else self.hparams["num_workers"][i]
-                )
-                dataloaders.append(
-                    DataLoader(dataset, batch_size=1, num_workers=num_workers)
-                )
-        return dataloaders
+        return [self.train_dataloader(), self.val_dataloader(), self.test_dataloader()]
 
     def configure_optimizers(self):
         optimizer, scheduler = get_optimizers(self.parameters(), self.hparams)
@@ -225,10 +180,6 @@ class EdgeClassifierStage(LightningModule):
             return loss
         else:
             return None
-
-    def on_train_epoch_start(self):
-        if self.trainset is not None:
-            random.shuffle(self.trainset.input_paths)
 
     def loss_function(self, output, batch):
         """
@@ -374,7 +325,7 @@ class EdgeClassifierStage(LightningModule):
 
         # after reaching minimum learning rate, stop LR decay
         for pg in optimizer.param_groups:
-            pg["lr"] = max(pg["lr"], self.hparams.get("min_lr", 0.00005))
+            pg["lr"] = max(pg["lr"], self.hparams.get("min_lr", 0))
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         """
@@ -385,14 +336,17 @@ class EdgeClassifierStage(LightningModule):
         3. Append the stage config to the `config` attribute of the graph
         """
 
-        dataset = self.datasets[dataloader_idx]
+        dataset = self.predict_dataloader()[dataloader_idx].dataset
+        event_id = (
+            batch.event_id[0] if isinstance(batch.event_id, list) else batch.event_id
+        )
         if os.path.exists(
             os.path.join(
                 self.hparams["stage_dir"],
                 dataset.data_name,
-                f"event{batch.event_id}.pyg",
+                f"event{event_id}.pyg",
             )
-        ):
+        ) and self.hparams.get("skip_existing"):
             return
         eval_dict = self.shared_evaluation(batch, batch_idx)
         output = eval_dict["output"]
@@ -414,11 +368,12 @@ class EdgeClassifierStage(LightningModule):
 
         datatype = dataset.data_name
         os.makedirs(os.path.join(self.hparams["stage_dir"], datatype), exist_ok=True)
+        event_id = (
+            event.event_id[0] if isinstance(event.event_id, list) else event.event_id
+        )
         torch.save(
             event.cpu(),
-            os.path.join(
-                self.hparams["stage_dir"], datatype, f"event{event.event_id[0]}.pyg"
-            ),
+            os.path.join(self.hparams["stage_dir"], datatype, f"event{event_id}.pyg"),
         )
 
     @classmethod
@@ -467,9 +422,9 @@ class EdgeClassifierStage(LightningModule):
             event.track_edges = track_edges.T.view(2, -1, 2)[0].T
 
             for key in event.keys:
-                if isinstance(event[key], torch.Tensor) and (
-                    (event[key].shape[0] == num_track_edges)
-                ):
+                if not isinstance(event[key], torch.Tensor) or not event[key].shape:
+                    continue
+                if event[key].shape[0] == num_track_edges:
                     event[key] = event[key].view(2, -1)[0]
             # hard code to choose tight passing edge masks as the default edge mask to compute truth map for now for backward compatibility
             event.truth_map_loose = graph_intersection(
@@ -512,7 +467,7 @@ class EdgeClassifierStage(LightningModule):
 
         for condition_key, condition_val in target_tracks.items():
             condition_lambda = get_condition_lambda(condition_key, condition_val)
-            passing_tracks = passing_tracks * condition_lambda(event)
+            passing_tracks = passing_tracks.cpu() * condition_lambda(event)
 
         event.target_mask = passing_tracks
 
@@ -636,7 +591,6 @@ class GraphDataset(Dataset):
         Add the reverse of the edge_index to the event. This then requires all edge features to be duplicated.
         Additionally, the truth map must be duplicated.
         """
-
         num_edges = event.edge_index.shape[1]
         # Flip event.edge_index and concat together
         event.edge_index = torch.cat(
@@ -652,22 +606,18 @@ class GraphDataset(Dataset):
         for key in event.keys:
             if key == "truth_map":
                 continue
-            if isinstance(event[key], torch.Tensor) and (
-                (event[key].shape[0] == num_edges)
-            ):
+            if not isinstance(event[key], torch.Tensor) or not event[key].shape:
+                continue
+            if event[key].shape[0] == num_edges:
                 event[key] = torch.cat([event[key], event[key]], dim=0)
-                # event[key] = torch.zeros_like(event.edge_index[0], dtype=event[key].dtype).scatter(0, unique_edge_indices, event[key])
-
-            # Concat track-like features for evaluation
-            elif isinstance(event[key], torch.Tensor) and (
-                (event[key].shape[0] == num_track_edges)
-            ):
+            elif event[key].shape[0] == num_track_edges:
                 event[key] = torch.cat([event[key], event[key]], dim=0)
 
         # handle truth_map separately
         truth_map = event.truth_map.clone()
         truth_map[truth_map >= 0] = truth_map[truth_map >= 0] + num_edges
         event.truth_map = torch.cat([event.truth_map, truth_map], dim=0)
+
         return event
 
     def add_edge_features(self, event):

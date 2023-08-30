@@ -13,7 +13,7 @@ def test_model_load():
     from gnn4itk_cf.stages.edge_classifier import InteractionGNN
 
     # load test_gnn_config.yaml
-    with open("test_gnn_config.yaml", "r") as f:
+    with open("stages/edge_classifier/test_gnn_config.yaml", "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     model = InteractionGNN(config)
@@ -33,7 +33,7 @@ def test_data_load():
     from gnn4itk_cf.stages.edge_classifier import InteractionGNN
 
     # load test_gnn_config.yaml
-    with open("test_gnn_config.yaml", "r") as f:
+    with open("stages/edge_classifier/test_gnn_config.yaml", "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     # Test 1
