@@ -318,6 +318,18 @@ class EdgeClassifierStage(LightningModule):
         # after reaching minimum learning rate, stop LR decay
         for pg in optimizer.param_groups:
             pg["lr"] = max(pg["lr"], self.hparams.get("min_lr", 0))
+        
+        if self.hparams.get('debug') and self.trainer.current_epoch == 0:
+            warnings.warn("DEBUG mode is on. Will print out gradient if encounter None")
+            invalid_gradient = False
+            for param in self.parameters():
+                if param.grad is None:
+                    warnings.warn("Some parameters get non-numerical gradient. Check model and train settings")
+                    invalid_gradient = True
+                    break
+            if invalid_gradient:
+                print([param.grad for param in self.parameters()])
+            self.hparams['debug'] = False
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         """

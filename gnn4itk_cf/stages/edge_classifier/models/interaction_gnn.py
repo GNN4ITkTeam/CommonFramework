@@ -309,25 +309,28 @@ class InteractionGNNWithPyG(EdgeClassifierStage):
         )
 
         self.save_hyperparameters(hparams)
+        self.checkpoint = self.hparams.get('checkpoint')
 
     def forward(self, batch, **kwargs):
         x = torch.stack(
             [batch[feature] for feature in self.hparams["node_features"]], dim=-1
         ).to(self.dtype)
         edge_index = batch.edge_index
+
+        # if undirected, extend the edge index to include the inverse graph
         if "undirected" in self.hparams and self.hparams["undirected"]:
             edge_index = torch.cat([edge_index, edge_index.flip(0)], dim=1)
 
         start, end = edge_index
-        x = checkpoint(self.node_encoder, x, use_reentrant=False)
+        x = checkpoint(self.node_encoder, x, use_reentrant=False) if self.checkpoint else self.node_encoder(x)
         e = checkpoint(
             self.edge_encoder, torch.cat([x[start], x[end]], dim=1), use_reentrant=False
-        )
+        ) if self.checkpoint else self.edge_encoder(torch.cat([x[start], x[end]], dim=1))
 
         for i in range(self.hparams["n_graph_iters"]):
             conv = (
                 partial(checkpoint, self.convs[i], use_reentrant=False)
-                if self.hparams.get("checkpoint")
+                if self.checkpoint
                 else self.convs[i]
             )
             x, e = conv(edge_index, x, e)
