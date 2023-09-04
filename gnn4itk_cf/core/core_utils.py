@@ -16,7 +16,11 @@ import os
 from pathlib import Path
 
 import torch
-import wandb
+
+try:
+    import wandb
+except ImportError:
+    wandb = None
 import yaml
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
