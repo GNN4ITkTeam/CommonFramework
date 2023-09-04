@@ -204,14 +204,14 @@ class EdgeClassifierStage(LightningModule):
 
         negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
 
-        negative_loss = F.binary_cross_entropy(
+        negative_loss = F.binary_cross_entropy_with_logits(
             scores[negative_mask],
             torch.zeros_like(scores[negative_mask]),
             weight=batch.weights[negative_mask].abs(),
         )
 
         positive_mask = (batch.y == 1) & (batch.weights > 0)
-        positive_loss = F.binary_cross_entropy(
+        positive_loss = F.binary_cross_entropy_with_logits(
             scores[positive_mask],
             torch.ones_like(scores[positive_mask]),
             weight=batch.weights[positive_mask].abs(),
@@ -220,9 +220,9 @@ class EdgeClassifierStage(LightningModule):
         return positive_loss + negative_loss
 
     def shared_evaluation(self, batch, batch_idx):
-        scores = self(batch)
+        scores = torch.sigmoid(self(batch))
         loss = self.loss_function(scores, batch)
-        batch.output = scores.detach()
+        batch.scores = scores.detach()
 
         all_truth = batch.y.bool()
         target_truth = (batch.weights > 0) & all_truth
@@ -325,7 +325,8 @@ class EdgeClassifierStage(LightningModule):
             for param in self.parameters():
                 if param.grad is None:
                     warnings.warn(
-                        "Some parameters get non-numerical gradient. Check model and train settings"
+                        "Some parameters get non-numerical gradient. Check model and"
+                        " train settings"
                     )
                     invalid_gradient = True
                     break
