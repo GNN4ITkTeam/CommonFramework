@@ -142,7 +142,6 @@ class InteractionGNN(EdgeClassifierStage):
             [hparams["hidden"]] * hparams["nb_edge_layer"] + [1],
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
-            # output_activation="Sigmoid",
             output_activation=None,
             hidden_activation=hparams["hidden_activation"],
         )
@@ -573,7 +572,7 @@ class InteractionGNN2(EdgeClassifierStage):
                 else:
                     x, e, out = self.message_step(x, e, src, dst, i)
             outputs.append(out)
-        return torch.sigmoid(outputs[-1].squeeze(-1))
+        return outputs[-1].squeeze(-1)
 
     def message_step(self, x, e, src, dst, i=None):
         edge_inputs = torch.cat([e, x[src], x[dst]], dim=-1)  # order dst src x ?

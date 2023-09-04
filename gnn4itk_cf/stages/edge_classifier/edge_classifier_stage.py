@@ -144,6 +144,9 @@ class EdgeClassifierStage(LightningModule):
         )
 
     def train_dataloader(self):
+        """
+        Load the training set.
+        """
         if self.trainset is None:
             return None
         num_workers = self.hparams.get("num_workers", [1, 1, 1])[0]
@@ -152,18 +155,27 @@ class EdgeClassifierStage(LightningModule):
         )
 
     def val_dataloader(self):
+        """
+        Load the validation set.
+        """
         if self.valset is None:
             return None
         num_workers = self.hparams.get("num_workers", [1, 1, 1])[1]
         return DataLoader(self.valset, batch_size=1, num_workers=num_workers)
 
     def test_dataloader(self):
+        """
+        Load the test set.
+        """
         if self.testset is None:
             return None
         num_workers = self.hparams.get("num_workers", [1, 1, 1])[2]
         return DataLoader(self.testset, batch_size=1, num_workers=num_workers)
 
     def predict_dataloader(self):
+        """
+        Load the prediction sets (which is a list of the three datasets)
+        """
         return [self.train_dataloader(), self.val_dataloader(), self.test_dataloader()]
 
     def configure_optimizers(self):
@@ -171,8 +183,8 @@ class EdgeClassifierStage(LightningModule):
         return optimizer, scheduler
 
     def training_step(self, batch, batch_idx):
-        scores = self(batch)
-        loss = self.loss_function(scores, batch)
+        output = self(batch)
+        loss = self.loss_function(output, batch)
 
         self.log(
             "train_loss",
@@ -185,7 +197,7 @@ class EdgeClassifierStage(LightningModule):
 
         return loss
 
-    def loss_function(self, scores, batch):
+    def loss_function(self, output, batch):
         """
         Applies the loss function to the output of the model and the truth labels.
         To balance the positive and negative contribution, simply take the means of each separately.
@@ -205,23 +217,25 @@ class EdgeClassifierStage(LightningModule):
         negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
 
         negative_loss = F.binary_cross_entropy_with_logits(
-            scores[negative_mask],
-            torch.zeros_like(scores[negative_mask]),
+            output[negative_mask],
+            torch.zeros_like(output[negative_mask]),
             weight=batch.weights[negative_mask].abs(),
         )
 
         positive_mask = (batch.y == 1) & (batch.weights > 0)
         positive_loss = F.binary_cross_entropy_with_logits(
-            scores[positive_mask],
-            torch.ones_like(scores[positive_mask]),
+            output[positive_mask],
+            torch.ones_like(output[positive_mask]),
             weight=batch.weights[positive_mask].abs(),
         )
 
         return positive_loss + negative_loss
 
     def shared_evaluation(self, batch, batch_idx):
-        scores = torch.sigmoid(self(batch))
-        loss = self.loss_function(scores, batch)
+        output = self(batch)
+        loss = self.loss_function(output, batch)
+
+        scores = torch.sigmoid(output)
         batch.scores = scores.detach()
 
         all_truth = batch.y.bool()
@@ -499,9 +513,6 @@ class GraphDataset(Dataset):
         """
         Process event before it is used in training and validation loops
         """
-        # print(event)
-        # if self.hparams.get("undirected"):
-        #     event = self.to_undirected(event)
         event = self.apply_hard_cuts(event)
         event = self.construct_weighting(event)
         event = self.handle_edge_list(event)
