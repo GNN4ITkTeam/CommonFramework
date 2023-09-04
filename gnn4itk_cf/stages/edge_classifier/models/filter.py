@@ -44,7 +44,7 @@ class Filter(EdgeClassifierStage):
             [hparams["hidden"] // (2**i) for i in range(hparams["nb_layer"])] + [1],
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
-            output_activation=None,
+            output_activation="Sigmoid",
             hidden_activation=hparams["hidden_activation"],
         )
 
@@ -60,10 +60,8 @@ class Filter(EdgeClassifierStage):
     def training_step(self, batch, batch_idx):
         if self.hparams["ratio"] not in [0, None]:
             with torch.no_grad():
-                no_grad_output = self.memory_robust_eval(batch)
-                batch = self.subsample(
-                    batch, torch.sigmoid(no_grad_output), self.hparams["ratio"]
-                )
+                no_grad_scores = self.memory_robust_eval(batch)
+                batch = self.subsample(batch, no_grad_scores, self.hparams["ratio"])
 
         output = self.memory_robust_eval(batch)
         loss = self.loss_function(output, batch)
@@ -73,8 +71,8 @@ class Filter(EdgeClassifierStage):
         return loss
 
     def shared_evaluation(self, batch, batch_idx):
-        output = self.memory_robust_eval(batch)
-        loss = self.loss_function(output, batch)
+        scores = self.memory_robust_eval(batch)
+        loss = self.loss_function(scores, batch)
 
         all_truth = batch.y.bool()
         target_truth = (batch.weights > 0) & all_truth
@@ -83,7 +81,7 @@ class Filter(EdgeClassifierStage):
             "loss": loss,
             "all_truth": all_truth,
             "target_truth": target_truth,
-            "output": output,
+            "output": scores,
         }
 
     def subsample(self, batch, scores, ratio):
