@@ -142,7 +142,7 @@ class InteractionGNN(EdgeClassifierStage):
             [hparams["hidden"]] * hparams["nb_edge_layer"] + [1],
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
-            output_activation="Sigmoid",
+            output_activation=None,
             hidden_activation=hparams["hidden_activation"],
         )
 
@@ -180,7 +180,7 @@ class InteractionGNN(EdgeClassifierStage):
 
         if (
             self.hparams.get("undirected")
-            and self.hparams["dataset_class"] != "HeteroGraphDataset"
+            and self.hparams.get("dataset_class") != "HeteroGraphDataset"
         ):
             scores = torch.mean(scores.view(2, -1), dim=0)
 
@@ -195,7 +195,7 @@ class InteractionGNN(EdgeClassifierStage):
             start, end = torch.cat([start, end]), torch.cat([end, start])
 
         # Encode the graph features into the hidden space
-        # x.requires_grad = True
+        x.requires_grad = True
         x = checkpoint(self.node_encoder, x, use_reentrant=False)
         e = checkpoint(
             self.edge_encoder, torch.cat([x[start], x[end]], dim=1), use_reentrant=False
@@ -351,7 +351,7 @@ class InteractionGNNWithPyG(EdgeClassifierStage):
 
         if (
             self.hparams.get("undirected")
-            and self.hparams["dataset_class"] != "HeteroGraphDataset"
+            and self.hparams.get("dataset_class") != "HeteroGraphDataset"
         ):
             scores = torch.mean(scores.view(2, -1), dim=0)
 
@@ -572,7 +572,7 @@ class InteractionGNN2(EdgeClassifierStage):
                 else:
                     x, e, out = self.message_step(x, e, src, dst, i)
             outputs.append(out)
-        return torch.sigmoid(outputs[-1].squeeze(-1))
+        return outputs[-1].squeeze(-1)
 
     def message_step(self, x, e, src, dst, i=None):
         edge_inputs = torch.cat([e, x[src], x[dst]], dim=-1)  # order dst src x ?
