@@ -467,7 +467,7 @@ class EdgeClassifierStage(LightningModule):
 
         for condition_key, condition_val in target_tracks.items():
             condition_lambda = get_condition_lambda(condition_key, condition_val)
-            passing_tracks = passing_tracks.cpu() * condition_lambda(event)
+            passing_tracks = passing_tracks.cpu() * condition_lambda(event.cpu())
 
         event.target_mask = passing_tracks
 
