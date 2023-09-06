@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .models.interaction_gnn import InteractionGNN, InteractionGNN2
+from .models.interaction_gnn import (
+    InteractionGNN,
+    InteractionGNN2,
+    InteractionGNNWithPyG,
+)
 from .models.filter import Filter
 
-__all__ = ["InteractionGNN", "InteractionGNN2", "Filter"]
+__all__ = ["InteractionGNN", "InteractionGNN2", "Filter", "InteractionGNNWithPyG"]

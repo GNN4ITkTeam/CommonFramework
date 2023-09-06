@@ -60,10 +60,8 @@ class Filter(EdgeClassifierStage):
     def training_step(self, batch, batch_idx):
         if self.hparams["ratio"] not in [0, None]:
             with torch.no_grad():
-                no_grad_output = self.memory_robust_eval(batch)
-                batch = self.subsample(
-                    batch, torch.sigmoid(no_grad_output), self.hparams["ratio"]
-                )
+                no_grad_scores = torch.sigmoid(self.memory_robust_eval(batch))
+                batch = self.subsample(batch, no_grad_scores, self.hparams["ratio"])
 
         output = self.memory_robust_eval(batch)
         loss = self.loss_function(output, batch)
@@ -76,6 +74,7 @@ class Filter(EdgeClassifierStage):
         output = self.memory_robust_eval(batch)
         loss = self.loss_function(output, batch)
 
+        scores = torch.sigmoid(output)
         all_truth = batch.y.bool()
         target_truth = (batch.weights > 0) & all_truth
 
@@ -83,7 +82,7 @@ class Filter(EdgeClassifierStage):
             "loss": loss,
             "all_truth": all_truth,
             "target_truth": target_truth,
-            "output": output,
+            "output": scores,
         }
 
     def subsample(self, batch, scores, ratio):

@@ -24,7 +24,6 @@ import torch
 from class_resolver import ClassResolver
 
 from gnn4itk_cf.stages.track_building.utils import rearrange_by_distance
-from gnn4itk_cf.utils.mapping_utils import get_directed_prediction
 from gnn4itk_cf.utils import eval_utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -145,6 +144,9 @@ class EdgeClassifierStage(LightningModule):
         )
 
     def train_dataloader(self):
+        """
+        Load the training set.
+        """
         if self.trainset is None:
             return None
         num_workers = self.hparams.get("num_workers", [1, 1, 1])[0]
@@ -153,18 +155,27 @@ class EdgeClassifierStage(LightningModule):
         )
 
     def val_dataloader(self):
+        """
+        Load the validation set.
+        """
         if self.valset is None:
             return None
         num_workers = self.hparams.get("num_workers", [1, 1, 1])[1]
         return DataLoader(self.valset, batch_size=1, num_workers=num_workers)
 
     def test_dataloader(self):
+        """
+        Load the test set.
+        """
         if self.testset is None:
             return None
         num_workers = self.hparams.get("num_workers", [1, 1, 1])[2]
         return DataLoader(self.testset, batch_size=1, num_workers=num_workers)
 
     def predict_dataloader(self):
+        """
+        Load the prediction sets (which is a list of the three datasets)
+        """
         return [self.train_dataloader(), self.val_dataloader(), self.test_dataloader()]
 
     def configure_optimizers(self):
@@ -219,7 +230,9 @@ class EdgeClassifierStage(LightningModule):
     def shared_evaluation(self, batch, batch_idx):
         output = self(batch)
         loss = self.loss_function(output, batch)
-        batch.output = output.detach()
+
+        scores = torch.sigmoid(output)
+        batch.scores = scores.detach()
 
         all_truth = batch.y.bool()
         target_truth = (batch.weights > 0) & all_truth
@@ -228,7 +241,7 @@ class EdgeClassifierStage(LightningModule):
             "loss": loss.detach(),
             "all_truth": all_truth,
             "target_truth": target_truth,
-            "output": output.detach(),
+            "output": scores.detach(),
             "batch": batch,
         }
 
@@ -252,8 +265,8 @@ class EdgeClassifierStage(LightningModule):
     def test_step(self, batch, batch_idx):
         return self.shared_evaluation(batch, batch_idx)
 
-    def log_metrics(self, output, all_truth, target_truth, loss):
-        preds = torch.sigmoid(output) > self.hparams["edge_cut"]
+    def log_metrics(self, scores, all_truth, target_truth, loss):
+        preds = scores > self.hparams["edge_cut"]
 
         # Positives
         edge_positive = preds.sum().float()
@@ -270,7 +283,7 @@ class EdgeClassifierStage(LightningModule):
         # add torch.sigmoid(output).float() to convert to float in case training is done with 16-bit precision
         target_auc = roc_auc_score(
             target_truth.bool().cpu().detach(),
-            torch.sigmoid(output).float().cpu().detach(),
+            scores.float().cpu().detach(),
         )
         true_and_fake_positive = (
             edge_positive - (preds & (~target_truth) & all_truth).sum().float()
@@ -327,6 +340,21 @@ class EdgeClassifierStage(LightningModule):
         for pg in optimizer.param_groups:
             pg["lr"] = max(pg["lr"], self.hparams.get("min_lr", 0))
 
+        if self.hparams.get("debug") and self.trainer.current_epoch == 0:
+            warnings.warn("DEBUG mode is on. Will print out gradient if encounter None")
+            invalid_gradient = False
+            for param in self.parameters():
+                if param.grad is None:
+                    warnings.warn(
+                        "Some parameters get non-numerical gradient. Check model and"
+                        " train settings"
+                    )
+                    invalid_gradient = True
+                    break
+            if invalid_gradient:
+                print([param.grad for param in self.parameters()])
+            self.hparams["debug"] = False
+
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         """
         This function handles the prediction of each graph. It is called in the `infer.py` script.
@@ -349,12 +377,11 @@ class EdgeClassifierStage(LightningModule):
         ) and self.hparams.get("skip_existing"):
             return
         eval_dict = self.shared_evaluation(batch, batch_idx)
-        output = eval_dict["output"]
+        scores = eval_dict["output"]
         batch = eval_dict["batch"]
-        self.save_edge_scores(batch, output, dataset)
+        self.save_edge_scores(batch, scores, dataset)
 
-    def save_edge_scores(self, event, output, dataset):
-        event.scores = torch.sigmoid(output)
+    def save_edge_scores(self, event, scores, dataset):
         event = dataset.unscale_features(event)
 
         event.config.append(self.hparams)
@@ -411,35 +438,6 @@ class EdgeClassifierStage(LightningModule):
         # flip edge direction if points inward
         event.edge_index = rearrange_by_distance(event, event.edge_index)
         event.track_edges = rearrange_by_distance(event, event.track_edges)
-        if self.hparams["undirected"]:
-            # treat graph level first
-            edge_index = event.edge_index
-            get_directed_prediction(event, passing_edges_mask, edge_index)
-
-            # treat track level, simply drop the later half of all track-level features
-            track_edges = event.track_edges
-            num_track_edges = track_edges.shape[1]
-            event.track_edges = track_edges.T.view(2, -1, 2)[0].T
-
-            for key in event.keys:
-                if not isinstance(event[key], torch.Tensor) or not event[key].shape:
-                    continue
-                if event[key].shape[0] == num_track_edges:
-                    event[key] = event[key].view(2, -1)[0]
-            # hard code to choose tight passing edge masks as the default edge mask to compute truth map for now for backward compatibility
-            event.truth_map_loose = graph_intersection(
-                event.edge_index[:, event.passing_edge_mask_loose],
-                event.track_edges,
-                return_y_pred=False,
-                return_truth_to_pred=True,
-            )
-            event.truth_map_tight = graph_intersection(
-                event.edge_index[:, event.passing_edge_mask_tight],
-                event.track_edges,
-                return_y_pred=False,
-                return_truth_to_pred=True,
-            )
-            passing_edges_mask = event.passing_edge_mask_tight
 
         event.graph_truth_map = graph_intersection(
             event.edge_index,
@@ -462,7 +460,7 @@ class EdgeClassifierStage(LightningModule):
         Target_tracks is a list of dictionaries, each of which contains the conditions to be applied to the event.
         """
         passing_tracks = torch.ones(event.truth_map.shape[0], dtype=torch.bool).to(
-            device
+            self.device
         )
 
         for condition_key, condition_val in target_tracks.items():
@@ -522,9 +520,6 @@ class GraphDataset(Dataset):
         """
         Process event before it is used in training and validation loops
         """
-        # print(event)
-        if self.hparams.get("undirected"):
-            event = self.to_undirected(event)
         event = self.apply_hard_cuts(event)
         event = self.construct_weighting(event)
         event = self.handle_edge_list(event)
@@ -793,7 +788,13 @@ class HeteroGraphDataset(GraphDataset, HeteroGraphMixin):
         )
 
     def preprocess_event(self, event):
-        event = super().preprocess_event(event)
+        if self.hparams.get("undirected"):
+            event = self.to_undirected(event)
+        event = self.apply_hard_cuts(event)
+        event = self.construct_weighting(event)
+        event = self.handle_edge_list(event)
+        event = self.add_edge_features(event)
+        event = self.scale_features(event)
         event = Data(**event.to_dict())
         event = self.get_input_data(event)
         event = self.get_node_type(event)
