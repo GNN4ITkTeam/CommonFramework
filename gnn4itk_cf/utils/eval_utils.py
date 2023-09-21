@@ -471,18 +471,14 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
 
     print("Plotting GNN edgewise efficiency as a function of rz")
 
-    true_positive = {}
-    for key in ["z_tight", "r_tight", "z_loose", "r_loose", "z", "r"]:
-        true_positive[key] = torch.empty(0)
+    true_positive = {key: torch.empty(0).to(lightning_module.device) for key in ["z", "r"]}
+    target_true_positive = true_positive.copy()
+
     pred = true_positive.copy()
+    masked_pred = true_positive.copy()
 
     for event in tqdm(lightning_module.testset):
         event = event.to(lightning_module.device)
-        if config.get("reprocess_classifier"):
-            with torch.no_grad():
-                eval_dict = lightning_module.shared_evaluation(event, 0)
-            event = eval_dict["batch"]
-            event.scores = torch.sigmoid(eval_dict["output"])
         # Need to apply score cut and remap the truth_map
         if "score_cut" in config:
             lightning_module.apply_score_cut(event, config["score_cut"])
@@ -498,45 +494,64 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
         # flip edges that point inward if not undirected, since if undirected is True, lightning_module.apply_score_cut takes care of this
         event.edge_index = rearrange_by_distance(event, event.edge_index)
         event.track_edges = rearrange_by_distance(event, event.track_edges)
-        event = event.cpu()
+        # event = event.cpu()
 
-        # indices of all positive edges
-        positive_edges = event.edge_index[:, event.pred]
-
-        # indices of all target edges included in the graph
-        # is_present_and_target = event.target_mask & (event.graph_truth_map > -1)
-        all_included_target_edges = event.track_edges[
-            :, event.target_mask & (event.graph_truth_map > -1)
-        ]
-        all_included_target_hits = all_included_target_edges.view(-1)
-        target_hit_edge_mask = torch.isin(
-            event.edge_index, all_included_target_hits
-        ).any(dim=0)
-
-        # indices of all true positive target edges
+        # target true positive edge indices, used as nominator of target purity and purity
         target_true_positive_edges = event.track_edges[
             :, event.target_mask & (event.truth_map > -1)
         ]
-        positive_edges = event.edge_index[:, event.pred]
-        for key in ["r", "z"]:
-            true_positive[key] = torch.cat(
-                [true_positive[key], event[key][target_true_positive_edges[0]]], dim=0
-            )
-            pred[key] = torch.cat([pred[key], event[key][positive_edges[0]]], dim=0)
 
-    fig, ax = plot_efficiency_rz(
-        pred["z"], pred["r"], true_positive["z"], true_positive["r"], plot_config
-    )
-    # Save the plot
-    atlasify(
-        "Internal",
-        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-        r" \bar{t}$ and soft interactions) " + "\n"
-        r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
-        r"Edge score cut: " + str(config["score_cut"]) + "\n",
-    )
-    plt.tight_layout()
-    save_dir = os.path.join(config["stage_dir"], "edgewise_purity_rz.png")
-    fig.savefig(save_dir)
-    print(f"Finish plotting. Find the plot at {save_dir}")
-    plt.close()
+        # true positive edge indices, used as nominator of total purity
+        true_positive_edges = event.track_edges[
+            :, (event.truth_map > -1)
+        ]
+
+        # all positive edges, used as denominator of total and target purity 
+        positive_edges = event.edge_index[:, event.pred]
+
+        # masked positive edge indices, including true positive target edges and all false positive edges
+        # first get all non-target true positive edges 
+        # non_target_true_positive_indices = event.graph_truth_map[
+        #     (~ event.target_mask) & (event.graph_truth_map > -1)
+        # ]
+
+        non_target_true_positive_indices = event.truth_map[
+            (~ event.target_mask) & (event.truth_map > -1)
+        ]
+        # masking non-target true positive
+        non_target_true_positive_mask = torch.isin(torch.arange(event.edge_index[:, event.pred].size(1)).to(lightning_module.device), non_target_true_positive_indices)
+        # get masked positive edges
+        masked_positive_edges = event.edge_index[:, event.pred][:, ~ non_target_true_positive_mask ]
+
+        for key in ["r", "z"]:
+            target_true_positive[key] = torch.cat(
+                [target_true_positive[key], event[key][target_true_positive_edges[0]]], dim=0
+            )
+            true_positive[key] = torch.cat(
+                [true_positive[key], event[key][true_positive_edges[0]]], dim=0
+            ) 
+            pred[key] = torch.cat([pred[key], event[key][positive_edges[0]]], dim=0)
+            masked_pred[key] = torch.cat([masked_pred[key], event[key][masked_positive_edges[0]]], dim=0)
+
+    for nominator, denominator, suffix in zip(
+        [true_positive, target_true_positive, target_true_positive],
+        [pred, pred, masked_pred],
+        ['total_purity', 'target_purity', 'masked_purity']
+    ):
+        fig, ax = plot_efficiency_rz(
+            denominator["z"].cpu(), denominator["r"].cpu(), nominator["z"].cpu(), nominator["r"].cpu(), plot_config
+        )
+        # Save the plot
+        atlasify(
+            "Internal",
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+            r" \bar{t}$ and soft interactions) " + "\n"
+            r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
+            r"Edge score cut: " + str(config["score_cut"]) + "\n"
+            r"Global purity: " + f"{nominator['z'].size(0) / denominator['z'].size(0) : .5f}" 
+        )
+        plt.tight_layout()
+        save_dir = os.path.join(config["stage_dir"], f"{plot_config.get('filename', 'edgewise')}_{suffix}_rz.png")
+        fig.savefig(save_dir)
+        print(f"Finish plotting. Find the plot at {save_dir}")
+        plt.close()
