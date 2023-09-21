@@ -471,7 +471,9 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
 
     print("Plotting GNN edgewise efficiency as a function of rz")
 
-    true_positive = {key: torch.empty(0).to(lightning_module.device) for key in ["z", "r"]}
+    true_positive = {
+        key: torch.empty(0).to(lightning_module.device) for key in ["z", "r"]
+    }
     target_true_positive = true_positive.copy()
 
     pred = true_positive.copy()
@@ -502,44 +504,52 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
         ]
 
         # true positive edge indices, used as nominator of total purity
-        true_positive_edges = event.track_edges[
-            :, (event.truth_map > -1)
-        ]
+        true_positive_edges = event.track_edges[:, (event.truth_map > -1)]
 
-        # all positive edges, used as denominator of total and target purity 
+        # all positive edges, used as denominator of total and target purity
         positive_edges = event.edge_index[:, event.pred]
 
         # masked positive edge indices, including true positive target edges and all false positive edges
-        # first get all non-target true positive edges 
-        # non_target_true_positive_indices = event.graph_truth_map[
-        #     (~ event.target_mask) & (event.graph_truth_map > -1)
-        # ]
-
+        # first get all non-target true positive edges
         non_target_true_positive_indices = event.truth_map[
-            (~ event.target_mask) & (event.truth_map > -1)
+            (~event.target_mask) & (event.truth_map > -1)
         ]
         # masking non-target true positive
-        non_target_true_positive_mask = torch.isin(torch.arange(event.edge_index[:, event.pred].size(1)).to(lightning_module.device), non_target_true_positive_indices)
+        non_target_true_positive_mask = torch.isin(
+            torch.arange(event.edge_index[:, event.pred].size(1)).to(
+                lightning_module.device
+            ),
+            non_target_true_positive_indices,
+        )
         # get masked positive edges
-        masked_positive_edges = event.edge_index[:, event.pred][:, ~ non_target_true_positive_mask ]
+        masked_positive_edges = event.edge_index[:, event.pred][
+            :, ~non_target_true_positive_mask
+        ]
 
         for key in ["r", "z"]:
             target_true_positive[key] = torch.cat(
-                [target_true_positive[key], event[key][target_true_positive_edges[0]]], dim=0
+                [target_true_positive[key], event[key][target_true_positive_edges[0]]],
+                dim=0,
             )
             true_positive[key] = torch.cat(
                 [true_positive[key], event[key][true_positive_edges[0]]], dim=0
-            ) 
+            )
             pred[key] = torch.cat([pred[key], event[key][positive_edges[0]]], dim=0)
-            masked_pred[key] = torch.cat([masked_pred[key], event[key][masked_positive_edges[0]]], dim=0)
+            masked_pred[key] = torch.cat(
+                [masked_pred[key], event[key][masked_positive_edges[0]]], dim=0
+            )
 
     for nominator, denominator, suffix in zip(
         [true_positive, target_true_positive, target_true_positive],
         [pred, pred, masked_pred],
-        ['total_purity', 'target_purity', 'masked_purity']
+        ["total_purity", "target_purity", "masked_purity"],
     ):
         fig, ax = plot_efficiency_rz(
-            denominator["z"].cpu(), denominator["r"].cpu(), nominator["z"].cpu(), nominator["r"].cpu(), plot_config
+            denominator["z"].cpu(),
+            denominator["r"].cpu(),
+            nominator["z"].cpu(),
+            nominator["r"].cpu(),
+            plot_config,
         )
         # Save the plot
         atlasify(
@@ -548,10 +558,14 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
             r" \bar{t}$ and soft interactions) " + "\n"
             r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
             r"Edge score cut: " + str(config["score_cut"]) + "\n"
-            r"Global purity: " + f"{nominator['z'].size(0) / denominator['z'].size(0) : .5f}" 
+            r"Global purity: "
+            + f"{nominator['z'].size(0) / denominator['z'].size(0) : .5f}",
         )
         plt.tight_layout()
-        save_dir = os.path.join(config["stage_dir"], f"{plot_config.get('filename', 'edgewise')}_{suffix}_rz.png")
+        save_dir = os.path.join(
+            config["stage_dir"],
+            f"{plot_config.get('filename', 'edgewise')}_{suffix}_rz.png",
+        )
         fig.savefig(save_dir)
         print(f"Finish plotting. Find the plot at {save_dir}")
         plt.close()
