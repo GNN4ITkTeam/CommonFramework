@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
 import os
 import warnings
 from itertools import product
 from pytorch_lightning import LightningModule
 import torch.nn.functional as F
+import torch_geometric.transforms as T
 from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
 from sklearn.metrics import roc_auc_score
@@ -100,7 +102,16 @@ class EdgeClassifierStage(LightningModule):
         """
         Load in the data for training, validation and testing.
         """
-
+        transform = None
+        if self.hparams.get("transform") is not None:
+            t_list = []
+            for t in self.hparams["transform"]:
+                # dynamically initiate transformations from pyg. The 'transform' configuration should be a list of elements like
+                # {module_name: torch_geometric.transforms, class_name: ToSparseTensor, init_kwargs: {remove_edge_index: false}}
+                module = importlib.import_module(t["module_name"])
+                t = getattr(module, t["class_name"])(**t["init_kwargs"])
+                t_list.append(t)
+            transform = T.Compose(t_list)
         for data_name, data_num in zip(
             ["trainset", "valset", "testset"], self.hparams["data_split"]
         ):
@@ -113,6 +124,7 @@ class EdgeClassifierStage(LightningModule):
                     stage=stage,
                     hparams=self.hparams,
                     preprocess=preprocess,
+                    transform=transform,
                 )
                 setattr(self, data_name, dataset)
 
@@ -488,6 +500,7 @@ class GraphDataset(Dataset):
         self.num_events = num_events
         self.stage = stage
         self.preprocess = preprocess
+        self.transform = transform
 
         self.input_paths = load_datafiles_in_dir(
             self.input_dir, self.data_name, self.num_events
@@ -500,9 +513,14 @@ class GraphDataset(Dataset):
     def get(self, idx):
         event_path = self.input_paths[idx]
         event = torch.load(event_path, map_location=torch.device("cpu"))
+        # convert DataBatch to Data instance because some transformations don't work on DataBatch
+        event = Data(**event.to_dict())
         if not self.preprocess:
             return event
         event = self.preprocess_event(event)
+        # do pyg transformation if a torch_geometric.transforms instance is given
+        if self.transform is not None:
+            event = self.transform(event)
 
         # return (event, event_path) if self.stage == "predict" else event
         return event

@@ -17,6 +17,12 @@ from .models.interaction_gnn import (
     InteractionGNN2,
     InteractionGNNWithPyG,
 )
-from .models.filter import Filter
+from .models.filter import Filter, GNNFilter
 
-__all__ = ["InteractionGNN", "InteractionGNN2", "Filter", "InteractionGNNWithPyG"]
+__all__ = [
+    "InteractionGNN",
+    "InteractionGNN2",
+    "Filter",
+    "InteractionGNNWithPyG",
+    "GNNFilter",
+]
