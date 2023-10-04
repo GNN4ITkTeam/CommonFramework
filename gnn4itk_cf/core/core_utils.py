@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 
 import torch
+import logging
 
 try:
     import wandb
@@ -92,14 +93,8 @@ def get_trainer(config, default_root_dir):
     )
     metric_mode = config["metric_mode"] if "metric_mode" in config else "min"
 
-    checkpoint_callback = ModelCheckpoint(
-        dirpath=os.path.join(config["stage_dir"], "artifacts"),
-        filename="best",
-        monitor=metric_to_monitor,
-        mode=metric_mode,
-        save_top_k=1,
-        save_last=True,
-    )
+    logging.info(f"Setting default root dir: {default_root_dir}")
+    resume = "allow"
 
     job_id = (
         os.environ["SLURM_JOB_ID"]
@@ -110,15 +105,51 @@ def get_trainer(config, default_root_dir):
         else None
     )
 
+    if (
+        isinstance(default_root_dir, str)
+        and find_latest_checkpoint(default_root_dir) is not None
+    ):
+        print(f"Found checkpoint from a previous run in {default_root_dir}")
+        resume = "must"
+
+    logging.info(f"Job ID: {job_id}, resume: {resume}")
+
     logger = (
-        WandbLogger(project=config["project"], save_dir=config["stage_dir"], id=job_id)
+        WandbLogger(
+            project=config["project"],
+            save_dir=config["stage_dir"],
+            id=job_id,
+            name=job_id,
+            group=config.get("group"),
+            resume=resume,
+        )
         if wandb is not None and config.get("log_wandb", True)
         else CSVLogger(save_dir=config["stage_dir"])
     )
 
+    filename_suffix = (
+        str(logger.experiment.id)
+        if (
+            hasattr(logger, "experiment")
+            and hasattr(logger.experiment, "id")
+            and logger.experiment.id is not None
+        )
+        else ""
+    )
+    filename = "best-" + filename_suffix + "-{" + metric_to_monitor + ":5f}-{epoch}"
     gpus = config.get("gpus", 0)
     accelerator = "gpu" if gpus else None
     devices = gpus or None
+
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=os.path.join(config["stage_dir"], "artifacts"),
+        filename=filename,
+        monitor=metric_to_monitor,
+        mode=metric_mode,
+        save_top_k=config.get("save_top_k", 1),
+        save_last=True,
+    )
+    checkpoint_callback.CHECKPOINT_NAME_LAST = f"last-{filename_suffix}"
 
     return Trainer(
         accelerator=accelerator,
@@ -132,15 +163,33 @@ def get_trainer(config, default_root_dir):
     )
 
 
-def get_stage_module(config, stage_module_class, checkpoint_path=None):
+def get_stage_module(
+    config, stage_module_class, checkpoint_path=None, checkpoint_resume_dir=None
+):
+    # get a default_root_dr
     default_root_dir = get_default_root_dir()
-    # First check if we need to load a checkpoint
-    if checkpoint_path is not None:
-        stage_module, config = load_module(checkpoint_path, stage_module_class)
-    elif default_root_dir is not None and find_latest_checkpoint(
+
+    # if resume from a previous run that fails, allow to specify a checkpoint_resume_dir that must contain checkpoints from previous run
+    # if checkpoint_resume_dir exists and contains a checkpoint, set as default_root_dir
+    if checkpoint_resume_dir is not None:
+        if not os.path.exists(checkpoint_resume_dir):
+            raise Exception(
+                f"Checkpoint resume directory {checkpoint_resume_dir} does not exist."
+            )
+        if not find_latest_checkpoint(checkpoint_resume_dir, "*.ckpt"):
+            raise Exception(
+                f"No checkpoint found in checkpoint resume directory {checkpoint_resume_dir}."
+            )
+        default_root_dir = checkpoint_resume_dir
+
+    # if default_root_dir contains checkpoint, use latest checkpoint as starting point, ignore the input checkpoint_path
+    if default_root_dir is not None and find_latest_checkpoint(
         default_root_dir, "*.ckpt"
     ):
         checkpoint_path = find_latest_checkpoint(default_root_dir, "*.ckpt")
+
+    # Load a checkpoint if checkpoint_path is not None
+    if checkpoint_path is not None:
         stage_module, config = load_module(checkpoint_path, stage_module_class)
     else:
         stage_module = stage_module_class(config)
