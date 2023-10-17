@@ -196,7 +196,7 @@ class EdgeClassifierStage(LightningModule):
 
     def training_step(self, batch, batch_idx):
         output = self(batch)
-        loss = self.loss_function(output, batch)
+        loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
         self.log(
             "train_loss",
@@ -206,10 +206,26 @@ class EdgeClassifierStage(LightningModule):
             batch_size=1,
             sync_dist=True,
         )
+        self.log(
+            "train_pos_loss",
+            pos_loss,
+            on_step=False,
+            on_epoch=True,
+            batch_size=1,
+            sync_dist=True,
+        )
+        self.log(
+            "train_neg_loss",
+            neg_loss,
+            on_step=False,
+            on_epoch=True,
+            batch_size=1,
+            sync_dist=True,
+        )
 
         return loss
 
-    def loss_function(self, output, batch):
+    def loss_function(self, output, batch, balance="proportional"):
         """
         Applies the loss function to the output of the model and the truth labels.
         To balance the positive and negative contribution, simply take the means of each separately.
@@ -226,12 +242,16 @@ class EdgeClassifierStage(LightningModule):
             " weighting is handled in preprocessing."
         )
 
+        if balance not in ["equal", "proportional"]:
+            balance = "proportional"
+
         negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
 
         negative_loss = F.binary_cross_entropy_with_logits(
             output[negative_mask],
             torch.zeros_like(output[negative_mask]),
             weight=batch.weights[negative_mask].abs(),
+            reduction="sum",
         )
 
         positive_mask = (batch.y == 1) & (batch.weights > 0)
@@ -239,13 +259,28 @@ class EdgeClassifierStage(LightningModule):
             output[positive_mask],
             torch.ones_like(output[positive_mask]),
             weight=batch.weights[positive_mask].abs(),
+            reduction="sum",
         )
 
-        return positive_loss + negative_loss
+        if balance == "proportional":
+            n = positive_mask.sum() + negative_mask.sum()
+            return (
+                (positive_loss + negative_loss) / n,
+                positive_loss.detach() / n,
+                negative_loss.detach() / n,
+            )
+        else:
+            n_pos, n_neg = positive_mask.sum(), negative_mask.sum()
+            n = n_pos + n_neg
+            return (
+                positive_loss / n_pos + negative_loss / n_neg,
+                positive_loss.detach() / n,
+                negative_loss.detach() / n,
+            )
 
     def shared_evaluation(self, batch, batch_idx):
         output = self(batch)
-        loss = self.loss_function(output, batch)
+        loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
         scores = torch.sigmoid(output)
         batch.scores = scores.detach()
@@ -259,6 +294,8 @@ class EdgeClassifierStage(LightningModule):
             "target_truth": target_truth,
             "output": scores.detach(),
             "batch": batch,
+            "pos_loss": pos_loss,
+            "neg_loss": neg_loss,
         }
 
     def validation_step(self, batch, batch_idx):
@@ -272,6 +309,22 @@ class EdgeClassifierStage(LightningModule):
         self.log(
             "val_loss",
             output_dict["loss"],
+            on_step=False,
+            on_epoch=True,
+            batch_size=1,
+            sync_dist=True,
+        )
+        self.log(
+            "val_pos_loss",
+            output_dict["pos_loss"],
+            on_step=False,
+            on_epoch=True,
+            batch_size=1,
+            sync_dist=True,
+        )
+        self.log(
+            "val_neg_loss",
+            output_dict["neg_loss"],
             on_step=False,
             on_epoch=True,
             batch_size=1,

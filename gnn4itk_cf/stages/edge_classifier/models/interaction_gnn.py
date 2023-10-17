@@ -728,11 +728,32 @@ class HeteroInteractionGNN(InteractionGNN, HeteroMixin):
         return self.output_edge_classifier(x_dict, edge_index_dict, edge_dict), x_dict
 
     def training_step(self, batch, batch_idx):
-        loss = self.shared_evaluation(batch, batch_idx)["loss"]
+        eval_dict = self.shared_evaluation(batch, batch_idx)
+        loss, pos_loss, neg_loss = (
+            eval_dict["loss"],
+            eval_dict["pos_loss"],
+            eval_dict["neg_loss"],
+        )
 
         self.log(
             "train_loss",
             loss,
+            on_step=False,
+            on_epoch=True,
+            batch_size=1,
+            sync_dist=True,
+        )
+        self.log(
+            "train_pos_loss",
+            pos_loss,
+            on_step=False,
+            on_epoch=True,
+            batch_size=1,
+            sync_dist=True,
+        )
+        self.log(
+            "train_neg_loss",
+            neg_loss,
             on_step=False,
             on_epoch=True,
             batch_size=1,
@@ -748,7 +769,7 @@ class HeteroInteractionGNN(InteractionGNN, HeteroMixin):
         batch = batch.to_homogeneous()
 
         output = batch.output
-        loss = self.loss_function(output, batch)
+        loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
         all_truth = batch.y.bool()
         target_truth = (batch.weights > 0) & all_truth
@@ -759,4 +780,6 @@ class HeteroInteractionGNN(InteractionGNN, HeteroMixin):
             "target_truth": target_truth,
             "output": output.detach(),
             "batch": batch,
+            "pos_loss": pos_loss,
+            "neg_loss": neg_loss,
         }

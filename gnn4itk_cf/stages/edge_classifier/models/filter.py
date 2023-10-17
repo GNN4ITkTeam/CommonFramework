@@ -126,15 +126,38 @@ class Filter(EdgeClassifierStage, FilterMixin):
                 batch = self.subsample(batch, no_grad_scores, self.hparams["ratio"])
 
         output = self.memory_robust_eval(batch)
-        loss = self.loss_function(output, batch)
+        loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
-        self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
+        self.log(
+            "train_loss",
+            loss,
+            on_step=False,
+            on_epoch=True,
+            batch_size=1,
+            sync_dist=True,
+        )
+        self.log(
+            "train_pos_loss",
+            pos_loss,
+            on_step=False,
+            on_epoch=True,
+            batch_size=1,
+            sync_dist=True,
+        )
+        self.log(
+            "train_neg_loss",
+            neg_loss,
+            on_step=False,
+            on_epoch=True,
+            batch_size=1,
+            sync_dist=True,
+        )
 
         return loss
 
     def shared_evaluation(self, batch, batch_idx):
         output = self.memory_robust_eval(batch)
-        loss = self.loss_function(output, batch)
+        loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
         scores = torch.sigmoid(output)
         all_truth = batch.y.bool()
@@ -145,6 +168,8 @@ class Filter(EdgeClassifierStage, FilterMixin):
             "all_truth": all_truth,
             "target_truth": target_truth,
             "output": scores,
+            "pos_loss": pos_loss,
+            "neg_loss": neg_loss,
         }
 
     def memory_robust_eval(self, batch):
