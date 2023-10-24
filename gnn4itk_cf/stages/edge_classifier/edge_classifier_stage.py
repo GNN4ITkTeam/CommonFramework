@@ -292,7 +292,7 @@ class EdgeClassifierStage(LightningModule):
             "loss": loss.detach(),
             "all_truth": all_truth,
             "target_truth": target_truth,
-            "output": scores.detach(),
+            "output": output,
             "batch": batch,
             "pos_loss": pos_loss,
             "neg_loss": neg_loss,
@@ -334,7 +334,8 @@ class EdgeClassifierStage(LightningModule):
     def test_step(self, batch, batch_idx):
         return self.shared_evaluation(batch, batch_idx)
 
-    def log_metrics(self, scores, all_truth, target_truth, loss):
+    def log_metrics(self, output, all_truth, target_truth, loss):
+        scores = torch.sigmoid(output)
         preds = scores > self.hparams["edge_cut"]
 
         # Positives
@@ -433,7 +434,7 @@ class EdgeClassifierStage(LightningModule):
         ) and self.hparams.get("skip_existing"):
             return
         eval_dict = self.shared_evaluation(batch, batch_idx)
-        scores = eval_dict["output"]
+        scores = torch.sigmoid(eval_dict["output"])
         batch = eval_dict["batch"]
         self.save_edge_scores(batch, scores, dataset)
 

@@ -160,6 +160,7 @@ class Filter(EdgeClassifierStage, FilterMixin):
         loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
         scores = torch.sigmoid(output)
+        batch.scores = scores
         all_truth = batch.y.bool()
         target_truth = (batch.weights > 0) & all_truth
 
@@ -167,9 +168,10 @@ class Filter(EdgeClassifierStage, FilterMixin):
             "loss": loss,
             "all_truth": all_truth,
             "target_truth": target_truth,
-            "output": scores,
+            "output": output,
             "pos_loss": pos_loss,
             "neg_loss": neg_loss,
+            "batch": batch,
         }
 
     def memory_robust_eval(self, batch):
@@ -302,6 +304,8 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
         z = self.gnn(self.stack_x(batch), batch.adj_t)
         output = self.memory_robust_eval(z, batch.edge_index)
         loss, pos_loss, neg_loss = self.loss_function(output, batch)
+
+        batch.scores = torch.sigmoid(output)
 
         all_truth = batch.y.bool()
         target_truth = (batch.weights > 0) & all_truth
