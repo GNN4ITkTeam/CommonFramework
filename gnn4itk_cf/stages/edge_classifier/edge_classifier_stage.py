@@ -285,7 +285,9 @@ class EdgeClassifierStage(LightningModule):
             target_truth.bool().cpu().detach(),
             scores.float().cpu().detach(),
         )
-        true_and_fake_positive = edge_positive - (preds & (~target_truth)).sum().float()
+        true_and_fake_positive = (
+            edge_positive - (preds & (~target_truth) & all_truth).sum().float()
+        )
 
         # Eff, pur, auc
         target_eff = target_true_positive / target_true
