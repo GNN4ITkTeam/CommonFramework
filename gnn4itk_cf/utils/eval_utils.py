@@ -498,33 +498,22 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
         event.track_edges = rearrange_by_distance(event, event.track_edges)
         # event = event.cpu()
 
-        # target true positive edge indices, used as nominator of target purity and purity
+        # target true positive edge indices, used as numerator of target purity and purity
         target_true_positive_edges = event.track_edges[
             :, event.target_mask & (event.truth_map > -1)
         ]
 
-        # true positive edge indices, used as nominator of total purity
+        # true positive edge indices, used as numerator of total purity
         true_positive_edges = event.track_edges[:, (event.truth_map > -1)]
 
         # all positive edges, used as denominator of total and target purity
         positive_edges = event.edge_index[:, event.pred]
 
         # masked positive edge indices, including true positive target edges and all false positive edges
-        # first get all non-target true positive edges
-        non_target_true_positive_indices = event.truth_map[
-            (~event.target_mask) & (event.truth_map > -1)
-        ]
-        # masking non-target true positive
-        non_target_true_positive_mask = torch.isin(
-            torch.arange(event.edge_index[:, event.pred].size(1)).to(
-                lightning_module.device
-            ),
-            non_target_true_positive_indices,
+        fake_positive_edges = event.edge_index[:, event.pred & (event.y == 0)]
+        masked_positive_edges = torch.cat(
+            [target_true_positive_edges, fake_positive_edges], dim=1
         )
-        # get masked positive edges
-        masked_positive_edges = event.edge_index[:, event.pred][
-            :, ~non_target_true_positive_mask
-        ]
 
         for key in ["r", "z"]:
             target_true_positive[key] = torch.cat(
@@ -539,7 +528,7 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
                 [masked_pred[key], event[key][masked_positive_edges[0]]], dim=0
             )
 
-    for nominator, denominator, suffix in zip(
+    for numerator, denominator, suffix in zip(
         [true_positive, target_true_positive, target_true_positive],
         [pred, pred, masked_pred],
         ["total_purity", "target_purity", "masked_purity"],
@@ -547,8 +536,8 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
         fig, ax = plot_efficiency_rz(
             denominator["z"].cpu(),
             denominator["r"].cpu(),
-            nominator["z"].cpu(),
-            nominator["r"].cpu(),
+            numerator["z"].cpu(),
+            numerator["r"].cpu(),
             plot_config,
         )
         # Save the plot
@@ -559,7 +548,7 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
             r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
             r"Edge score cut: " + str(config["score_cut"]) + "\n"
             r"Global purity: "
-            + f"{nominator['z'].size(0) / denominator['z'].size(0) : .5f}",
+            + f"{numerator['z'].size(0) / denominator['z'].size(0) : .5f}",
         )
         plt.tight_layout()
         save_dir = os.path.join(
