@@ -313,7 +313,7 @@ class EdgeClassifierStage(LightningModule):
 
         return preds
 
-    def on_train_start(self):
+    def on_train_epoch_start(self):
         self.trainer.strategy.optimizers = [
             self.trainer.lr_scheduler_configs[0].scheduler.optimizer
         ]
@@ -403,7 +403,7 @@ class EdgeClassifierStage(LightningModule):
         """
 
         # Load data from testset directory
-        graph_constructor = cls(config)
+        graph_constructor = cls(config).to(device)
         if checkpoint is not None:
             print(f"Restoring model from {checkpoint}")
             graph_constructor = cls.load_from_checkpoint(checkpoint, hparams=config).to(
@@ -458,7 +458,7 @@ class EdgeClassifierStage(LightningModule):
 
         for condition_key, condition_val in target_tracks.items():
             condition_lambda = get_condition_lambda(condition_key, condition_val)
-            passing_tracks = passing_tracks.cpu() * condition_lambda(event)
+            passing_tracks = passing_tracks.to(self.device) * condition_lambda(event)
 
         event.target_mask = passing_tracks
 
