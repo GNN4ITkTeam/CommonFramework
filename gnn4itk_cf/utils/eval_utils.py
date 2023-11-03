@@ -211,18 +211,20 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
         # Save the plot
         atlasify(
             "Internal",
-            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) "
-            + "\n"
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+            r" \bar{t}$ and soft interactions) " + "\n"
             r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
             r"Edge score cut: " + str(config["score_cut"]) + "\n"
-            f"Input graph size: {pred.shape[0]/n_graphs:.2e}, Graph Construction Efficiency: {graph_construction_efficiency:.3f}"
-            + "\n"
-            f"Mean graph size: {mean_graph_size:.2e}, Signal Efficiency: {target_efficiency:.3f}",
+            f"Input graph size: {pred.shape[0]/n_graphs:.2e}, Graph Construction"
+            f" Efficiency: {graph_construction_efficiency:.3f}" + "\n"
+            f"Mean graph size: {mean_graph_size:.2e}, Signal Efficiency:"
+            f" {target_efficiency:.3f}",
         )
 
         fig.savefig(os.path.join(config["stage_dir"], filename))
         print(
-            f'Finish plotting. Find the plot at {os.path.join(config["stage_dir"], filename)}'
+            "Finish plotting. Find the plot at"
+            f' {os.path.join(config["stage_dir"], filename)}'
         )
 
 
@@ -517,15 +519,28 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
 
         for key in ["r", "z"]:
             target_true_positive[key] = torch.cat(
-                [target_true_positive[key], event[key][target_true_positive_edges[0]]],
+                [
+                    target_true_positive[key].float(),
+                    event[key][target_true_positive_edges[0]].float(),
+                ],
                 dim=0,
             )
             true_positive[key] = torch.cat(
-                [true_positive[key], event[key][true_positive_edges[0]]], dim=0
+                [
+                    true_positive[key].float(),
+                    event[key][true_positive_edges[0]].float(),
+                ],
+                dim=0,
             )
-            pred[key] = torch.cat([pred[key], event[key][positive_edges[0]]], dim=0)
+            pred[key] = torch.cat(
+                [pred[key].float(), event[key][positive_edges[0]].float()], dim=0
+            )
             masked_pred[key] = torch.cat(
-                [masked_pred[key], event[key][masked_positive_edges[0]]], dim=0
+                [
+                    masked_pred[key].float(),
+                    event[key][masked_positive_edges[0]].float(),
+                ],
+                dim=0,
             )
 
     for numerator, denominator, suffix in zip(
