@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from .models.connected_components import ConnectedComponents
+from .models.cc_and_walk import CCandWalk
 
-__all__ = [
-    "ConnectedComponents",
-]
+__all__ = ["ConnectedComponents", "CCandWalk"]
