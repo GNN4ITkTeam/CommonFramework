@@ -1,0 +1,25 @@
+# CommonFramework configuration
+stage: graph_construction
+model: PyModuleMap
+input_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/feature_store_ttbar_uncorr/
+stage_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map_ttbar_uncorr/
+
+# Dataset parameters
+data_split: [0, 0, 1000] # Number of [training, validation, testing] examples
+
+# Evaluation parameters
+target_tracks: 
+  pt: [1000, .inf]
+  nhits: [3, .inf]
+  primary: True
+  pdgId: [not_in, [11, -11]]
+  radius: [0., 260.]
+  eta_particle: [-4., 4.]
+  redundant_split_edges: False
+  
+
+# Plotting parameters
+plots:
+  graph_construction_efficiency: 
+    title: Module Map Edge-wise Efficiency
+    pt_units: MeV
