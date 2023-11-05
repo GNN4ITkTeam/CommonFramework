@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import annotations
-
 import torch
 import pandas as pd
 import numpy as np
@@ -40,29 +38,44 @@ class PartialData(object):
         edge_cut: float = 1e-3,
         loose_cut: float = 0.01,
         tight_cut: float = 0.99,
-        random_drop: float = 0.,
         min_hits: int = 9,
+        random_drop: float = 0.,
+        signal_weight: float = 2,
         signal_selection: Optional[Dict[str, Tuple[float, float]]] = {
             "pt": ("range", [1000, None]),
-            "eta": ("range", [-4, 4]),
-            "primary": ("isin", [1]), 
-            "nhits": ("range", [7, None]),
-            "pdgId": ("notin", [11, -11]),
+            "nhits": ("range", [3, None]),
         },
         target_selection: Optional[Dict[str, Tuple[float, float]]] = {
-            "pt": ("range", [1000, None]),
+            "pt": ("range", [500, None]),
             "nhits": ("range", [3, None]),
         }
     ):
-        
+        """
+        Arguments:
+            event: a `pytorch_geometric` event record
+            edge_cut: the cut that is applied edge-wise
+            loose_cut: any hit that is isolated by the cut will be removed
+            tight_cut: any connected component that is longer than `min_hits`
+                under this cut will be selected and disregarded.
+            min_hits: see `tight_cut`
+            random_drop: randonly drop some edge for data augmentation
+            signal_weight: the weight to weigh signals over other positives.
+            signal_selection: a dictionary map the name of the feature to the signal selection, 
+            which is a tuple that is one of the following:
+                ("range", (vmin, vmax)): interval of that feature. Use `None` for unbounded.
+                ("isin", [allowed values]): is in a set of values
+                ("notin", [disallowed values]): is not in the set of values
+            target_selection: the same idea as selection but this will REMOVE the tracks from consideration.
+        """
         self.device = "cpu"
         
         self.full_event = event
         self.edge_cut = edge_cut
         self.loose_cut = loose_cut
         self.tight_cut = tight_cut
-        self.random_drop = random_drop
         self.min_hits = min_hits
+        self.random_drop = random_drop
+        self.signal_weight = signal_weight
         self.signal_selection = signal_selection
         self.target_selection = target_selection
         
@@ -195,7 +208,7 @@ class PartialData(object):
         )
 
         weights = torch.ones(input_pred_graph.shape[1], dtype = torch.float)
-        weights[self._truth_info["is_signal"][input_pred_graph[1]] & (input_pred_graph[1] >= 0)] *= 2
+        weights[self._truth_info["is_signal"][input_pred_graph[1]] & (input_pred_graph[1] >= 0)] *= self.signal_weight
         weights[~y] /= (weights[~y].sum() * 2)
         weights[y] /= (weights[y].sum() * 2)
         
@@ -223,7 +236,7 @@ class PartialData(object):
     def to(
         self, 
         device: torch.device
-    ) -> HGNNData:
+    ):
         self.cc_tracks = self.cc_tracks.to(device)
         self.device = device
         
