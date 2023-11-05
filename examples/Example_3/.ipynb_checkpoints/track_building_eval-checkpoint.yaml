@@ -1,0 +1,17 @@
+# CommonFramework configuration
+stage: track_building
+model: ConnectedComponents
+input_dir: MY_DATA_DIR/Example_3/gnn/ # Should contain the files used in training and inference
+stage_dir: MY_DATA_DIR/Example_3/connected_components/ # A directory to be created that will store logs, artifacts, and output data
+
+# Dataset parameters
+data_split: [80, 10, 10] # Number of [training, validation, testing] examples
+
+plots:
+  tracking_efficiency:
+    title: Example 3 Track Reconstruction Efficiency
+
+matching_fraction: 0.5
+matching_style: ATLAS
+min_track_length: 3
+min_particle_length: 3

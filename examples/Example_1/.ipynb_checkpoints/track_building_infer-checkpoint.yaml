@@ -1,0 +1,9 @@
+# CommonFramework configuration
+stage: track_building
+model: ConnectedComponents
+input_dir: MY_DATA_DIR/Example_1/gnn/ # Should contain the files used in training and inference
+stage_dir: MY_DATA_DIR/Example_1/connected_components/ # A directory to be created that will store logs, artifacts, and output data
+
+# Dataset parameters
+data_split: [80, 10, 10] # Number of [training, validation, testing] examples
+score_cut: 0.8
