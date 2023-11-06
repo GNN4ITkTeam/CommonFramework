@@ -1,6 +1,5 @@
 from atlasify import atlasify
 import os
-import matplotlib
 from matplotlib import pyplot as plt
 import numpy as np
 from pytorch_lightning import LightningModule

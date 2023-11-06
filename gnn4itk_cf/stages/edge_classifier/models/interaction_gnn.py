@@ -385,16 +385,9 @@ class InteractionGNN2(EdgeClassifierStage):
         hparams["batchnorm"] = (
             False if "batchnorm" not in hparams else hparams["batchnorm"]
         )
-        hparams["output_batch_norm"] = (
-            False if "output_batch_norm" not in hparams else hparams["output_batch_norm"]
-        )
-        hparams["edge_output_transform_final_batch_norm"] = (
-            False if "output_batch_norm" not in hparams else hparams["output_batch_norm"]
-        )
-
-        hparams["edge_output_transform_final_batch_norm"] = (
-            None if "output_activation" not in hparams else hparams["output_activation"]
-        )
+        hparams["output_batch_norm"] = hparams.get("output_batch_norm", False)
+        hparams["edge_output_transform_final_batch_norm"] = hparams.get("edge_output_transform_final_batch_norm", False)
+        hparams["edge_output_transform_final_batch_norm"] = hparams.get("edge_output_transform_final_batch_norm", False)
 
         # TODO: Add equivalent check and default values for other model parameters ?
         # TODO: Use get() method

@@ -50,7 +50,6 @@ class EdgeClassifierStage(LightningModule):
         """
         Initialise the Lightning Module that can scan over different GNN training regimes
         """
-        self.to(device)
         self.save_hyperparameters(hparams)
 
         # Assign hyperparameters
@@ -183,7 +182,7 @@ class EdgeClassifierStage(LightningModule):
         return optimizer, scheduler
 
     def training_step(self, batch, batch_idx):
-        if batch.edge_index.shape[1] < 2800000:
+        if batch.edge_index.shape[1] < self.hparams.get("max_training_graph_size", 2800000):
             output = self(batch)
             loss = self.loss_function(output, batch)
             self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1, sync_dist=True)
@@ -209,8 +208,7 @@ class EdgeClassifierStage(LightningModule):
             " weighting is handled in preprocessing."
         )
 
-        if ("loss_balancing" in self.hparams) and self.hparams["loss_balancing"]:
-            print("loss_balancing")
+        if self.hparams.get("loss_balancing", False):
             negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
             negative_loss = F.binary_cross_entropy_with_logits(
                 output[negative_mask], torch.zeros_like(output[negative_mask]), weight=batch.weights[negative_mask].abs()
@@ -276,10 +274,6 @@ class EdgeClassifierStage(LightningModule):
         target_true_positive = (target_truth.bool() & preds).sum().float()
         all_true_positive = (all_truth.bool() & preds).sum().float()
 
-        fake_positive = edge_positive.item() - all_true_positive.item() 
-        # Masked Positives
-        target_and_fake_edge_positive = target_true_positive + fake_positive
-
         # add torch.sigmoid(output).float() to convert to float in case training is done with 16-bit precision
         target_auc = roc_auc_score(
             target_truth.bool().cpu().detach(),
@@ -289,15 +283,8 @@ class EdgeClassifierStage(LightningModule):
             edge_positive - (preds & (~target_truth) & all_truth).sum().float()
         )
 
-        # Eff, pur, auc
-        print("target_true_positive", target_true_positive)
-        print("target_true", target_true)
-        print("edge_positive", edge_positive)
-        print("target_and_fake_edge_positive", target_and_fake_edge_positive)
-
         target_eff = target_true_positive / target_true
         target_pur = target_true_positive / edge_positive
-        target_pur_vs_fake = target_true_positive / target_and_fake_edge_positive
         total_pur = all_true_positive / edge_positive
         purity = target_true_positive / true_and_fake_positive
         current_lr = self.optimizers().param_groups[0]["lr"]
@@ -307,7 +294,6 @@ class EdgeClassifierStage(LightningModule):
                 "current_lr": current_lr,
                 "eff": target_eff,
                 "target_pur": target_pur,
-                "target_pur_vs_fake": target_pur_vs_fake,
                 "total_pur": total_pur,
                 "pur": purity,
                 "auc": target_auc,
