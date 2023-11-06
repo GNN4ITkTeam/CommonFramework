@@ -1,0 +1,11 @@
+stage: edge_classifier
+model: InteractionGNN2
+input_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map_ttbar_uncorr/ # Should contain the files used in training and inference
+stage_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/ # A directory to be created that will store logs, artifacts, and output data
+project: CTD_2023 # Used in logging
+gpus: 1
+nodes: 1
+# Dataset parameters
+data_split: [10, 10, 1000] # Number of [training, validation, testing] examples
+dataset_class: GraphDataset
+undirected: False
