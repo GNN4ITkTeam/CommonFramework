@@ -6,7 +6,7 @@ build_docker:
     GIT_SSL_NO_VERIFY: "true"
     DOCKER_FILE: Dockerfile
   tags:
-    - docker-image-build
+    - docker-machine
   script:
     - ignore
   rules:
@@ -23,6 +23,6 @@ build_docker_test:
     GIT_SSL_NO_VERIFY: "true"
     DOCKER_FILE: Dockerfile
   tags:
-    - docker-image-build
+    - docker-machine
   script:
     - ignore
