@@ -182,10 +182,19 @@ class EdgeClassifierStage(LightningModule):
         return optimizer, scheduler
 
     def training_step(self, batch, batch_idx):
-        if batch.edge_index.shape[1] < self.hparams.get("max_training_graph_size", 2800000):
+        if batch.edge_index.shape[1] < self.hparams.get(
+            "max_training_graph_size", 2800000
+        ):
             output = self(batch)
             loss = self.loss_function(output, batch)
-            self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1, sync_dist=True)
+            self.log(
+                "train_loss",
+                loss,
+                on_step=False,
+                on_epoch=True,
+                batch_size=1,
+                sync_dist=True,
+            )
 
             return loss
         else:
@@ -209,13 +218,19 @@ class EdgeClassifierStage(LightningModule):
         )
 
         if self.hparams.get("loss_balancing", False):
-            negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
+            negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (
+                batch.weights < 0
+            )
             negative_loss = F.binary_cross_entropy_with_logits(
-                output[negative_mask], torch.zeros_like(output[negative_mask]), weight=batch.weights[negative_mask].abs()
+                output[negative_mask],
+                torch.zeros_like(output[negative_mask]),
+                weight=batch.weights[negative_mask].abs(),
             )
             positive_mask = (batch.y == 1) & (batch.weights > 0)
             positive_loss = F.binary_cross_entropy_with_logits(
-                output[positive_mask], torch.ones_like(output[positive_mask]), weight=batch.weights[positive_mask].abs()
+                output[positive_mask],
+                torch.ones_like(output[positive_mask]),
+                weight=batch.weights[positive_mask].abs(),
             )
             return positive_loss + negative_loss
         else:
@@ -223,7 +238,6 @@ class EdgeClassifierStage(LightningModule):
                 output, batch.y.float(), weight=batch.weights.abs()
             )
         return loss
-
 
     def shared_evaluation(self, batch, batch_idx):
         output = self(batch)
@@ -510,8 +524,10 @@ class GraphDataset(Dataset):
         event = self.construct_weighting(event)
         event = self.handle_edge_list(event)
         event = self.scale_features(event)
-        if self.hparams.get('edge_features')!=None:
-            event = self.add_edge_features(event) # scaling must be done before adding features
+        if self.hparams.get("edge_features") is not None:
+            event = self.add_edge_features(
+                event
+            )  # scaling must be done before adding features
         return event
 
     def apply_hard_cuts(self, event):
