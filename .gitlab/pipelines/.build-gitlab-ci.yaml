@@ -27,7 +27,7 @@
 #   script:
 #     - ignore
 
-build_docker:
+build_docker_test:
   stage: build
   tags:
   - docker-privileged-xl
