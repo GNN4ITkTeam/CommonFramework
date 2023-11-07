@@ -1,5 +1,7 @@
 # Connecting The Dots (CTD) 2023 reproducibility
 
+![CTD2023](banniere_CTD2023_INDICO-final-try_960-400pixels.png "CTD2023")
+
 This example gives instructions to reproduce the results presented by the GNN4ITk team at Connecting The Dots 2023. 
 
 ## Simulated event sample
@@ -115,21 +117,29 @@ g4i-train MY_ACORN_DIR/examples/CTD_2023/gnn_train.yaml
 
 Typically the training will last at least ~100 epochs to start to plateau significantly.
 
+The hyperparameters of the model and training can be found here:
+```bash
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/lightning_logs/version_XXX/hparams.yaml
+```
+(XXX = run version number)
+
 The log of the training can be found here:
 ```bash
-TODO
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/lightning_logs/version_XXX/metrics.csv
 ```
+(XXX = run version number)
 
-The last and the 'best' checkpoint of the model are stored here:
+The last and the 'best' checkpoints of the model are stored here:
 
 ```bash
-TODO
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/artifacts
 ```
 
 A already trained Edge Classifier GNN model checkpoint can be pull from the ACORN git repo:
 
 ```bash
-TODO
+cd MY_ACORN_DIR/model_store
+git lfs pull --include "IN2_ep92_eff99.2_pur92.8.ckpt"
 ```
 
 ### Inference
@@ -147,6 +157,8 @@ g4i-infer MY_ACORN_DIR/examples/CTD_2023/gnn_eval.yaml
 ## Track building stage
 
 ### Inference
+
+The inference is 
 
 ```bash
 g4i-infer MY_ACORN_DIR/examples/CTD_2023/track_building_infer.yaml
