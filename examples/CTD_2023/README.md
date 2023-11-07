@@ -39,7 +39,11 @@ Run the following command:
 g4i-infer MY_ACORN_DIR/examples/CTD_2023/data_reader.yaml
 ```
 
-Note : This stage can take a lot of time and ressources. If you want you can directly download the results of the inference from the three container on the grid:
+
+---
+**NOTE**
+
+This stage can take a lot of time and ressources. If you want you can directly get the results of the inference from the three container on the grid:
 
 ```bash
 user.avallier:ATLAS-P2-ITK-23-00-03_Rel.21.9_feature_store_ttbar_uncorr_v1_trainset
@@ -47,8 +51,13 @@ user.avallier:ATLAS-P2-ITK-23-00-03_Rel.21.9_feature_store_ttbar_uncorr_v1_valse
 user.avallier:ATLAS-P2-ITK-23-00-03_Rel.21.9_feature_store_ttbar_uncorr_v1_testset
 ```
 
-Please copy them in `MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/feature_store_ttbar_uncorr/`
+Please copy them in:
+```bash
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/feature_store_ttbar_uncorr/
+``````
 before running the next stages.
+
+---
 
 ## Graph construction stage
 
@@ -153,6 +162,16 @@ g4i-infer MY_ACORN_DIR/examples/CTD_2023/gnn_infer.yaml
 ```bash
 g4i-infer MY_ACORN_DIR/examples/CTD_2023/gnn_eval.yaml
 ```
+The results will be the plots of cumulative efficiency vs (r,z) (graph construction efficiency * gnn signal efficiency), efficiency vs (r,z) (gnn signal efficiency), target purity, purity and total purity vs (r, z):
+
+```bash
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/cumulative_edgewise_efficiency_rz.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/edgewise_efficiency_rz.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/edgewise_target_purity_rz.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/edgewise_masked_purity_rz.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/edgewise_total_purity_rz.png
+```
+
 
 ## Track building stage
 
@@ -169,3 +188,8 @@ g4i-infer MY_ACORN_DIR/examples/CTD_2023/track_building_infer.yaml
 ```bash
 g4i-eval MY_ACORN_DIR/examples/CTD_2023/track_building_eval.yaml
 ```
+The result will be the plots of track reconstruction efficiency
+vs eta and of track reconstruction efficiency
+vs pT.
+
+### Track generation
