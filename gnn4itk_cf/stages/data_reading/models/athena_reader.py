@@ -70,6 +70,7 @@ class AthenaReader(EventReader):
         return module_lookup[module_lookup.side == 0]  # .copy() ??
 
     def _build_single_csv(self, event, output_dir=None):
+        os.sched_setaffinity(0, range(1000))
         clusters_file = event["clusters"]
         particles_file = event["particles"]
         spacepoints_file = event["spacepoints"]

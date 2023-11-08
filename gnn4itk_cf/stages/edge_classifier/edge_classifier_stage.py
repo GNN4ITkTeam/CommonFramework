@@ -52,7 +52,6 @@ class EdgeClassifierStage(LightningModule):
         """
         Initialise the Lightning Module that can scan over different GNN training regimes
         """
-
         self.save_hyperparameters(hparams)
 
         # Assign hyperparameters
@@ -223,7 +222,9 @@ class EdgeClassifierStage(LightningModule):
             sync_dist=True,
         )
 
-        return loss
+            return loss
+        else:
+            return None
 
     def loss_function(self, output, batch, balance="proportional"):
         """
@@ -355,7 +356,6 @@ class EdgeClassifierStage(LightningModule):
             edge_positive - (preds & (~target_truth) & all_truth).sum().float()
         )
 
-        # Eff, pur, auc
         target_eff = target_true_positive / target_true
         target_pur = target_true_positive / edge_positive
         total_pur = all_true_positive / edge_positive
@@ -588,8 +588,11 @@ class GraphDataset(Dataset):
         event = self.apply_hard_cuts(event)
         event = self.construct_weighting(event)
         event = self.handle_edge_list(event)
-        event = self.add_edge_features(event)
         event = self.scale_features(event)
+        if self.hparams.get("edge_features") is not None:
+            event = self.add_edge_features(
+                event
+            )  # scaling must be done before adding features
         return event
 
     def apply_hard_cuts(self, event):
