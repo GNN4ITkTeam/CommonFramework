@@ -112,7 +112,6 @@ def get_trainer(config, default_root_dir):
         logging.info(
             f"Found checkpoint from a previous run in {default_root_dir}, resuming from {find_latest_checkpoint(default_root_dir)}"
         )
-        resume = "must"
 
     logging.info(f"Job ID: {job_id}, resume: {resume}")
 
