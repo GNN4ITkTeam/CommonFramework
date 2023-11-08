@@ -9,7 +9,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 # add some packages
 RUN apt-get update
-RUN apt-get install -y git h5utils wget vim
+RUN apt-get install -y git h5utils wget vim g++
 
 # update python pip
 RUN python -m pip install --upgrade pip

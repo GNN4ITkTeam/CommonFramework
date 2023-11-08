@@ -42,6 +42,13 @@ class PyModuleMap(GraphConstructionStage):
         self.use_pyg = True
         self.use_csv = True
         self.gpu_available = torch.cuda.is_available()
+        if self.gpu_available:
+            self.device = "cuda"
+        else:
+            self.device = "cpu"
+
+    def to(self, device):
+        return self
 
     def load_module_map(self):
         """
@@ -97,6 +104,8 @@ class PyModuleMap(GraphConstructionStage):
         logging.info(f"Building graphs for {data_name}")
 
         for graph, _, truth in tqdm(dataset):
+            if graph is None:
+                continue
             if os.path.exists(os.path.join(output_dir, f"event{graph.event_id}.pyg")):
                 continue
 

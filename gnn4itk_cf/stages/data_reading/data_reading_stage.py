@@ -150,11 +150,11 @@ class EventReader:
             return
 
         particles = pd.read_csv(event["particles"])
+        particles = particles.rename(columns={"eta": "eta_particle"})
         hits = pd.read_csv(event["truth"])
         hits, particles = self._merge_particles_to_hits(hits, particles)
         hits = self._add_handengineered_features(hits)
         hits = self._clean_noise_duplicates(hits)
-
         tracks, track_features, hits = self._build_true_tracks(hits)
         hits, particles, tracks = self._custom_processing(hits, particles, tracks)
         graph = self._build_graph(hits, tracks, track_features, event_id)
@@ -174,6 +174,7 @@ class EventReader:
                 partial(self._build_single_pyg_event, output_dir=stage_dir),
                 csv_events,
                 max_workers=max_workers,
+                chunksize=1,
                 desc=f"Building {dataset_name} graphs",
             )
         else:
@@ -277,15 +278,66 @@ class EventReader:
 
         return hits
 
-    def _add_handengineered_features(self, hits):
-        assert all(
-            col in hits.columns for col in ["x", "y", "z"]
-        ), "Need to add (x,y,z) features"
+    def get_pixel_regions_index(self, hits):
+        pixel_regions_index = pd.Index([])
+        for region_id, desc in self.config["region_labels"].items():
+            if desc["hardware"] == "PIXEL":
+                pixel_regions_index = pixel_regions_index.append(
+                    hits.index[hits.region == region_id]
+                )
+        return pixel_regions_index
 
-        r = np.sqrt(hits.x**2 + hits.y**2)
-        phi = np.arctan2(hits.y, hits.x)
-        eta = self.calc_eta(r, hits.z)
-        hits = hits.assign(r=r, phi=phi, eta=eta)
+    def _add_handengineered_features(self, hits):
+        pixel_regions_idx = self.get_pixel_regions_index(hits)
+        assert all(
+            col in hits.columns
+            for col in [
+                "x",
+                "y",
+                "z",
+                "cluster_x_1",
+                "cluster_y_1",
+                "cluster_z_1",
+                "cluster_x_2",
+                "cluster_y_2",
+                "cluster_z_2",
+            ]
+        ), "Need to add (x,y,z) features"
+        if "r" in self.config["feature_sets"]["hit_features"]:
+            r = np.sqrt(hits.x**2 + hits.y**2)
+            hits = hits.assign(r=r)
+        if "phi" in self.config["feature_sets"]["hit_features"]:
+            phi = np.arctan2(hits.y, hits.x)
+            hits = hits.assign(phi=phi)
+        if "eta" in self.config["feature_sets"]["hit_features"]:
+            eta = self.calc_eta(
+                r, hits.z
+            )  # TODO check if r is defined (same for clusters, below)
+            hits = hits.assign(eta=eta)
+        if "cluster_r_1" in self.config["feature_sets"]["hit_features"]:
+            cluster_r_1 = np.sqrt(hits.cluster_x_1**2 + hits.cluster_y_1**2)
+            cluster_r_1.loc[pixel_regions_idx] = r.loc[pixel_regions_idx]
+            hits = hits.assign(cluster_r_1=cluster_r_1)
+        if "cluster_phi_1" in self.config["feature_sets"]["hit_features"]:
+            cluster_phi_1 = np.arctan2(hits.cluster_y_1, hits.cluster_x_1)
+            cluster_phi_1.loc[pixel_regions_idx] = phi.loc[pixel_regions_idx]
+            hits = hits.assign(cluster_phi_1=cluster_phi_1)
+        if "cluster_eta_1" in self.config["feature_sets"]["hit_features"]:
+            cluster_eta_1 = self.calc_eta(cluster_r_1, hits.cluster_z_1)
+            cluster_eta_1.loc[pixel_regions_idx] = eta.loc[pixel_regions_idx]
+            hits = hits.assign(cluster_eta_1=cluster_eta_1)
+        if "cluster_r_2" in self.config["feature_sets"]["hit_features"]:
+            cluster_r_2 = np.sqrt(hits.cluster_x_2**2 + hits.cluster_y_2**2)
+            cluster_r_2.loc[pixel_regions_idx] = r.loc[pixel_regions_idx]
+            hits = hits.assign(cluster_r_2=cluster_r_2)
+        if "cluster_phi_2" in self.config["feature_sets"]["hit_features"]:
+            cluster_phi_2 = np.arctan2(hits.cluster_y_2, hits.cluster_x_2)
+            cluster_phi_2.loc[pixel_regions_idx] = phi.loc[pixel_regions_idx]
+            hits = hits.assign(cluster_phi_2=cluster_phi_2)
+        if "cluster_eta_2" in self.config["feature_sets"]["hit_features"]:
+            cluster_eta_2 = self.calc_eta(cluster_r_2, hits.cluster_z_2)
+            cluster_eta_2.loc[pixel_regions_idx] = eta.loc[pixel_regions_idx]
+            hits = hits.assign(cluster_eta_2=cluster_eta_2)
 
         return hits
 

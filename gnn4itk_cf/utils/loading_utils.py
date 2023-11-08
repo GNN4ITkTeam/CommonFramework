@@ -223,20 +223,37 @@ def handle_edge_features(event, edge_features):
     src, dst = event.edge_index
 
     for edge_feature in edge_features:
-        if "dr" in edge_features:
+        if "dr" in edge_features and not ("dr" in event.keys):
             event.dr = event.r[dst] - event.r[src]
-        if "dphi" in edge_features:
-            event.dphi = reset_angle(event.phi[dst] - event.phi[src])
-        if "dz" in edge_features:
+        if "dphi" in edge_features and not ("dphi" in event.keys):
+            event.dphi = (
+                reset_angle((event.phi[dst] - event.phi[src]) * torch.pi) / torch.pi
+            )
+        if "dz" in edge_features and not ("dz" in event.keys):
             event.dz = event.z[dst] - event.z[src]
-        if "deta" in edge_features:
+        if "deta" in edge_features and not ("deta" in event.keys):
             event.deta = event.eta[dst] - event.eta[src]
-        if "phislope" in edge_features:
+        if "phislope" in edge_features and not ("phislope" in event.keys):
             dr = event.r[dst] - event.r[src]
-            dphi = reset_angle(event.phi[dst] - event.phi[src])
+            dphi = reset_angle((event.phi[dst] - event.phi[src]) * torch.pi) / torch.pi
             phislope = dphi / dr
-            phislope = torch.nan_to_num(phislope, nan=0.0, posinf=1, neginf=-1)
             event.phislope = phislope
+        if "phislope" in edge_features:
+            event.phislope = torch.nan_to_num(
+                event.phislope, nan=0.0, posinf=100, neginf=-100
+            )
+            event.phislope = torch.clamp(event.phislope, -100, 100)
+        if "rphislope" in edge_features and not ("rphislope" in event.keys):
+            r_ = (event.r[dst] + event.r[src]) / 2.0
+            dr = event.r[dst] - event.r[src]
+            dphi = reset_angle((event.phi[dst] - event.phi[src]) * torch.pi) / torch.pi
+            phislope = dphi / dr
+            phislope = torch.nan_to_num(phislope, nan=0.0, posinf=100, neginf=-100)
+            phislope = torch.clamp(phislope, -100, 100)
+            rphislope = torch.multiply(r_, phislope)
+            event.rphislope = rphislope  # features / norm / pre_proc once
+        if "rphislope" in edge_features:
+            event.rphislope = torch.nan_to_num(event.rphislope, nan=0.0)
 
 
 def get_weight_mask(event, weight_conditions):

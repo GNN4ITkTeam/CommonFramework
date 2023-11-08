@@ -18,4 +18,4 @@ run tests:
     reports:
       coverage_report:
         coverage_format: cobertura
-        path: coverage.xml
+        path: tests/coverage.xml
