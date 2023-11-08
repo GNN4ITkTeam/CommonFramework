@@ -26,19 +26,23 @@ In the following replace `MY_ACORN_DIR` by you local `ACORN` installation direct
 
 Inference will read the dumped data and will: 
 
-- sample the events in train, val and test set accordingly with the sampling in the `train_set_ttbar_uncorr.txt`, `test_set_ttbar_uncorr.txt`, and `val_set_ttbar_uncorr.txt` files.
+- samplethe events in thetrain, val and test set accordingly with the sampling in the `train_set_ttbar_uncorr.txt`, `test_set_ttbar_uncorr.txt`, and `val_set_ttbar_uncorr.txt` files.
 - represent the event as a pyg Data object
 - store requested hits features and particles (tracks) features
 - preprocess requested features
 - build track edges
 - data from the dumped root data and build track edges. Results are saved as pyg files.
 
-Run the following command:
+Run the command:
 
 ```bash
 g4i-infer MY_ACORN_DIR/examples/CTD_2023/data_reader.yaml
 ```
 
+The result will be pyg files containing the events represented as pyg Data object:
+- a trainset of 9.8K events
+- a valset of 1K events
+- a testset of 1K events
 
 ---
 **NOTE**
@@ -63,7 +67,10 @@ before running the next stages.
 
 ### Inference
 
-Inference will construct the graph (i.e. the edge_index of the graph) connecting nodes (representing hits/Space Points) based on a ITK-23-00 version of the Module Map.
+Inference will: 
+- construct the graph (i.e. the `edge_index` of the graph) connecting nodes (representing hits/Space Points) based on a ITK-23-00 version of the Module Map
+- create a `truth_map` between `track edges` and `edge_index`.
+- create the target edge label `y` (boolean: `y==False` for fake edges and `y==True` for true edges)
 
 The Module Map can be found here : 
 
@@ -83,15 +90,17 @@ Then run the command:
 g4i-infer MY_ACORN_DIR/examples/CTD_2023/module_map_infer.yaml
 ```
 
-The results are stored as pyg files with an edge_index.
+The result is the train, val and test sets of pyg files updated by the `edge_index`, the `truth_map` and the edges target `y`
 
 ### Evaluation
+
+Run the command:
 
 ```bash
 g4i-eval MY_ACORN_DIR/examples/CTD_2023/module_map_eval.yaml
 ```
 
-The results will be the graph construction efficiency plots vs eta and pT:
+The result will be the graph construction efficiency plots vs eta and pT:
 
 ```bash
 MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map_ttbar_uncorr/edgewise_efficiency_eta.png
@@ -118,7 +127,7 @@ Model and training parameters can be found in the config file here:
 MY_ACORN_DIR/examples/CTD_2023/gnn_train.yaml
 ```
  
-Run the command to launch the training: 
+Run the command:
 
 ```bash
 g4i-train MY_ACORN_DIR/examples/CTD_2023/gnn_train.yaml
@@ -153,11 +162,22 @@ git lfs pull --include "IN2_ep92_eff99.2_pur92.8.ckpt"
 
 ### Inference
 
+Inference of the GNN model will:
+- predict scores for the edges of each event in testset stored in `event.scores` 
+- create a tensor of boolean `event.pred` (`True` if the edge passes the cut `False` if not)
+- update the `event.truth_map` to take into account true edges which are not passing the cut
+
+Run the command:
+
 ```bash
 g4i-infer MY_ACORN_DIR/examples/CTD_2023/gnn_infer.yaml
 ```
 
+The result is the scored testset events.
+
 ### Evaluation
+
+Run the command:
 
 ```bash
 g4i-infer MY_ACORN_DIR/examples/CTD_2023/gnn_eval.yaml
@@ -172,24 +192,40 @@ MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/edgewise_maske
 MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/edgewise_total_purity_rz.png
 ```
 
-
 ## Track building stage
 
 ### Inference
 
-The inference is 
+The inference will:
+- Apply a cut on edge scores
+- Compute Connected Components and identified simple path as track candidates
+- Compute a Walk Through algorithm on the remaining part of the graph (not simple path i.e. branching) to desambiguize road and create new track candidates
+- Create a `event.label` for each node (hit/Space Point) which is the id of the track candidates the node (hit/Space Point) belongs. 
+
+Run the command:
 
 ```bash
 g4i-infer MY_ACORN_DIR/examples/CTD_2023/track_building_infer.yaml
 ```
+
+The result is the labelled events of testset.
 
 ### Evaluation
 
 ```bash
 g4i-eval MY_ACORN_DIR/examples/CTD_2023/track_building_eval.yaml
 ```
-The result will be the plots of track reconstruction efficiency
+The result is the plots of track reconstruction efficiency
 vs eta and of track reconstruction efficiency
 vs pT.
 
+```bash
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/cc_and_walk_ttbar_uncorr/track_reconstruction_eff_vs_eta.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/cc_and_walk_ttbar_uncorr/track_reconstruction_eff_vs_pt.png
+```
+
 ### Track generation
+
+```bash
+python dump_reco_trks_to_ascii.py -i MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/cc_and_walk_ttbar_uncorr/testset -o MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/cc_and_walk_ttbar_uncorr/tracks/
+```
