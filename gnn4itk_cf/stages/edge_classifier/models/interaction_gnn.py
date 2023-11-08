@@ -631,9 +631,9 @@ class InteractionGNN2WithPyG(InteractionGNN2):
                 or self.hparams.get("edge_net_recurrent")
                 else InteractionConv2(in_node_net, in_edge_net, **self.hparams)
             )
-        self.checkpoint = (self.hparams.get("checkpoint", False) or self.hparams.get(
+        self.checkpoint = self.hparams.get("checkpoint", False) or self.hparams.get(
             "checkpointing", False
-        ))
+        )
 
     def forward(self, batch):
         x = torch.stack(
