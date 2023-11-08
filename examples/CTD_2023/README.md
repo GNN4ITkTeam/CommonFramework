@@ -1,6 +1,6 @@
 # Connecting The Dots (CTD) 2023 reproducibility
 
-![CTD2023](banniere_CTD2023_INDICO-final-try_960-400pixels.png "CTD2023")
+![CTD2023](images/banniere_CTD2023_INDICO-final-try_960-400pixels.png "CTD2023")
 
 This example gives instructions to reproduce the results presented by the GNN4ITk team at Connecting The Dots 2023. 
 
