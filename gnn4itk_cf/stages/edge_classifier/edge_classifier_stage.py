@@ -222,9 +222,7 @@ class EdgeClassifierStage(LightningModule):
             sync_dist=True,
         )
 
-            return loss
-        else:
-            return None
+        return loss
 
     def loss_function(self, output, batch, balance="proportional"):
         """

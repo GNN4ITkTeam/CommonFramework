@@ -37,7 +37,10 @@ from .core_utils import str_to_class, find_latest_checkpoint
 @click.command()
 @click.argument("config_file")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose mode")
-def main(config_file, verbose):
+@click.option(
+    "--checkpoint", "-c", default=None, help="Checkpoint to use for evaluation"
+)
+def main(config_file, verbose, checkpoint):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.
     """
@@ -47,10 +50,10 @@ def main(config_file, verbose):
     else:
         logging.basicConfig(level=logging.INFO)
 
-    infer(config_file)
+    infer(config_file, checkpoint)
 
 
-def infer(config_file):
+def infer(config_file, checkpoint=None):
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -62,14 +65,18 @@ def infer(config_file):
     stage_module = str_to_class(stage, model)
 
     if issubclass(stage_module, LightningModule):
-        lightning_infer(config, stage_module)
+        lightning_infer(config, stage_module, checkpoint)
     else:
         stage_module.infer(config)
 
 
-def lightning_infer(config, stage_module):
-    checkpoint_path = find_latest_checkpoint(
-        config["stage_dir"], templates=["best*.ckpt", "*.ckpt"]
+def lightning_infer(config, stage_module, checkpoint=None):
+    checkpoint_path = (
+        checkpoint
+        if checkpoint
+        else find_latest_checkpoint(
+            config["stage_dir"], templates=["best*.ckpt", "*.ckpt"]
+        )
     )
     if not checkpoint_path:
         print("No checkpoint found")
