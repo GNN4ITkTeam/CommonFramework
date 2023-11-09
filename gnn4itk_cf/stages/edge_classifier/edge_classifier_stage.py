@@ -288,7 +288,7 @@ class EdgeClassifierStage(LightningModule):
         target_truth = (batch.weights > 0) & all_truth
 
         return {
-            "loss": loss.detach(),
+            "loss": loss,
             "all_truth": all_truth,
             "target_truth": target_truth,
             "output": output,

@@ -13,6 +13,7 @@ from gnn4itk_cf.utils.plotting_utils import (
     plot_1d_histogram,
     plot_eff_pur_region,
     plot_efficiency_rz,
+    plot_score_histogram,
 )
 
 
@@ -253,12 +254,11 @@ def graph_roc_curve(lightning_module, plot_config, config):
     """
     Plot the ROC curve for the graph construction efficiency.
     """
-    print("Plotting the ROC curve")
+    print("Plotting the ROC curve and score distribution")
     all_y_truth, all_scores = [], []
 
     for event in tqdm(lightning_module.testset):
         event = event.to(lightning_module.device)
-
         # Need to apply score cut and remap the truth_map
         if "weights" in event.keys:
             target_y = event.weights.bool() & event.y.bool()
@@ -306,6 +306,23 @@ def graph_roc_curve(lightning_module, plot_config, config):
     print(
         "Finish plotting. Find the ROC curve at"
         f' {os.path.join(config["stage_dir"], "roc_curve.png")}'
+    )
+    plt.close()
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax = plot_score_histogram(all_scores, all_y_truth.astype(np.int16), ax=ax)
+    ax.set_xlabel("Edge score", ha="right", x=0.95, fontsize=14)
+    ax.set_ylabel("Count", ha="right", y=0.95, fontsize=14)
+    atlasify(
+        "Internal",
+        f"Score Distribution \n"
+        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+        r" \bar{t}$ and soft interactions) " + "\n"
+        r"$p_T > 1$GeV, $|\eta| < 4$",
+    )
+    fig.savefig(os.path.join(config["stage_dir"], "score_distribution.png"))
+    print(
+        "Finish plotting. Find the score distribution at"
+        f' {os.path.join(config["stage_dir"], "score_distribution.png")}'
     )
 
 
