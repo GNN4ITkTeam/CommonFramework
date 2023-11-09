@@ -1,10 +1,6 @@
 # Connecting The Dots (CTD) 2023 reproducibility
 
-<div align="center">
-
-<img src="images/banniere_CTD2023_INDICO-final-try_960-400pixels.png" width="500px">
-
-</div>
+![CTD2023](images/banniere_CTD2023_INDICO-final-try_960-400pixels.png "CTD2023")
 
 
 This example gives instructions to reproduce the results presented by the GNN4ITk team at Connecting The Dots 2023. 
@@ -177,7 +173,7 @@ Run the command:
 ```bash
 g4i-infer MY_ACORN_DIR/examples/CTD_2023/gnn_infer.yaml
 ```
-
+TODO : add command with ckpt
 The result is the scored testset events.
 
 ### Evaluation
@@ -225,12 +221,13 @@ vs eta and of track reconstruction efficiency
 vs pT.
 
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/cc_and_walk_ttbar_uncorr/track_reconstruction_eff_vs_eta.png
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/cc_and_walk_ttbar_uncorr/track_reconstruction_eff_vs_pt.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track_ttbar_uncorr/track_reconstruction_eff_vs_eta.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track_ttbar_uncorr/track_reconstruction_eff_vs_pt.png
 ```
 
-### Track generation
+### Track generation (OBSOLETE: TO BE REMOVE)
 
 ```bash
-python dump_reco_trks_to_ascii.py -i MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/cc_and_walk_ttbar_uncorr/testset -o MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/cc_and_walk_ttbar_uncorr/tracks/
+python dump_reco_trks_to_ascii.py -i MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track_ttbar_uncorr/testset -o MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track_ttbar_uncorr/tracks/
 ```
+
