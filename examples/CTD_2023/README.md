@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="images/banniere_CTD2023_INDICO-final-try_960-400pixels.png" width="400px">
+<img src="images/banniere_CTD2023_INDICO-final-try_960-400pixels.png" width="500px">
 
 </div>
 
