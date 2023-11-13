@@ -17,22 +17,54 @@ The simulated data dumped in ROOT format from RDO simulated samples can be downl
 user.jstark:GNN4Itk_v2__mc15_14TeV.600012.PhPy8EG_A14_ttbar_hdamp258p75_nonallhad.recon.RDO.e8185_s3770_s3773_r14431
 ```
 
+Assuming  `MY_DATA_DIR` is your data directory, create the following sub directories:
+
+```bash
+mkdir MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9
+mkdir MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar
+```
+
+Assuming you have configure your ATLAS environnement on the grid,
+ run the following commands to downlaod the data:
+
+```bash
+cd MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar
+lsetup rucio
+voms-proxy-init -voms atlas
+rucio download user.jstark:GNN4Itk_v2__mc15_14TeV.600012.PhPy8EG_A14_ttbar_hdamp258p75_nonallhad.recon.RDO.e8185_s3770_s3773_r14431
+```
+
 Before running the example please replace `MY_DATA_DIR` in all the *.yaml config files or set a environment variable accordignly. 
 
-In the following replace `MY_ACORN_DIR` by you local `ACORN` installation directory or set a environment variable accordignly.
+In the following replace `MY_ACORN_DIR` by your local `ACORN` install directory or set a environment variable accordignly.
 
 ## Data reading stage
+
+### Sampling the events
+
+The events sampling use for CTD 2023 can be found on `eos` here:
+
+```bash
+/eos/user/s/scaillou/CTD_2023/sampling/train_set_ttbar_uncorr.txt
+/eos/user/s/scaillou/CTD_2023/sampling/valid_set_ttbar_uncorr.txt
+/eos/user/s/scaillou/CTD_2023/sampling/test_set_ttbar_uncorr.txt
+```
+
+please copy this files in:
+
+```bash
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/sampling/
+```
 
 ### Inference
 
 Inference will read the dumped data and will: 
 
-- samplethe events in thetrain, val and test set accordingly with the sampling in the `train_set_ttbar_uncorr.txt`, `test_set_ttbar_uncorr.txt`, and `val_set_ttbar_uncorr.txt` files.
-- represent the event as a pyg Data object
-- store requested hits features and particles (tracks) features
-- preprocess requested features
-- build track edges
-- data from the dumped root data and build track edges. Results are saved as pyg files.
+- Sample the events in train, val and test sets accordingly with the sampling files
+- Represent the event as a pyg Data object
+- Store requested hits features and particles (tracks) features
+- Preprocess requested features
+- Build track edges
 
 Run the command:
 
@@ -41,9 +73,9 @@ g4i-infer MY_ACORN_DIR/examples/CTD_2023/data_reader.yaml
 ```
 
 The result will be pyg files containing the events represented as pyg Data object:
-- a trainset of 9.8K events
-- a valset of 1K events
-- a testset of 1K events
+- A trainset of 9.8K events
+- A valset of 1K events
+- A testset of 1K events
 
 ---
 **NOTE**
@@ -58,7 +90,7 @@ user.avallier:ATLAS-P2-ITK-23-00-03_Rel.21.9_feature_store_ttbar_uncorr_v1_tests
 
 Please copy them in:
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/feature_store_ttbar_uncorr/
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/feature_store/
 ``````
 before running the next stages.
 
@@ -68,21 +100,21 @@ before running the next stages.
 
 ### Inference
 
-Inference will: 
-- construct the graph (i.e. the `edge_index` of the graph) connecting nodes (representing hits/Space Points) based on a ITK-23-00 version of the Module Map
-- create a `truth_map` between `track edges` and `edge_index`.
-- create the target edge label `y` (boolean: `y==False` for fake edges and `y==True` for true edges)
+Inference will:
+- Construct the graph (i.e. the `event.edge_index`) connecting nodes (representing hits/Space Points) based on a ITK-23-00 version of the Module Map
+- Create `event.truth_map` which is the truth map between `event.track edges` and `event.edge_index`.
+- Create the target `event.y` (`event.y==False` for fake edges and `event.y==True` for true edges)
 
-The Module Map can be found here : 
+The CTD_2023 Module Map can be found here : 
 
 ```bash
-/eos/atlas/atlascerngroupdisk/perf-idtracking/GNN4ITk/module_maps/MM_23/MMtriplet_1GeV_3hits_noE__merged__sorted.txt
+/eos/user/s/scaillou/CTD_2023/model_store/module_map/Mtriplet_1GeV_3hits_noE__merged__sorted.txt
 ```
 
 Please copy the Module Map in :
 
 ```bash 
-MY_ACORN_DIR/model_store/
+MY_ACORN_DIR/model_store/module_map/
 ```
 
 Then run the command:
@@ -91,7 +123,7 @@ Then run the command:
 g4i-infer MY_ACORN_DIR/examples/CTD_2023/module_map_infer.yaml
 ```
 
-The result is the train, val and test sets of pyg files updated by the `edge_index`, the `truth_map` and the edges target `y`
+The result is the train, val and test sets of pyg files updated by the `event.edge_index`, the `event.truth_map` and the edges target `event.y`.
 
 ### Evaluation
 
@@ -104,10 +136,9 @@ g4i-eval MY_ACORN_DIR/examples/CTD_2023/module_map_eval.yaml
 The result will be the graph construction efficiency plots vs eta and pT:
 
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map_ttbar_uncorr/edgewise_efficiency_eta.png
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map_ttbar_uncorr/edgewise_efficiency_pt.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map/edgewise_efficiency_eta.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map/edgewise_efficiency_pt.png
 ```
-
 
 ## Edge Classifier stage
 
@@ -115,65 +146,70 @@ MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map_ttbar_uncorr/edgewis
 
 The training has to be launch on a GPU interfaced with CUDA and with at least 80GB of memory.  
 
-The `InteractionGNN2` is trained using the train dataset computed on the previous stage. 
-Details on the model can be found in [REF] and the code here : 
+The `InteractionGNN2` edge classifier GNN model is trained using the train dataset computed on the previous stage. 
+Details on the model can be found in [REF] and the code is here : 
 
 ```bash
 MY_ACORN_DIR/gnn4itk_cf/stages/edge_classifier/models/interaction_gnn.py
 ```
 
-Model and training parameters can be found in the config file here:
+GNN Model and training parameters can be found in the config file here:
 
 ```bash
 MY_ACORN_DIR/examples/CTD_2023/gnn_train.yaml
 ```
  
-Run the command:
+Run the command to launch the training:
 
 ```bash
 g4i-train MY_ACORN_DIR/examples/CTD_2023/gnn_train.yaml
 ```
 
-Typically the training will last at least ~100 epochs to start to plateau significantly.
+Typically the training will last between ~100 to ~200 epochs to start to plateau significantly.
 
 The hyperparameters of the model and training can be found here:
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/lightning_logs/version_XXX/hparams.yaml
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/lightning_logs/version_XXX/hparams.yaml
 ```
 (XXX = run version number)
 
 The log of the training can be found here:
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/lightning_logs/version_XXX/metrics.csv
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/lightning_logs/version_XXX/metrics.csv
 ```
 (XXX = run version number)
 
 The last and the 'best' checkpoints of the model are stored here:
 
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/artifacts
-```
-
-A already trained Edge Classifier GNN model checkpoint can be pull from the ACORN git repo:
-
-```bash
-cd MY_ACORN_DIR/model_store
-git lfs pull --include "IN2_ep92_eff99.2_pur92.8.ckpt"
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/artifacts
 ```
 
 ### Inference
 
 Inference of the GNN model will:
-- predict scores for the edges of each event in testset stored in `event.scores` 
-- create a tensor of boolean `event.pred` (`True` if the edge passes the cut `False` if not)
-- update the `event.truth_map` to take into account true edges which are not passing the cut
+- Predict scores for the edges of each event in testset stored in `event.scores` 
+- Create a tensor of boolean `event.pred` (`True` if the edge passes the cut `False` if not)
+- Update the `event.truth_map` to take into account true edges which are not passing the cut
+
+#### Inference from the local training best checkpoint
 
 Run the command:
 
 ```bash
 g4i-infer MY_ACORN_DIR/examples/CTD_2023/gnn_infer.yaml
 ```
-TODO : add command with ckpt
+#### Inference from pre-trained GNN checkpoint
+
+A pre-trained `InteractionGNN2` edge classifier GNN model checkpoint can be found here:
+
+```bash
+/eos/user/s/scaillou/CTD_2023/model_store/gnn/GNN_IN2_epochs169.ckpt
+```
+
+It gives ~99.2% of efficency and ~92.9% of masked purity (see [REF] for masked purity definition) on the test set.
+
+
 The result is the scored testset events.
 
 ### Evaluation
@@ -186,11 +222,11 @@ g4i-infer MY_ACORN_DIR/examples/CTD_2023/gnn_eval.yaml
 The results will be the plots of cumulative efficiency vs (r,z) (graph construction efficiency * gnn signal efficiency), efficiency vs (r,z) (gnn signal efficiency), target purity, purity and total purity vs (r, z):
 
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/cumulative_edgewise_efficiency_rz.png
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/edgewise_efficiency_rz.png
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/edgewise_target_purity_rz.png
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/edgewise_masked_purity_rz.png
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn_ttbar_uncorr/edgewise_total_purity_rz.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/cumulative_edgewise_efficiency_rz.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/edgewise_efficiency_rz.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/edgewise_target_purity_rz.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/edgewise_masked_purity_rz.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/edgewise_total_purity_rz.png
 ```
 
 ## Track building stage
@@ -209,7 +245,29 @@ Run the command:
 g4i-infer MY_ACORN_DIR/examples/CTD_2023/track_building_infer.yaml
 ```
 
-The result is the labelled events of testset.
+The result is
+- the events of testset in pyg format with nodes labelled by the track candidates id
+- the track candidates in ASCII files format, which can be found here:
+  
+```bash
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/testset_reco/
+```
+
+Each lines of the event files contains a sequence of hits which are the track candidates, for instance:
+
+```bash
+head MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/testset_reco/event005000901_reco_trks.txt
+11 68 133 185 15921 15995 17197 17261 17324 48877 101589
+18 78 866 929 17096 17160 17226 18636 18700 18760 52253 80084 92282 101587 240153 243270 246988
+50 112 166 221 900 17238 17298 17359 17424 17490 60676 60730 60780 79951 80005 80139 92235 92345
+94 152 208 262 335 1001 17284 17345 17415 17478 60719 60771 60823 61249 79992 80171 92229 92338 92368
+97 154 207 260 16038 16115 16184 16247 16321 17341 17411 49068 49147 49227 49343 60129 60194 60259 79784 92134
+101 159 214 264 334 945 17342 17412 17472 17570 60763 60814 61293 80166 80211 92355
+420 1197 1269 1347 1425 19091 19195 19311 19420 19523 61440 61529 61612
+528 598 680 755 1384 1465 1535 1600 17907 18039 18134 19168 19273 19381 19484 19606 19691 19779
+535 1322 1394 1470 1540 1611 19171 19275 19385 19488 19610 19696 19783
+580 662 734 830 16579 16653 16742 16829 18101 18212 49859 49957 50068 51933 51985 52032
+```
 
 ### Evaluation
 
@@ -221,13 +279,7 @@ vs eta and of track reconstruction efficiency
 vs pT.
 
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track_ttbar_uncorr/track_reconstruction_eff_vs_eta.png
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track_ttbar_uncorr/track_reconstruction_eff_vs_pt.png
-```
-
-### Track generation (OBSOLETE: TO BE REMOVE)
-
-```bash
-python dump_reco_trks_to_ascii.py -i MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track_ttbar_uncorr/testset -o MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track_ttbar_uncorr/tracks/
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/track_reconstruction_eff_vs_eta.png
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/track_reconstruction_eff_vs_pt.png
 ```
 

@@ -3,11 +3,11 @@ stage: data_reading
 model: AthenaRootReader
 input_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/GNN4Itk_v2__mc15_14TeV.600012.PhPy8EG_A14_ttbar_hdamp258p75_nonallhad.recon.RDO.e8185_s3770_s3773_r14431/
 input_sets: 
-    train: train_set_ttbar_uncorr.txt
-    valid: valid_set_ttbar_uncorr.txt
-    test: test_set_ttbar_uncorr.txt
+    train: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/sampling/train_set_ttbar_uncorr.txt
+    valid: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/sampling/valid_set_ttbar_uncorr.txt
+    test: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/sampling/test_set_ttbar_uncorr.txt
 
-stage_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/feature_store_ttbar_uncorr/
+stage_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/feature_store/
 
 max_workers: 16
 
