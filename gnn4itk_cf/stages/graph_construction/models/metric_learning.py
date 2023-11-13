@@ -124,6 +124,11 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         ]
         return optimizer, scheduler
 
+    def on_train_start(self):
+        self.trainer.strategy.optimizers = [
+            self.trainer.lr_scheduler_configs[0].scheduler.optimizer
+        ]
+
     def get_input_data(self, batch):
         input_data = torch.stack(
             [batch[feature] for feature in self.hparams["node_features"]], dim=-1
@@ -424,6 +429,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
                 "f1": f1,
             },
             batch_size=1,
+            on_epoch=True,
+            on_step=False,
+            sync_dist=True,
         )
 
     def validation_step(self, batch, batch_idx):

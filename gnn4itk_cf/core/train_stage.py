@@ -39,11 +39,16 @@ from .core_utils import str_to_class, get_trainer, get_stage_module
 # Add an optional click argument to specify the checkpoint to use
 @click.option("--checkpoint", "-c", default=None, help="Checkpoint to use for training")
 @click.option("--sweep", "-s", default=False, type=bool, help="Run WANDB sweep")
-def main(config_file, checkpoint, sweep):
+@click.option(
+    "--checkpoint_resume_dir",
+    default=None,
+    help="Pass a default rootdir for saving model checkpoint",
+)
+def main(config_file, checkpoint, sweep, checkpoint_resume_dir):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.
     """
-    train(config_file, checkpoint, sweep)
+    train(config_file, checkpoint, sweep, checkpoint_resume_dir)
 
 
 # Refactoring to allow for auto-resume and manual resume of training
@@ -51,7 +56,7 @@ def main(config_file, checkpoint, sweep):
 # 2. First check if the module is a lightning module
 
 
-def train(config_file, checkpoint=None, sweep=False):
+def train(config_file, checkpoint=None, sweep=False, checkpoint_resume_dir=None):
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -78,16 +83,26 @@ def train(config_file, checkpoint=None, sweep=False):
 
     # run training, depending on whether we are using a Lightning trainable model or not
     if issubclass(stage_module_class, LightningModule):
-        lightning_train(config, stage_module_class, checkpoint=checkpoint)
+        lightning_train(
+            config,
+            stage_module_class,
+            checkpoint=checkpoint,
+            checkpoint_resume_dir=checkpoint_resume_dir,
+        )
     else:
         stage_module = stage_module_class(config)
         stage_module.setup(stage="fit")
         stage_module.train()
 
 
-def lightning_train(config, stage_module_class, checkpoint=None):
-    stage_module, config, default_root_dir = get_stage_module(
-        config, stage_module_class, checkpoint_path=checkpoint
+def lightning_train(
+    config, stage_module_class, checkpoint=None, checkpoint_resume_dir=None
+):
+    stage_module, ckpt_config, default_root_dir = get_stage_module(
+        config,
+        stage_module_class,
+        checkpoint_path=checkpoint,
+        checkpoint_resume_dir=checkpoint_resume_dir,
     )
     trainer = get_trainer(config, default_root_dir)
     trainer.fit(stage_module)
