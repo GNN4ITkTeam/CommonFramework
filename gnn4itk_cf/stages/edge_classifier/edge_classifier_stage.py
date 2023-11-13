@@ -194,6 +194,9 @@ class EdgeClassifierStage(LightningModule):
         return optimizer, scheduler
 
     def training_step(self, batch, batch_idx):
+        max_training_graph_size = self.hparams.get("max_training_graph_size", None)
+        if max_training_graph_size is not None and batch.edge_index.shape[1] > max_training_graph_size:
+            return None
         output = self(batch)
         loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
