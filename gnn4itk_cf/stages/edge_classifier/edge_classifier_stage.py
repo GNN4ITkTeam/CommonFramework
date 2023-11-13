@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
 import os
 import warnings
 from itertools import product
 from pytorch_lightning import LightningModule
 import torch.nn.functional as F
+import torch_geometric.transforms as T
 from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
 from sklearn.metrics import roc_auc_score
@@ -99,7 +101,16 @@ class EdgeClassifierStage(LightningModule):
         """
         Load in the data for training, validation and testing.
         """
-
+        transform = None
+        if self.hparams.get("transform") is not None:
+            t_list = []
+            for t in self.hparams["transform"]:
+                # dynamically initiate transformations from pyg. The 'transform' configuration should be a list of elements like
+                # {module_name: torch_geometric.transforms, class_name: ToSparseTensor, init_kwargs: {remove_edge_index: false}}
+                module = importlib.import_module(t["module_name"])
+                t = getattr(module, t["class_name"])(**t["init_kwargs"])
+                t_list.append(t)
+            transform = T.Compose(t_list)
         for data_name, data_num in zip(
             ["trainset", "valset", "testset"], self.hparams["data_split"]
         ):
@@ -112,6 +123,7 @@ class EdgeClassifierStage(LightningModule):
                     stage=stage,
                     hparams=self.hparams,
                     preprocess=preprocess,
+                    transform=transform,
                 )
                 setattr(self, data_name, dataset)
 
@@ -182,25 +194,43 @@ class EdgeClassifierStage(LightningModule):
         return optimizer, scheduler
 
     def training_step(self, batch, batch_idx):
-        if batch.edge_index.shape[1] < self.hparams.get(
-            "max_training_graph_size", 2800000
+        max_training_graph_size = self.hparams.get("max_training_graph_size", None)
+        if (
+            max_training_graph_size is not None
+            and batch.edge_index.shape[1] > max_training_graph_size
         ):
-            output = self(batch)
-            loss = self.loss_function(output, batch)
-            self.log(
-                "train_loss",
-                loss,
-                on_step=False,
-                on_epoch=True,
-                batch_size=1,
-                sync_dist=True,
-            )
-
-            return loss
-        else:
             return None
+        output = self(batch)
+        loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
-    def loss_function(self, output, batch):
+        self.log(
+            "train_loss",
+            loss,
+            on_step=False,
+            on_epoch=True,
+            batch_size=1,
+            sync_dist=True,
+        )
+        self.log(
+            "train_pos_loss",
+            pos_loss,
+            on_step=False,
+            on_epoch=True,
+            batch_size=1,
+            sync_dist=True,
+        )
+        self.log(
+            "train_neg_loss",
+            neg_loss,
+            on_step=False,
+            on_epoch=True,
+            batch_size=1,
+            sync_dist=True,
+        )
+
+        return loss
+
+    def loss_function(self, output, batch, balance="proportional"):
         """
         Applies the loss function to the output of the model and the truth labels.
         To balance the positive and negative contribution, simply take the means of each separately.
@@ -217,31 +247,45 @@ class EdgeClassifierStage(LightningModule):
             " weighting is handled in preprocessing."
         )
 
-        if self.hparams.get("loss_balancing", False):
-            negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (
-                batch.weights < 0
+        if balance not in ["equal", "proportional"]:
+            balance = "proportional"
+
+        negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
+
+        negative_loss = F.binary_cross_entropy_with_logits(
+            output[negative_mask],
+            torch.zeros_like(output[negative_mask]),
+            weight=batch.weights[negative_mask].abs(),
+            reduction="sum",
+        )
+
+        positive_mask = (batch.y == 1) & (batch.weights > 0)
+        positive_loss = F.binary_cross_entropy_with_logits(
+            output[positive_mask],
+            torch.ones_like(output[positive_mask]),
+            weight=batch.weights[positive_mask].abs(),
+            reduction="sum",
+        )
+
+        if balance == "proportional":
+            n = positive_mask.sum() + negative_mask.sum()
+            return (
+                (positive_loss + negative_loss) / n,
+                positive_loss.detach() / n,
+                negative_loss.detach() / n,
             )
-            negative_loss = F.binary_cross_entropy_with_logits(
-                output[negative_mask],
-                torch.zeros_like(output[negative_mask]),
-                weight=batch.weights[negative_mask].abs(),
-            )
-            positive_mask = (batch.y == 1) & (batch.weights > 0)
-            positive_loss = F.binary_cross_entropy_with_logits(
-                output[positive_mask],
-                torch.ones_like(output[positive_mask]),
-                weight=batch.weights[positive_mask].abs(),
-            )
-            return positive_loss + negative_loss
         else:
-            loss = F.binary_cross_entropy_with_logits(
-                output, batch.y.float(), weight=batch.weights.abs()
+            n_pos, n_neg = positive_mask.sum(), negative_mask.sum()
+            n = n_pos + n_neg
+            return (
+                positive_loss / n_pos + negative_loss / n_neg,
+                positive_loss.detach() / n,
+                negative_loss.detach() / n,
             )
-        return loss
 
     def shared_evaluation(self, batch, batch_idx):
         output = self(batch)
-        loss = self.loss_function(output, batch)
+        loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
         scores = torch.sigmoid(output)
         batch.scores = scores.detach()
@@ -250,11 +294,13 @@ class EdgeClassifierStage(LightningModule):
         target_truth = (batch.weights > 0) & all_truth
 
         return {
-            "loss": loss.detach(),
+            "loss": loss,
             "all_truth": all_truth,
             "target_truth": target_truth,
-            "output": scores.detach(),
+            "output": output,
             "batch": batch,
+            "pos_loss": pos_loss,
+            "neg_loss": neg_loss,
         }
 
     def validation_step(self, batch, batch_idx):
@@ -273,11 +319,28 @@ class EdgeClassifierStage(LightningModule):
             batch_size=1,
             sync_dist=True,
         )
+        self.log(
+            "val_pos_loss",
+            output_dict["pos_loss"],
+            on_step=False,
+            on_epoch=True,
+            batch_size=1,
+            sync_dist=True,
+        )
+        self.log(
+            "val_neg_loss",
+            output_dict["neg_loss"],
+            on_step=False,
+            on_epoch=True,
+            batch_size=1,
+            sync_dist=True,
+        )
 
     def test_step(self, batch, batch_idx):
         return self.shared_evaluation(batch, batch_idx)
 
-    def log_metrics(self, scores, all_truth, target_truth, loss):
+    def log_metrics(self, output, all_truth, target_truth, loss):
+        scores = torch.sigmoid(output)
         preds = scores > self.hparams["edge_cut"]
 
         # Positives
@@ -377,7 +440,7 @@ class EdgeClassifierStage(LightningModule):
         ) and self.hparams.get("skip_existing"):
             return
         eval_dict = self.shared_evaluation(batch, batch_idx)
-        scores = eval_dict["output"]
+        scores = torch.sigmoid(eval_dict["output"])
         batch = eval_dict["batch"]
         self.save_edge_scores(batch, scores, dataset)
 
@@ -497,6 +560,7 @@ class GraphDataset(Dataset):
         self.num_events = num_events
         self.stage = stage
         self.preprocess = preprocess
+        self.transform = transform
 
         self.input_paths = load_datafiles_in_dir(
             self.input_dir, self.data_name, self.num_events
@@ -509,9 +573,14 @@ class GraphDataset(Dataset):
     def get(self, idx):
         event_path = self.input_paths[idx]
         event = torch.load(event_path, map_location=torch.device("cpu"))
+        # convert DataBatch to Data instance because some transformations don't work on DataBatch
+        event = Data(**event.to_dict())
         if not self.preprocess:
             return event
         event = self.preprocess_event(event)
+        # do pyg transformation if a torch_geometric.transforms instance is given
+        if self.transform is not None:
+            event = self.transform(event)
 
         # return (event, event_path) if self.stage == "predict" else event
         return event
