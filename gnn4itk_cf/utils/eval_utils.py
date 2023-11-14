@@ -546,7 +546,7 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
     purity_definition_label = {
         "target_purity": "Target Purity",
         "masked_purity": "Masked Purity",
-        "total_purity": "Total Purity"
+        "total_purity": "Total Purity",
     }
     for numerator, denominator, suffix in zip(
         [true_positive, target_true_positive, target_true_positive],
@@ -566,8 +566,11 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
             r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
             r" \bar{t}$ and soft interactions) " + "\n"
             r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
-            r"Edge score cut: " + str(config["score_cut"]) + "\n"
-            + purity_definition_label[suffix] + ": " 
+            r"Edge score cut: "
+            + str(config["score_cut"])
+            + "\n"
+            + purity_definition_label[suffix]
+            + ": "
             + f"{numerator['z'].size(0) / denominator['z'].size(0) : .5f}",
         )
         plt.tight_layout()

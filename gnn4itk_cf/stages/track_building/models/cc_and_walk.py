@@ -109,13 +109,21 @@ class CCandWalk(TrackBuildingStage):
         # Make a dataframe from pyg graph
         d = load_reconstruction_df(graph)
         # Keep only hit_id associtated to a tracks (label >= 0, not -1)
-        d = d[ d.track_id>=0 ]
+        d = d[d.track_id >= 0]
         # Make a dataframe of list of hits (one row = one list of hits, ie one track)
-        trks = d.groupby('track_id')['hit_id'].apply(list)
-        with open(os.path.join(output_dir, "tracks" ,f"event{graph.event_id[0]}.pyg"),'w') as f:
-            f.write("\n".join(str(t).replace(',','').replace('[','').replace(']','')  for t in trks.values))
+        trks = d.groupby("track_id")["hit_id"].apply(list)
+        with open(
+            os.path.join(output_dir, "tracks", f"event{graph.event_id[0]}.pyg"), "w"
+        ) as f:
+            f.write(
+                "\n".join(
+                    str(t).replace(",", "").replace("[", "").replace("]", "")
+                    for t in trks.values
+                )
+            )
 
         torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
+
 
 def load_reconstruction_df(graph):
     """Load the reconstructed tracks from a pyg file to a dataframe."""
@@ -124,6 +132,4 @@ def load_reconstruction_df(graph):
     else:
         hit_id = torch.arange(graph.num_nodes)
 
-    return pd.DataFrame(
-        {"hit_id": hit_id, "track_id": graph.labels}
-    )
+    return pd.DataFrame({"hit_id": hit_id, "track_id": graph.labels})
