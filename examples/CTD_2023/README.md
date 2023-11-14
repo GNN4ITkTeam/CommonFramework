@@ -250,7 +250,7 @@ The result is
 - the track candidates in ASCII files format, which can be found here:
   
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/testset_reco/
+MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/testset/tracks/
 ```
 
 Each lines of the event files contains a sequence of hits which are the track candidates, for instance:
