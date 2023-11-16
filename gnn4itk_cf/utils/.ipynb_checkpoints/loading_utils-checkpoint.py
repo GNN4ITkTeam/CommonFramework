@@ -1,32 +1,53 @@
+# Copyright (C) 2023 CERN for the benefit of the ATLAS collaboration
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 from typing import List
 import warnings
 import torch
+import logging
 from torch_geometric.data import Data
 from pathlib import Path
 
-def load_datafiles_in_dir(input_dir, data_name = None, data_num = None):
+from .mapping_utils import get_condition_lambda, map_tensor_handler, remap_from_mask
 
+
+def load_datafiles_in_dir(input_dir, data_name=None, data_num=None):
     if data_name is not None:
         input_dir = os.path.join(input_dir, data_name)
 
     data_files = [str(path) for path in Path(input_dir).rglob("*.pyg")][:data_num]
     assert len(data_files) > 0, f"No data files found in {input_dir}"
     if data_num is not None:
-        assert len(data_files) == data_num, f"Number of data files found ({len(data_files)}) is less than the number requested ({data_num})"
+        assert len(data_files) == data_num, (
+            f"Number of data files found ({len(data_files)}) is less than the number"
+            f" requested ({data_num})"
+        )
 
     return data_files
+
 
 def load_dataset_from_dir(input_dir, data_name, data_num):
     """
     Load in the PyG Data dataset from the data directory.
     """
     data_files = load_datafiles_in_dir(input_dir, data_name, data_num)
-    
-    return [ torch.load(f, map_location="cpu") for f in data_files ]
+
+    return [torch.load(f, map_location="cpu") for f in data_files]
+
 
 def run_data_tests(datasets: List, required_features, optional_features):
-    
     for dataset in datasets:
         sample_event = dataset[0]
         assert sample_event is not None, "No data loaded"
@@ -34,26 +55,44 @@ def run_data_tests(datasets: List, required_features, optional_features):
         try:
             _ = len(sample_event)
         except RuntimeError:
-            warnings.warn("Data is not in the latest PyG format, so will be converted on-the-fly. Consider re-saving the data in latest PyG Data type.")
+            warnings.warn(
+                "Data is not in the latest PyG format, so will be converted on-the-fly."
+                " Consider re-saving the data in latest PyG Data type."
+            )
             if dataset is not None:
                 for i, event in enumerate(dataset):
                     dataset[i] = convert_to_latest_pyg_format(event)
 
         for feature in required_features:
-            assert feature in sample_event or f"x_{feature}" in sample_event, f"Feature [{feature}] not found in data, this is REQUIRED. Features found: {sample_event.keys}"
+            assert feature in sample_event or f"x_{feature}" in sample_event, (
+                f"Feature [{feature}] not found in data, this is REQUIRED. Features"
+                f" found: {sample_event.keys}"
+            )
 
-        missing_optional_features = [ feature for feature in optional_features if feature not in sample_event or f"x_{feature}" not in sample_event ]
+        missing_optional_features = [
+            feature
+            for feature in optional_features
+            if not (feature in sample_event or f"x_{feature}" in sample_event)
+        ]
         for feature in missing_optional_features:
             warnings.warn(f"OPTIONAL feature [{feature}] not found in data")
 
         # Check that the number of nodes is compatible with the edge indexing
-        assert sample_event.x.shape[0] >= sample_event.edge_index.max().item() + 1, "Number of nodes is not compatible with the edge indexing. Possibly an earlier stage has removed nodes, but not updated the edge indexing."
+        if "edge_index" in sample_event.keys and "x" in sample_event.keys:
+            assert (
+                sample_event.x.shape[0] >= sample_event.edge_index.max().item() + 1
+            ), (
+                "Number of nodes is not compatible with the edge indexing. Possibly an"
+                " earlier stage has removed nodes, but not updated the edge indexing."
+            )
+
 
 def convert_to_latest_pyg_format(event):
     """
     Convert the data to the latest PyG format.
     """
     return Data.from_dict(event.__dict__)
+
 
 def handle_weighting(event, weighting_config):
     """
@@ -82,54 +121,105 @@ def handle_weighting(event, weighting_config):
         weight_val = weight_spec["weight"]
         weights[get_weight_mask(event, weight_spec["conditions"])] = weight_val
 
-    event.weights = weights
-    
-def handle_hgnn_weighting(event, weighting_config):
+    return weights
 
-    # Set the default values, which will be overwritten if specified in the config
-    hit_weights = torch.ones_like(event.hit_id, dtype=torch.float)
-    particle_weights = torch.ones(event.pid.max() + 1, dtype=torch.float)
-
-    for weight_spec in weighting_config:
-        weight_val = weight_spec["weight"]
-        hit_weights[get_hit_weight_mask(event, weight_spec["conditions"])] = weight_val
-        particle_weights[get_particle_weight_mask(event, weight_spec["conditions"])] = weight_val
-
-    event.hit_weights = hit_weights
-    event.particle_weights = particle_weights
 
 def handle_hard_cuts(event, hard_cuts_config):
-
     true_track_mask = torch.ones_like(event.truth_map, dtype=torch.bool)
 
     for condition_key, condition_val in hard_cuts_config.items():
-        assert condition_key in event.keys, f"Condition key {condition_key} not found in event keys {event.keys}"
+        assert (
+            condition_key in event.keys
+        ), f"Condition key {condition_key} not found in event keys {event.keys}"
         condition_lambda = get_condition_lambda(condition_key, condition_val)
         value_mask = condition_lambda(event)
         true_track_mask = true_track_mask * value_mask
 
-    graph_mask = torch.isin(event.edge_index, event.track_edges[:, true_track_mask]).all(0)
+    graph_mask = torch.isin(
+        event.edge_index, event.track_edges[:, true_track_mask]
+    ).all(0)
     remap_from_mask(event, graph_mask)
 
-    for edge_key in ["edge_index", "y", "weight", "scores"]:
-        if edge_key in event.keys:
+    num_edges = event.edge_index.shape[1]
+    for edge_key in event.keys:
+        if (
+            isinstance(event[edge_key], torch.Tensor)
+            and num_edges in event[edge_key].shape
+        ):
             event[edge_key] = event[edge_key][..., graph_mask]
 
+    num_track_edges = event.track_edges.shape[1]
     for track_feature in event.keys:
-        if isinstance(event[track_feature], torch.Tensor) and (event[track_feature].ndim == 1) and (event[track_feature].shape[0] == event.track_edges.shape[1]) and track_feature != "track_edges":
-            event[track_feature] = event[track_feature][true_track_mask]
-    
-    event.track_edges = event.track_edges[:, true_track_mask]
+        if (
+            isinstance(event[track_feature], torch.Tensor)
+            and num_track_edges in event[track_feature].shape
+        ):
+            event[track_feature] = event[track_feature][..., true_track_mask]
+
+
+def handle_hard_node_cuts(event, hard_cuts_config):
+    """
+    Given set of cut config, remove nodes that do not pass the cuts.
+    Remap the track_edges to the new node list.
+    """
+    node_like_feature = [
+        event[feature] for feature in event.keys if event.is_node_attr(feature)
+    ][0]
+    node_mask = torch.ones_like(node_like_feature, dtype=torch.bool)
+
+    # TODO: Refactor this to simply trim the true tracks and check which nodes are in the true tracks
+    for condition_key, condition_val in hard_cuts_config.items():
+        assert (
+            condition_key in event.keys
+        ), f"Condition key {condition_key} not found in event keys {event.keys}"
+        condition_lambda = get_condition_lambda(condition_key, condition_val)
+        value_mask = condition_lambda(event)
+        node_val_mask = map_tensor_handler(
+            value_mask,
+            output_type="node-like",
+            track_edges=event.track_edges,
+            num_nodes=node_like_feature.shape[0],
+            num_track_edges=event.track_edges.shape[1],
+        )
+        node_mask = node_mask * node_val_mask
+
+    logging.info(
+        f"Masking the following number of nodes with the HARD CUT: {node_mask.sum()} /"
+        f" {node_mask.shape[0]}"
+    )
+
+    # TODO: Refactor the below to use the remap_from_mask function
+    num_nodes = event.num_nodes
+    for feature in event.keys:
+        if (
+            isinstance(event[feature], torch.Tensor)
+            and event[feature].shape
+            and event[feature].shape[0] == num_nodes
+        ):
+            event[feature] = event[feature][node_mask]
+
+    num_tracks = event.track_edges.shape[1]
+    track_mask = node_mask[event.track_edges].all(0)
+    node_lookup = torch.cumsum(node_mask, dim=0) - 1
+    for feature in event.keys:
+        if (
+            isinstance(event[feature], torch.Tensor)
+            and event[feature].shape
+            and event[feature].shape[-1] == num_tracks
+        ):
+            event[feature] = event[feature][..., track_mask]
+
+    event.track_edges = node_lookup[event.track_edges]
+    event.num_nodes = node_mask.sum()
 
 
 def reset_angle(angles):
-    angles[angles > torch.pi] = angles[angles > torch.pi] - 2*torch.pi
-    angles[angles < -torch.pi] = angles[angles < -torch.pi] + 2*torch.pi
+    angles[angles > torch.pi] = angles[angles > torch.pi] - 2 * torch.pi
+    angles[angles < -torch.pi] = angles[angles < -torch.pi] + 2 * torch.pi
     return angles
 
 
 def handle_edge_features(event, edge_features):
-
     src, dst = event.edge_index
 
     for edge_feature in edge_features:
@@ -141,7 +231,7 @@ def handle_edge_features(event, edge_features):
             event.dz = event.z[dst] - event.z[src]
         if "deta" in edge_features:
             event.deta = event.eta[dst] - event.eta[src]
-        if 'phislope' in edge_features:
+        if "phislope" in edge_features:
             dr = event.r[dst] - event.r[src]
             dphi = reset_angle(event.phi[dst] - event.phi[src])
             phislope = dphi / dr
@@ -150,160 +240,20 @@ def handle_edge_features(event, edge_features):
 
 
 def get_weight_mask(event, weight_conditions):
-
     graph_mask = torch.ones_like(event.y)
 
     for condition_key, condition_val in weight_conditions.items():
-        assert condition_key in event.keys, f"Condition key {condition_key} not found in event keys {event.keys}"
+        assert (
+            condition_key in event.keys
+        ), f"Condition key {condition_key} not found in event keys {event.keys}"
         condition_lambda = get_condition_lambda(condition_key, condition_val)
         value_mask = condition_lambda(event)
-        graph_mask = graph_mask * map_value_to_graph(event, value_mask)
+        graph_mask = graph_mask * map_tensor_handler(
+            value_mask,
+            output_type="edge-like",
+            num_nodes=event.num_nodes,
+            edge_index=event.edge_index,
+            truth_map=event.truth_map,
+        )
 
     return graph_mask
-
-def get_hit_weight_mask(event, weight_conditions):
-
-    hit_mask = torch.ones_like(event.hit_id, dtype = torch.bool)
-
-    for condition_key, condition_val in weight_conditions.items():
-        assert condition_key in event.keys, f"Condition key {condition_key} not found in event keys {event.keys}"
-        condition_lambda = get_condition_lambda(condition_key, condition_val)
-        value_mask = condition_lambda(event)
-        hit_mask = hit_mask * map_value_to_hit(event, value_mask)
-
-    return hit_mask
-
-def get_particle_weight_mask(event, weight_conditions):
-
-    particle_mask = torch.ones(event.pid.max() + 1, dtype = torch.bool)
-
-    for condition_key, condition_val in weight_conditions.items():
-        assert condition_key in event.keys, f"Condition key {condition_key} not found in event keys {event.keys}"
-        condition_lambda = get_condition_lambda(condition_key, condition_val)
-        value_mask = condition_lambda(event)
-        particle_mask = particle_mask * map_value_to_particle(event, value_mask)
-
-    return particle_mask
-
-def map_value_to_graph(event, value_mask):
-    """
-    Map the value mask to the graph. This is done by testing which dimension the value fits. 
-    - If it is already equal to the graph size, nothing needs to be done
-    - If it is equal to the track edges, it needs to be mapped to the graph edges
-    - If it is equal to node list size, it needs to be mapped to the incoming/outgoing graph edges 
-    """
-
-    if value_mask.shape[0] == event.y.shape[0]:
-        return value_mask
-    elif value_mask.shape[0] == event.track_edges.shape[1]:
-        return map_tracks_to_graph(event, value_mask)
-    elif value_mask.shape[0] == event.x.shape[0]:
-        return map_nodes_to_graph(event, value_mask)
-    else:
-        raise ValueError(f"Value mask has shape {value_mask.shape}, which is not compatible with the graph")
-        
-def map_value_to_hit(event, value_mask):
-
-    if value_mask.shape[0] == event.y.shape[0]:
-        return map_graph_to_hit(event, value_mask)
-    elif value_mask.shape[0] == event.track_edges.shape[1]:
-        return map_tracks_to_hit(event, value_mask)
-    elif value_mask.shape[0] == event.x.shape[0]:
-        return value_mask
-    else:
-        raise ValueError(f"Value mask has shape {value_mask.shape}, which is not compatible with the graph")
-
-def map_value_to_particle(event, value_mask):
-
-    if value_mask.shape[0] == event.y.shape[0]:
-        return map_graph_to_particle(event, value_mask)
-    elif value_mask.shape[0] == event.track_edges.shape[1]:
-        return map_tracks_to_particle(event, value_mask)
-    elif value_mask.shape[0] == event.x.shape[0]:
-        return map_hits_to_particle(event, value_mask)
-    else:
-        raise ValueError(f"Value mask has shape {value_mask.shape}, which is not compatible with the graph")
-
-def map_graph_to_hit(event, value_mask):
-
-    node_mask = torch.zeros_like(event.hit_id, dtype = torch.bool)
-    node_mask[event.edge_index[0]] = value_mask
-    node_mask[event.edge_index[1]] = value_mask
-    
-    return node_mask
-
-def map_tracks_to_hit(event, value_mask):
-
-    node_mask = torch.zeros_like(event.hit_id, dtype = torch.bool)
-    node_mask[event.track_edges[0]] = value_mask
-    node_mask[event.track_edges[1]] = value_mask
-    
-    return node_mask
-
-def map_tracks_to_particle(event, value_mask):
-
-    particle_mask = torch.zeros(event.pid.max() + 1, dtype = torch.bool)
-    particle_mask[event.pid[event.track_edges[0]]] = value_mask
-    particle_mask[event.pid[event.track_edges[1]]] = value_mask
-    
-    return particle_mask
-
-def map_graph_to_particle(event, value_mask):
-
-    particle_mask = torch.zeros(event.pid.max() + 1, dtype = torch.bool)
-    particle_mask[event.pid[event.edge_index[0]]] = value_mask
-    particle_mask[event.pid[event.edge_index[1]]] = value_mask
-    
-    return particle_mask
-
-def map_hit_to_particle(event, value_mask):
-
-    particle_mask = torch.zeros(event.pid.max() + 1, dtype = torch.bool)
-    particle_mask[event.pid] = value_mask
-    
-    return particle_mask
-
-def map_tracks_to_graph(event, track_mask):
-
-    graph_mask = torch.zeros_like(event.y)
-    graph_mask[event.truth_map[event.truth_map >= 0]] = track_mask[event.truth_map >= 0]
-
-    return graph_mask
-
-def map_nodes_to_graph(event, node_mask):
-
-    return node_mask[event.edge_index[0]]
-
-def get_condition_lambda(condition_key, condition_val):
-
-    # Refactor the above switch case into a dictionary
-    condition_dict = {
-        "is": lambda event: event[condition_key] == condition_val,
-        "is_not": lambda event: event[condition_key] != condition_val,
-        "in": lambda event: torch.isin(event[condition_key], torch.tensor(condition_val[1])),
-        "not_in": lambda event: ~torch.isin(event[condition_key], torch.tensor(condition_val[1])),
-        "within": lambda event: (condition_val[0] <= event[condition_key].float()) & (event[condition_key].float() <= condition_val[1]),
-        "not_within": lambda event: not ((condition_val[0] <= event[condition_key].float()) & (event[condition_key].float() <= condition_val[1])),
-    }
-
-    if isinstance(condition_val, bool):
-        return lambda event: event[condition_key] == condition_val
-    elif isinstance(condition_val, list) and not isinstance(condition_val[0], str):
-        return lambda event: (condition_val[0] <= event[condition_key].float()) & (event[condition_key].float() <= condition_val[1])
-    elif isinstance(condition_val, list):
-        return condition_dict[condition_val[0]]
-    else:
-        raise ValueError(f"Condition {condition_val} not recognised")
-
-def remap_from_mask(event, edge_mask):
-    """ 
-    Takes a mask applied to the edge_index tensor, and remaps the truth_map tensor indices to match.
-    """
-
-    truth_map_to_edges = torch.ones(event.edge_index.shape[1], dtype=torch.long) * -1
-    truth_map_to_edges[event.truth_map[event.truth_map >= 0]] = torch.arange(event.truth_map.shape[0])[event.truth_map >= 0]
-    truth_map_to_edges = truth_map_to_edges[edge_mask]
-
-    new_map = torch.ones(event.truth_map.shape[0], dtype=torch.long) * -1
-    new_map[truth_map_to_edges[truth_map_to_edges >= 0]] = torch.arange(truth_map_to_edges.shape[0])[truth_map_to_edges >= 0]
-    event.truth_map = new_map.to(event.truth_map.device)

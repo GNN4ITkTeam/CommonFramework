@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import torch
 import pandas as pd
 import numpy as np
@@ -21,7 +23,7 @@ from typing import Dict, Tuple, Optional, Sequence, Union
 
 import matplotlib.pyplot as plt
 from scipy.sparse.csgraph import connected_components, min_weight_full_bipartite_matching
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, csr_matrix
 
 from gnn4itk_cf.utils.plotting_utils import get_ratio
 from gnn4itk_cf.stages.graph_construction.models.utils import graph_intersection
@@ -116,7 +118,6 @@ class PartialData(object):
         masked_idx[~to_keep] = -1 # Can be removed for performance, this is for sanity check
         
         # build new `Data` instance
-        # edge_mask = (event.scores > self.loose_cut) & edge_mask
         edge_mask = to_keep[event.edge_index].all(0) & edge_mask & (event.scores > self.edge_cut)
         track_edge_mask = to_keep[event.track_edges].all(0)
         partial_event = Data(
@@ -126,7 +127,6 @@ class PartialData(object):
             r = event.r[to_keep],
             phi = event.phi[to_keep],
             eta = event.eta[to_keep],
-            labels = event.labels[to_keep],
             edge_index = masked_idx[event.edge_index[:, edge_mask]],
             y = event.y[edge_mask],
             dz = event.dz[edge_mask],
@@ -155,7 +155,38 @@ class PartialData(object):
             signal_selection = self.signal_selection,
             target_selection = self.target_selection,
         )
+        
+        full_truth_bgraph, _ = build_truth_bgraph(
+            self._partial_event, 
+            signal_selection = self.signal_selection,
+            target_selection = {},
+        )
+        
+        pid_truth_graph = (full_truth_bgraph @ full_truth_bgraph.T).tocoo()
+        self.pid_truth_graph = torch.stack([
+            torch.as_tensor(pid_truth_graph.row), 
+            torch.as_tensor(pid_truth_graph.col)
+        ], dim = 0)
+        
         return truth_bgraph, truth_info
+    
+    def fetch_emb_truth(
+        self,
+        edges
+    ):
+        edges, y = graph_intersection(
+            edges,
+            self.pid_truth_graph,
+            return_pred_to_truth=False,
+            return_truth_to_pred=False,
+            unique_pred=False,
+            unique_truth=True,
+        )
+        emb_weights = torch.ones(y.shape, device = y.device)
+        emb_weights[y] /= y.sum() * 2 
+        emb_weights[~y] /= (~y).sum() * 2 
+        hinge = 2 * y.float() - 1
+        return edges, hinge, emb_weights
     
     def fetch_truth(
         self, 
@@ -181,25 +212,29 @@ class PartialData(object):
             shape = (num_particles, num_particles + num_tracks)
         )
         row, col = min_weight_full_bipartite_matching(graph, maximize = True)
-        row, col = row[col <= num_tracks], col[col <= num_tracks]
-        track_to_particle = - torch.ones(num_tracks, dtype = torch.long)
-        track_to_particle[col] = torch.as_tensor(row)
+        row, col = row[col < num_tracks], col[col < num_tracks]
+        track_to_particle = - torch.ones(num_tracks, dtype = torch.long, device = self.device)
+        track_to_particle[col] = torch.tensor(row, dtype = torch.long, device = self.device)
+        particle_to_track = - torch.ones(num_particles, dtype = torch.long, device = self.device)
+        particle_to_track[row] = torch.tensor(col, dtype = torch.long, device = self.device)
         
         input_pred_graph = torch.stack([
-            tracks[0],
+            tracks[0].to(self.device),
             track_to_particle[pred_info["track_id"]]
         ], dim = 0)
+        
+        relavent_mask = input_pred_graph[1] >= 0
 
-        y = torch.zeros(input_pred_graph.shape[1], dtype=torch.bool)
-        y[input_pred_graph[1] >= 0] = 0
+        y = torch.zeros(relavent_mask.sum(), dtype=torch.bool, device = self.device)
+        
         input_truth_graph = self.truth_bgraph.tocoo()
         input_truth_graph = torch.stack([
-            torch.as_tensor(input_truth_graph.row), 
-            torch.as_tensor(input_truth_graph.col)
+            torch.tensor(input_truth_graph.row, device = self.device), 
+            torch.tensor(input_truth_graph.col, device = self.device)
         ], dim = 0)
 
-        y[input_pred_graph[1] >= 0] = graph_intersection(
-            input_pred_graph[:, input_pred_graph[1] >= 0],
+        y = graph_intersection(
+            input_pred_graph[:, relavent_mask],
             input_truth_graph,
             return_pred_to_truth=False,
             return_truth_to_pred=False,
@@ -207,22 +242,23 @@ class PartialData(object):
             unique_truth=True,
         )
 
-        weights = torch.ones(input_pred_graph.shape[1], dtype = torch.float)
-        weights[self._truth_info["is_signal"][input_pred_graph[1]] & (input_pred_graph[1] >= 0)] *= self.signal_weight
+        weights = torch.ones(y.shape[0], dtype = torch.float, device = self.device)
+        weights[self.truth_info["is_signal"][input_pred_graph[1, relavent_mask]]] *= self.signal_weight
         weights[~y] /= (weights[~y].sum() * 2)
         weights[y] /= (weights[y].sum() * 2)
         
-        return y.to(self.device), weights.to(self.device)
+        return y, weights, relavent_mask
     
     def get_tracks(
         self, 
         tracks: torch.Tensor
-    ) -> torch.tensor:
+    ) -> torch.Tensor:
         tracks = tracks.to(self.device)
-        tracks = torch.stack([
-            self._partial_event.hit_id[tracks[0]],
-            tracks[1] + self.cc_tracks.max() + 1,
-        ], dim = 0)
+        if self.cc_tracks.numel() > 0:
+            tracks = torch.stack([
+                self.partial_event.hit_id[tracks[0]],
+                tracks[1] + self.cc_tracks.max() + 1,
+            ], dim = 0)
         return torch.cat([self.cc_tracks, tracks], dim = 1)
 
     @property
@@ -236,9 +272,11 @@ class PartialData(object):
     def to(
         self, 
         device: torch.device
-    ):
+    ) -> PartialData:
         self.cc_tracks = self.cc_tracks.to(device)
+        self.pid_truth_graph = self.pid_truth_graph.to(device)
         self.device = device
+        return self
         
 
 # ------------- MATCHING UTILS ----------------
@@ -246,7 +284,7 @@ def build_truth_bgraph(
     event: Data,
     signal_selection: Optional[Dict[str, Tuple[float, float]]] = {},
     target_selection: Optional[Dict[str, Tuple[float, float]]] = {},
-) -> Tuple[csr_matrix, Dict[str, torch.tensor]]:
+) -> Tuple[csr_matrix, Dict[str, torch.Tensor]]:
     """
     Build the truth information
     Argument:
@@ -338,10 +376,10 @@ def build_truth_bgraph(
 
 def build_pred_bgraph(
     event: Data,
-    tracks: torch.tensor,
+    tracks: torch.Tensor,
     min_hits: Optional[int] = 0,
     scores: Optional[np.ndarray] = None,
-) -> Tuple[csr_matrix, Dict[str, torch.tensor]]:
+) -> Tuple[csr_matrix, Dict[str, torch.Tensor]]:
     """
     Build the prediction information
     Arguments:
@@ -357,7 +395,7 @@ def build_pred_bgraph(
             original_track_id: the original track id
             track_id: the re-indexed track ids ranging from (0, num_tracks)
     """
-    
+    event, tracks = event.cpu(), tracks.cpu()
     # count tracks
     if min_hits > 0:
         tracks = tracks.unique(dim = 1) 
@@ -398,9 +436,9 @@ def build_pred_bgraph(
 def match_bgraphs(
     truth_bgraph: csr_matrix,
     pred_bgraph: csr_matrix,
-    truth_info: Dict[str, torch.tensor],
-    pred_info: Dict[str, torch.tensor],
-)-> Tuple[torch.tensor, torch.tensor, torch.tensor]:
+    truth_info: Dict[str, torch.Tensor],
+    pred_info: Dict[str, torch.Tensor],
+)-> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     match the graphs by overlaping the graphs.
     Argument:
@@ -514,7 +552,7 @@ def get_statistics(
     truth_df: pd.DataFrame,
     bin_name: Optional[str] = None,
     bins: Optional[Sequence[float]] = None
-) -> Dict[str, Union[float, Sequence[float]]]:
+) -> Dict[str, Union[pd.Series, float]]:
     """
     Arguments:
         matching_df: a `DataFrame` returned by `evaluate_tracking`
@@ -528,92 +566,80 @@ def get_statistics(
             fake rate: 1 - # particle reconstructed / #tracks
             duplicate rate: # matched track / # particles matched to - 1
     """
+    num_duplicated_tracks = matching_df[matching_df["matched"]].track_id.unique().size - matching_df[matching_df["matched"]].pid.unique().size
+    num_matched_particles = matching_df[matching_df["matched"]].pid.unique().size
+    duplicate_rate = num_duplicated_tracks / (num_matched_particles + 1e-12)
+    num_tracks = matching_df.track_id.unique().size 
+    num_reconstructed_particles = matching_df.groupby("pid").any()["reconstructed"].sum()
+    fake_rate = 1 - num_reconstructed_particles / (num_tracks + 1e-12)
     if bin_name is None:
         reconstructed_particles = matching_df.groupby("pid").any()["reconstructed"].sum()
         total_particles = truth_df.pid.unique().size 
-        tracking_efficiency = reconstructed_particles / total_particles
         reconstructed_signal = matching_df[matching_df["is_signal"]].groupby("pid").any()["reconstructed"].sum()
         total_signal = truth_df[truth_df["is_signal"]].pid.unique().size
-        signal_efficency = reconstructed_signal / total_signal
-        duplicate_rate = matching_df[matching_df["matched"]].track_id.unique().size / matching_df[matching_df["matched"]].pid.unique().size - 1
-        fake_rate = 1 - matching_df.groupby("pid").any()["reconstructed"].sum() / matching_df.track_id.unique().size 
         return {
-            "tracking_efficiency": tracking_efficiency,
             "reconstructed_particles": reconstructed_particles,
             "total_particles": total_particles,
-            "signal_efficency": signal_efficency,
             "reconstructed_signal": reconstructed_signal,
             "total_signal": total_signal,
+            "num_duplicated_tracks": num_duplicated_tracks,
+            "num_matched_particles": num_matched_particles,
             "duplicate_rate": duplicate_rate,
+            "num_tracks": num_tracks,
+            "num_reconstructed_particles": num_reconstructed_particles,
             "fake_rate": fake_rate
         }
     matching_df["bin_id"] = pd.cut(matching_df[bin_name], bins, labels=False)
     truth_df["bin_id"] = pd.cut(truth_df[bin_name], bins, labels=False)
     reconstructed_particles = matching_df.groupby(["pid", "bin_id"]).any().reset_index().groupby("bin_id")["reconstructed"].sum()
     total_particles = truth_df.groupby("bin_id").pid.agg(lambda x: x.unique().size) 
-    tracking_efficiency = reconstructed_particles / total_particles
     reconstructed_signal = matching_df[matching_df["is_signal"]].groupby(["pid", "bin_id"]).any().reset_index().groupby("bin_id")["reconstructed"].sum()
     total_signal = truth_df[truth_df["is_signal"]].groupby("bin_id").pid.agg(lambda x: x.unique().size) 
-    signal_efficency = reconstructed_signal / total_signal
-    duplicate_rate = matching_df[matching_df["matched"]].track_id.unique().size / matching_df[matching_df["matched"]].pid.unique().size - 1
-    fake_rate = 1 - matching_df.groupby("pid").any()["reconstructed"].sum() / matching_df.track_id.unique().size
     return {
-        "tracking_efficiency": tracking_efficiency.rename("tracking_efficiency"),
         "reconstructed_particles": reconstructed_particles.rename("reconstructed_particles"),
         "total_particles": total_particles.rename("total_particles"),
-        "signal_efficiency": signal_efficency.rename("signal_efficiency"),
         "reconstructed_signal": reconstructed_signal.rename("reconstructed_signal"),
         "total_signal": total_signal.rename("total_signal"),
+        "num_duplicated_tracks": num_duplicated_tracks,
+        "num_matched_particles": num_matched_particles,
         "duplicate_rate": duplicate_rate,
+        "num_tracks": num_tracks,
+        "num_reconstructed_particles": num_reconstructed_particles,
         "fake_rate": fake_rate
     }
 
 # ------------- PLOTTING UTILS ----------------
 
+def plot_eff(
+    all_stats: Dict[str, pd.Series], 
+    bins: np.ndarray, 
+    xlabel: str, 
+    caption: str, 
+    save_path: Optional[str] = "track_reconstruction_eff_vs_pt.png"
+):
+    
+    denominator = "total_signal"
+    numerator = "reconstructed_signal"
 
-default_eta_bins = np.arange(-4.0, 4.4, step=0.4)
-default_eta_configs = {
-    "bins": default_eta_bins,
-    "histtype": "step",
-    "lw": 2,
-    "log": False,
-}
-
-
-def plot_pt_eff(particles, pt_units, save_path="track_reconstruction_eff_vs_pt.png"):
-    pt = particles.pt.values
-
-    true_pt = pt[particles["is_reconstructable"]]
-    reco_pt = pt[particles["is_reconstructable"] & particles["is_reconstructed"]]
-
-    pt_min, pt_max = 1, 20
-    if pt_units == "MeV":
-        pt_min, pt_max = pt_min * 1000, pt_max * 1000
-    pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
-
-    # Get histogram values of true_pt and reco_pt
-    true_vals, true_bins = np.histogram(true_pt, bins=pt_bins)
-    reco_vals, reco_bins = np.histogram(reco_pt, bins=pt_bins)
-
-    # Plot the ratio of the histograms as an efficiency
-    eff, err = get_ratio(reco_vals, true_vals)
-
-    xvals = (true_bins[1:] + true_bins[:-1]) / 2
-    xerrs = (true_bins[1:] - true_bins[:-1]) / 2
-
+    df = pd.concat(all_stats[denominator]).groupby("bin_id").agg("sum").reset_index()
+    df = df.merge(pd.concat(all_stats[numerator]).groupby("bin_id").agg("sum"), on="bin_id").reset_index()
+    xerrs = np.stack([bins[df.bin_id.astype(int)], bins[df.bin_id.astype(int)+1]])
+    xvals = xerrs.mean(0)
+    xerrs = xerrs - xvals
+    xerrs[0] = - xerrs[0]
+    eff, err = get_ratio(df[numerator], df[denominator])
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.errorbar(
         xvals, eff, xerr=xerrs, yerr=err, fmt="o", color="black", label="Efficiency"
     )
     # Add x and y labels
-    ax.set_xlabel(f"$p_T [{pt_units}]$", fontsize=16)
-    ax.set_ylabel("Efficiency", fontsize=16)
+    ax.set_xlabel(xlabel, fontsize=16)
+    ax.set_ylabel(f"{selection} efficiency", fontsize=16)
 
     atlasify(
         "Internal",
         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-        r" \bar{t}$ and soft interactions) " + "\n"
-        r"$p_T > 1$GeV, $|\eta < 4$",
+        r" \bar{t}$ and soft interactions) " + "\n" + caption
     )
 
     # Save the plot

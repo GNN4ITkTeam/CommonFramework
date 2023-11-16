@@ -72,7 +72,10 @@ class ConnectedComponents(TrackBuildingStage):
             _, candidate_labels = sps.csgraph.connected_components(
                 sparse_edges, directed=False, return_labels=True
             )
-            graph.labels = torch.from_numpy(candidate_labels).long()
+            graph.bgraph = torch.stack([
+                torch.arange(candidate_labels.shape[0], device = graph.scores.device)[candidate_labels >= 0],
+                torch.as_tensor(candidate_labels[candidate_labels >= 0], device = graph.scores.device)
+            ])
             graph.config.append(self.hparams)
 
             # TODO: Graph name file??

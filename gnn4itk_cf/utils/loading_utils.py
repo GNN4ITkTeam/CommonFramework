@@ -72,7 +72,7 @@ def run_data_tests(datasets: List, required_features, optional_features):
         missing_optional_features = [
             feature
             for feature in optional_features
-            if feature not in sample_event or f"x_{feature}" not in sample_event
+            if not (feature in sample_event or f"x_{feature}" in sample_event)
         ]
         for feature in missing_optional_features:
             warnings.warn(f"OPTIONAL feature [{feature}] not found in data")

@@ -1,0 +1,30 @@
+# CommonFramework configuration
+stage: data_reading
+model: AthenaReader
+input_dir: MY_DATA_DIR/Example_1/athena_100_events
+stage_dir: MY_DATA_DIR/Example_1/feature_store/
+module_lookup_path: MY_DATA_DIR/Example_1/example_1_module_ids.txt
+
+# Feature Configurations
+feature_sets:
+    hit_features: [hit_id, x, y, z, r, phi, eta, region, module_id,
+                cluster_x_1, cluster_y_1, cluster_z_1, cluster_x_2, cluster_y_2, cluster_z_2, 
+                norm_x_1, norm_y_1, norm_x_2, norm_y_2, norm_z_1, eta_angle_1, phi_angle_1, eta_angle_2, phi_angle_2, norm_z_2]
+    track_features: [particle_id, pt, radius, primary, nhits, pdgId]
+
+region_labels:
+    1: {hardware: PIXEL, barrel_endcap: -2}
+    2: {hardware: STRIP, barrel_endcap: -2}
+    3: {hardware: PIXEL, barrel_endcap: 0}
+    4: {hardware: STRIP, barrel_endcap: 0}
+    5: {hardware: PIXEL, barrel_endcap: 2}
+    6: {hardware: STRIP, barrel_endcap: 2}
+
+hard_cuts:
+
+column_lookup:
+    coordinates: [cluster_id, hardware, cluster_x, cluster_y, cluster_z]
+    region: [barrel_endcap, layer_disk, eta_module, phi_module, side]
+    norms: [norm_x, norm_y, norm_z]
+    shape_a: [count, charge_count, loc_eta, loc_phi, localDir0, localDir1, localDir2, lengthDir0, lengthDir1, lengthDir2, glob_eta, glob_phi, eta_angle, phi_angle]
+    shape_b: [eta_angle, phi_angle]

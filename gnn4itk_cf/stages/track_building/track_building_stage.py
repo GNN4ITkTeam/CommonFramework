@@ -13,12 +13,8 @@
 # limitations under the License.
 
 """
-This class represents the entire logic of the graph construction stage. In particular, it
-1. Loads events from the Athena-dumped csv files
-2. Processes them into PyG Data objects with the specificied structure (see docs)
-3. Runs the training of the metric learning or module map
-4. Can run inference to build graphs
-5. Can run evaluation to plot/print the performance of the graph construction
+This class represents the entire logic of the track building stage. In particular, it
+1. 
 
 TODO: Update structure with the latest Gravnet base class
 """
@@ -29,6 +25,7 @@ import logging
 from torch_geometric.data import Dataset
 import torch
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
 
 from gnn4itk_cf.utils import (
@@ -44,7 +41,7 @@ class TrackBuildingStage:
     def __init__(self, hparams):
         super().__init__()
         """
-        Initialise the Lightning Module that can scan over different GNN training regimes
+        Initialise the Class that build and evaluate the tracks
         """
 
         self.trainset, self.valset, self.testset = None, None, None
@@ -142,85 +139,74 @@ class TrackBuildingStage:
             else:
                 print(f"Plot {plot_function} not implemented")
 
-    def tracking_efficiency(self, plot_config, config):
+    def tracking_efficiency_pt(self, plot_config, config):
         """
-        Plot the graph construction efficiency vs. pT of the edge.
+        Plot the graph construction efficiency vs. pT of the tracks.
         """
-        all_y_truth, all_pt = [], []
-
-        evaluated_events = []
+        all_stats = {}
+        pt_bins = np.logspace(np.log10(plot_config["min_pt"]), np.log10(plot_config["max_pt"]), plot_config["n_bins"])
         for event in tqdm(self.testset):
-            evaluated_events.append(
-                utils.evaluate_labelled_graph(
-                    event,
-                    matching_fraction=config["matching_fraction"],
-                    matching_style=config["matching_style"],
-                    min_track_length=config["min_track_length"],
-                    min_particle_length=config["min_particle_length"],
-                )
+            matching_df, truth_df = utils.evaluate_tracking(
+                event, 
+                event.bgraph,
+                min_hits = config["min_track_length"],
+                signal_selection = config["selection"],
+                target_selection = {},
+                matching_fraction = config["matching_fraction"],
+                style=config["matching_style"]
             )
-
-        evaluated_events = pd.concat(evaluated_events)
-
-        particles = evaluated_events[evaluated_events["is_reconstructable"]]
-        reconstructed_particles = particles[
-            particles["is_reconstructed"] & particles["is_matchable"]
-        ]
-        tracks = evaluated_events[evaluated_events["is_matchable"]]
-        matched_tracks = tracks[tracks["is_matched"]]
-
-        n_particles = len(particles.drop_duplicates(subset=["event_id", "particle_id"]))
-        n_reconstructed_particles = len(
-            reconstructed_particles.drop_duplicates(subset=["event_id", "particle_id"])
-        )
-
-        n_tracks = len(tracks.drop_duplicates(subset=["event_id", "track_id"]))
-        n_matched_tracks = len(
-            matched_tracks.drop_duplicates(subset=["event_id", "track_id"])
-        )
-
-        n_dup_reconstructed_particles = (
-            len(reconstructed_particles) - n_reconstructed_particles
-        )
-
-        logging.info(f"Number of reconstructed particles: {n_reconstructed_particles}")
-        logging.info(f"Number of particles: {n_particles}")
-        logging.info(f"Number of matched tracks: {n_matched_tracks}")
-        logging.info(f"Number of tracks: {n_tracks}")
-        logging.info(
-            "Number of duplicate reconstructed particles:"
-            f" {n_dup_reconstructed_particles}"
-        )
+            stats = utils.get_statistics(matching_df, truth_df, "pt", pt_bins)
+            if all_stats:
+                for name in all_stats:
+                    all_stats[name].append(stats[name])
+            else:
+                for name in stats:
+                    all_stats[name] = [stats[name]]
 
         # Plot the results across pT and eta
-        eff = n_reconstructed_particles / n_particles
-        fake_rate = 1 - (n_matched_tracks / n_tracks)
-        dup_rate = n_dup_reconstructed_particles / n_reconstructed_particles
-
-        logging.info(f"Efficiency: {eff:.3f}")
-        logging.info(f"Fake rate: {fake_rate:.3f}")
-        logging.info(f"Duplication rate: {dup_rate:.3f}")
-
-        # First get the list of particles without duplicates
-        grouped_reco_particles = particles.groupby("particle_id")[
-            "is_reconstructed"
-        ].any()
-        # particles["is_reconstructed"] = particles["particle_id"].isin(grouped_reco_particles[grouped_reco_particles].index.values)
-        particles.loc[
-            particles["particle_id"].isin(
-                grouped_reco_particles[grouped_reco_particles].index.values
+        utils.plot_eff(
+            all_stats = all_stats,
+            bins = pt_bins,
+            xlabel = r"$p_T$ (MeV)",
+            caption = plot_config["caption"],
+            selection = "signal",
+            save_path = os.path.join(
+                self.hparams["stage_dir"], "eff_vs_pt.png"
             ),
-            "is_reconstructed",
-        ] = True
-        particles = particles.drop_duplicates(subset=["particle_id"])
+        )
+        
+    def tracking_efficiency_eta(self, plot_config, config):
+        """
+        Plot the graph construction efficiency vs. eta of the tracks.
+        """
+        all_stats = {}
+        eta_bins = np.linspace(plot_config["min_eta"], plot_config["max_eta"], plot_config["n_bins"])
+        for event in tqdm(self.testset):
+            matching_df, truth_df = utils.evaluate_tracking(
+                event, 
+                event.bgraph,
+                min_hits = config["min_track_length"],
+                signal_selection = config["selection"],
+                target_selection = {},
+                matching_fraction = config["matching_fraction"],
+                style=config["matching_style"]
+            )
+            stats = utils.get_statistics(matching_df, truth_df, "eta", eta_bins)
+            if all_stats:
+                for name in all_stats:
+                    all_stats[name].append(stats[name])
+            else:
+                for name in stats:
+                    all_stats[name] = [stats[name]]
 
         # Plot the results across pT and eta
-        pt_units = plot_config["pt_units"] if "pt_units" in plot_config else "GeV"
-        utils.plot_pt_eff(
-            particles,
-            pt_units,
-            save_path=os.path.join(
-                self.hparams["stage_dir"], "track_reconstruction_eff_vs_pt.png"
+        utils.plot_eff(
+            all_stats = all_stats,
+            bins = eta_bins,
+            xlabel = r"Pseudo rapidity $\eta$",
+            caption = plot_config["caption"],
+            save_path = os.path.join(
+                self.hparams["stage_dir"], "eff_vs_eta.png"
             ),
         )
 

@@ -116,7 +116,10 @@ class Walkthrough(TrackBuildingStage):
             track_id_tensor = torch.ones(len(graph.x), dtype=torch.long) * -1
             track_id_tensor[hit_id.values] = torch.from_numpy(track_id.values)
 
-            graph.labels = track_id_tensor
+            graph.bgraph = torch.stack([
+                torch.as_tensor(track_df.hit_id, device = graph.scores.device),
+                torch.as_tensor(track_df.track_id, device = graph.scores.device)
+            ])
 
             # TODO: Graph name file??
             torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))

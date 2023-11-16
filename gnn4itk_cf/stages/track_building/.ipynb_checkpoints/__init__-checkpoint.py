@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from .models.connected_components import ConnectedComponents
+from .models.hgnn import HierarchicalGNN
 from .utils import *
 
 __all__ = [
