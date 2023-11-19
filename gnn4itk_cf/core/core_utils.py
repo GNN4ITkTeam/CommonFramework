@@ -160,7 +160,7 @@ def get_trainer(config, default_root_dir):
         max_epochs=config["max_epochs"],
         callbacks=[checkpoint_callback],
         logger=logger,
-        precision=config.get("precision", "16-mixed"),
+        precision=config.get("precision", 32),
         strategy=DDPStrategy(find_unused_parameters=False, static_graph=True),
         default_root_dir=default_root_dir,
     )
