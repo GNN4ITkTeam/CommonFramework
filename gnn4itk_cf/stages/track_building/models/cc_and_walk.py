@@ -27,6 +27,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Local imports
 from ..track_building_stage import TrackBuildingStage
+from .. import utils
 
 
 class CCandWalk(TrackBuildingStage):
@@ -107,23 +108,13 @@ class CCandWalk(TrackBuildingStage):
         cc_and_walk_utils.add_track_labels(graph, all_trks)
 
         # Make a dataframe from pyg graph
-        d = load_reconstruction_df(graph)
+        d = utils.load_reconstruction_df(graph)
         # Keep only hit_id associtated to a tracks (label >= 0, not -1)
         d = d[ d.track_id>=0 ]
         # Make a dataframe of list of hits (one row = one list of hits, ie one track)
-        trks = d.groupby('track_id')['hit_id'].apply(list)
-        with open(os.path.join(output_dir, "tracks" ,f"event{graph.event_id[0]}.pyg"),'w') as f:
-            f.write("\n".join(str(t).replace(',','').replace('[','').replace(']','')  for t in trks.values))
+        tracks = d.groupby('track_id')['hit_id'].apply(list)
+        os.makedirs(os.path.join(self.hparams["stage_dir"], os.path.basename(output_dir)+"_tracks"), exist_ok=True) 
+        with open(os.path.join(self.hparams["stage_dir"], os.path.basename(output_dir)+"_tracks" ,f"event{graph.event_id[0]}.txt"),'w') as f:
+            f.write("\n".join(str(t).replace(',','').replace('[','').replace(']','')  for t in tracks.values))
 
         torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
-
-def load_reconstruction_df(graph):
-    """Load the reconstructed tracks from a pyg file to a dataframe."""
-    if hasattr(graph, "hit_id"):
-        hit_id = graph.hit_id
-    else:
-        hit_id = torch.arange(graph.num_nodes)
-
-    return pd.DataFrame(
-        {"hit_id": hit_id, "track_id": graph.labels}
-    )
