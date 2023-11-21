@@ -90,8 +90,8 @@ def lightning_infer(config, stage_module, checkpoint=None):
     stage_module.setup(stage="predict")
 
     trainer = Trainer(
-        accelerator="auto",
-        devices=config["gpus"],
+        accelerator="gpu" if config["gpus"] else "cpu",
+        devices=config["gpus"] or 1,
         num_nodes=config["nodes"],
     )
 
