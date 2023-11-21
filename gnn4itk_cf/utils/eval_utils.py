@@ -119,11 +119,11 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
     graph_truth = []
 
     print(f"Using score cut: {config.get('score_cut')}")
-    if 'target_tracks' in config:
+    if "target_tracks" in config:
         print(f"Track selection criteria: \n{yaml.dump(config.get('target_tracks'))}")
-    else: 
+    else:
         print("No track selection criteria found, accepting all tracks.")
-    
+
     for event in tqdm(lightning_module.testset):
         event = event.to(lightning_module.device)
 
@@ -138,14 +138,14 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
         # get all target true positives
         true_positive.append((event.truth_map[event.target_mask] > -1).cpu())
 
-        # get all target pt. Length = number of target true. This includes ALL truth edges in the event, 
-        # even those not included in the input graph. We MUST filter them out to isolate the inefficiency from model. 
+        # get all target pt. Length = number of target true. This includes ALL truth edges in the event,
+        # even those not included in the input graph. We MUST filter them out to isolate the inefficiency from model.
         # Otherwise, we are plotting cumilative edge efficiency.
         target_pt.append(event.pt[event.target_mask].cpu())
 
         # similarly for target eta
         target_eta.append(event.eta[event.track_edges[0, event.target_mask]])
-        
+
         # get all edges passing edge cut
         if "scores" in event.keys:
             pred.append((event.scores >= config["score_cut"]).cpu())
@@ -176,7 +176,7 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
     # get mean target efficiency
     target_efficiency = true_positive.sum() / len(target_pt[graph_truth])
     target_purity = true_positive[graph_truth].sum() / pred.sum()
-    cumulative_efficiency  = true_positive.sum() / len(target_pt)
+    cumulative_efficiency = true_positive.sum() / len(target_pt)
 
     # get graph construction efficiency
     graph_construction_efficiency = graph_truth.mean()
@@ -232,7 +232,9 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
             f"Input graph size: {pred.shape[0]/n_graphs:.2e}, Graph Construction"
             f" Efficiency: {graph_construction_efficiency:.4f}" + "\n"
             f"Mean graph size: {mean_graph_size:.2e}, Signal Efficiency:"
-            f" {target_efficiency:.4f}" + "\n" + f"Cumulative Signal Efficiency: {cumulative_efficiency:.4f}",
+            f" {target_efficiency:.4f}"
+            + "\n"
+            + f"Cumulative Signal Efficiency: {cumulative_efficiency:.4f}",
         )
 
         fig.savefig(os.path.join(config["stage_dir"], filename))
@@ -344,7 +346,7 @@ def graph_region_efficiency_purity(lightning_module, plot_config, config):
     print("Plotting efficiency and purity by region")
     edge_truth, edge_regions, edge_positive = [], [], []
     node_r, node_z, node_regions = [], [], []
-    
+
     for event in tqdm(lightning_module.testset):
         with torch.no_grad():
             eval_dict = lightning_module.shared_evaluation(
@@ -399,9 +401,9 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
 
     print("Plotting edgewise efficiency as a function of rz")
     print(f"Using score cut: {config.get('score_cut')}")
-    if 'target_tracks' in config:
+    if "target_tracks" in config:
         print(f"Track selection criteria: \n{yaml.dump(config.get('target_tracks'))}")
-    else: 
+    else:
         print("No track selection criteria found, accepting all tracks.")
 
     target = {"z": torch.empty(0), "r": torch.empty(0)}
@@ -451,7 +453,7 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
             true_positive[key] = torch.cat(
                 [true_positive[key], event[key][target_true_positive_edges[0]]], dim=0
             )
-        
+
         input_graph_size += event.edge_index.size(1)
         graph_size += event.pred.sum().numpy()
         n_graphs += 1
@@ -467,14 +469,18 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
         r"$p_T > 1$ GeV, $ | \eta | < 4$ " + f"\n"
         "Graph Construction Efficiency:"
         f" {(target['z'].shape[0] / all_target['z'].shape[0]):.4f}, Input graph size: {input_graph_size / n_graphs: .2e} \n"
-        r"Edge score cut: " + str(config["score_cut"]) + f", Mean graph size: {graph_size / n_graphs :.2e} \n"
+        r"Edge score cut: "
+        + str(config["score_cut"])
+        + f", Mean graph size: {graph_size / n_graphs :.2e} \n"
         "Signal Efficiency:"
         f" {true_positive['z'].shape[0] / target['z'].shape[0] :.4f} \n"
-        f"Cumulative signal efficiency: {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}"
-        ,
+        f"Cumulative signal efficiency: {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}",
     )
     plt.tight_layout()
-    save_dir = os.path.join(config["stage_dir"], f"{plot_config.get('filename', 'edgewise_efficiency_rz')}.png")
+    save_dir = os.path.join(
+        config["stage_dir"],
+        f"{plot_config.get('filename', 'edgewise_efficiency_rz')}.png",
+    )
     fig.savefig(save_dir)
     print(f"Finish plotting. Find the plot at {save_dir}")
     plt.close()
@@ -494,15 +500,17 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
         r"$p_T > 1$ GeV, $ | \eta | < 4$ " + f"\n"
         "Graph Construction Efficiency:"
         f" {(target['z'].shape[0] / all_target['z'].shape[0]):.4f}, Input graph size: {input_graph_size / n_graphs: .2e} \n"
-        r"Edge score cut: " + str(config["score_cut"]) + f", Mean graph size: {graph_size / n_graphs :.2e} \n"
+        r"Edge score cut: "
+        + str(config["score_cut"])
+        + f", Mean graph size: {graph_size / n_graphs :.2e} \n"
         "Signal Efficiency:"
         f" {true_positive['z'].shape[0] / target['z'].shape[0] :.4f} \n"
-        f"Cumulative signal efficiency: {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}"
-        ,
+        f"Cumulative signal efficiency: {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}",
     )
     plt.tight_layout()
     save_dir = os.path.join(
-        config["stage_dir"], f"cumulative_{plot_config.get('filename', 'edgewise_efficiency_rz')}.png"
+        config["stage_dir"],
+        f"cumulative_{plot_config.get('filename', 'edgewise_efficiency_rz')}.png",
     )
     fig.savefig(save_dir)
     print(f"Finish plotting. Find the plot at {save_dir}")
@@ -521,9 +529,9 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
 
     print("Plotting edgewise purity as a function of rz")
     print(f"Using score cut: {config.get('score_cut')}")
-    if 'target_tracks' in config:
+    if "target_tracks" in config:
         print(f"Track selection criteria: \n{yaml.dump(config.get('target_tracks'))}")
-    else: 
+    else:
         print("No track selection criteria found, accepting all tracks.")
 
     true_positive = {
