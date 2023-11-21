@@ -40,7 +40,10 @@ from .core_utils import str_to_class, find_latest_checkpoint
 @click.option(
     "--checkpoint", "-c", default=None, help="Checkpoint to use for evaluation"
 )
-def main(config_file, verbose, checkpoint):
+@click.option(
+    "--dataset", '-d', default="valset", type=click.Choice(['trainset', 'valset', 'testset'], case_sensitive=True)
+)
+def main(config_file, verbose, checkpoint, dataset):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.
     """
@@ -50,10 +53,10 @@ def main(config_file, verbose, checkpoint):
     else:
         logging.basicConfig(level=logging.INFO)
 
-    evaluate(config_file, checkpoint)
+    evaluate(config_file, checkpoint, dataset)
 
 
-def evaluate(config_file, checkpoint):
+def evaluate(config_file, checkpoint, dataset):
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -79,6 +82,7 @@ def evaluate(config_file, checkpoint):
             checkpoint_path, map_location=torch.device("cpu")
         )["hyper_parameters"]
         config = {**checkpoint_config, **config}
+        config["dataset"] = dataset
 
     stage_module.evaluate(config)
 
