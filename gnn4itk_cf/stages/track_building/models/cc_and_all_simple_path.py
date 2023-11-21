@@ -24,7 +24,7 @@ import networkx as nx
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Local imports
-from ..track_building_stage_ import TrackBuildingStage
+from ..track_building_stage import TrackBuildingStage
 from torch_geometric.utils import to_scipy_sparse_matrix
 from torch_geometric.utils import remove_isolated_nodes, degree, to_networkx
 from torch_geometric.data import Data
