@@ -41,7 +41,10 @@ from .core_utils import str_to_class, find_latest_checkpoint
     "--checkpoint", "-c", default=None, help="Checkpoint to use for evaluation"
 )
 @click.option(
-    "--dataset", '-d', default="valset", type=click.Choice(['trainset', 'valset', 'testset'], case_sensitive=True)
+    "--dataset",
+    "-d",
+    default="valset",
+    type=click.Choice(["trainset", "valset", "testset"], case_sensitive=True),
 )
 def main(config_file, verbose, checkpoint, dataset):
     """

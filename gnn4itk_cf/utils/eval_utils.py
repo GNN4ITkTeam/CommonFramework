@@ -17,9 +17,11 @@ from gnn4itk_cf.utils.plotting_utils import (
     plot_score_histogram,
 )
 
+
 def get_dataset(lightning_module, config):
-    dataset = config['dataset']
+    dataset = config["dataset"]
     return dataset, lightning_module.__dict__[dataset]
+
 
 def graph_construction_efficiency(lightning_module, plot_config, config):
     """
@@ -104,7 +106,9 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
             + r"$\pm$"
             + f"{np.std(graph_size):.2e}"
             + "\n"
-            + f"Global efficiency: {all_y_truth.sum() / all_pt.shape[0] :.4f}" + "\n" + f"Evaluated on {dataset_name}",
+            + f"Global efficiency: {all_y_truth.sum() / all_pt.shape[0] :.4f}"
+            + "\n"
+            + f"Evaluated on {dataset_name}",
         )
         fig.savefig(os.path.join(config["stage_dir"], filename))
 
@@ -123,7 +127,9 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
     pred = []
     graph_truth = []
 
-    print(f"Using score cut: {config.get('score_cut')}, events from {config['dataset']}")
+    print(
+        f"Using score cut: {config.get('score_cut')}, events from {config['dataset']}"
+    )
     if "target_tracks" in config:
         print(f"Track selection criteria: \n{yaml.dump(config.get('target_tracks'))}")
     else:
@@ -241,7 +247,9 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
             f"Mean graph size: {mean_graph_size:.2e}, Signal Efficiency:"
             f" {target_efficiency:.4f}"
             + "\n"
-            + f"Cumulative Signal Efficiency: {cumulative_efficiency:.4f}" + "\n" + f"Evaluated on {dataset_name}",
+            + f"Cumulative Signal Efficiency: {cumulative_efficiency:.4f}"
+            + "\n"
+            + f"Evaluated on {dataset_name}",
         )
 
         fig.savefig(os.path.join(config["stage_dir"], filename))
@@ -277,7 +285,9 @@ def graph_roc_curve(lightning_module, plot_config, config):
     """
     Plot the ROC curve for the graph construction efficiency.
     """
-    print(f"Plotting the ROC curve and score distribution, events from {config['dataset']}")
+    print(
+        f"Plotting the ROC curve and score distribution, events from {config['dataset']}"
+    )
     all_y_truth, all_scores = [], []
 
     dataset_name, dataset = get_dataset(lightning_module, config)
@@ -411,7 +421,9 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
     """
 
     print("Plotting edgewise efficiency as a function of rz")
-    print(f"Using score cut: {config.get('score_cut')}, events from {config['dataset']}")
+    print(
+        f"Using score cut: {config.get('score_cut')}, events from {config['dataset']}"
+    )
     if "target_tracks" in config:
         print(f"Track selection criteria: \n{yaml.dump(config.get('target_tracks'))}")
     else:
@@ -487,7 +499,9 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
         + f", Mean graph size: {graph_size / n_graphs :.2e} \n"
         "Signal Efficiency:"
         f" {true_positive['z'].shape[0] / target['z'].shape[0] :.4f} \n"
-        f"Cumulative signal efficiency: {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}" + "\n" + f"Evaluated on {dataset_name}",
+        f"Cumulative signal efficiency: {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}"
+        + "\n"
+        + f"Evaluated on {dataset_name}",
     )
     plt.tight_layout()
     save_dir = os.path.join(
@@ -518,7 +532,9 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
         + f", Mean graph size: {graph_size / n_graphs :.2e} \n"
         "Signal Efficiency:"
         f" {true_positive['z'].shape[0] / target['z'].shape[0] :.4f} \n"
-        f"Cumulative signal efficiency: {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}" + "\n" + f"Evaluated on {dataset_name}",
+        f"Cumulative signal efficiency: {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}"
+        + "\n"
+        + f"Evaluated on {dataset_name}",
     )
     plt.tight_layout()
     save_dir = os.path.join(
@@ -541,7 +557,9 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
     """
 
     print("Plotting edgewise purity as a function of rz")
-    print(f"Using score cut: {config.get('score_cut')}, events from {config['dataset']}")
+    print(
+        f"Using score cut: {config.get('score_cut')}, events from {config['dataset']}"
+    )
     if "target_tracks" in config:
         print(f"Track selection criteria: \n{yaml.dump(config.get('target_tracks'))}")
     else:
@@ -555,7 +573,7 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
     pred = true_positive.copy()
     masked_pred = true_positive.copy()
 
-    dataset_name, dataset = get_dataset(lightning_module, config) 
+    dataset_name, dataset = get_dataset(lightning_module, config)
 
     for event in tqdm(dataset):
         event = event.to(lightning_module.device)
@@ -647,7 +665,9 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
             + "\n"
             + purity_definition_label[suffix]
             + ": "
-            + f"{numerator['z'].size(0) / denominator['z'].size(0) : .5f}" + "\n" + f"Evaluated on {dataset_name}",
+            + f"{numerator['z'].size(0) / denominator['z'].size(0) : .5f}"
+            + "\n"
+            + f"Evaluated on {dataset_name}",
         )
         plt.tight_layout()
         save_dir = os.path.join(
