@@ -17,26 +17,40 @@ The simulated data dumped in ROOT format from RDO simulated samples can be downl
 user.jstark:GNN4Itk_v2__mc15_14TeV.600012.PhPy8EG_A14_ttbar_hdamp258p75_nonallhad.recon.RDO.e8185_s3770_s3773_r14431
 ```
 
-Assuming  `MY_DATA_DIR` is your data directory, create the following sub directories:
+## Setup
+
+Assuming the ACORN requirements have been installed, the only other requirements are the data files and model files. 
+The data can be download to a data directory `MY_DATA_DIR``. This is around 2.3Gb, so ensure you download to a location with sufficient space. Define this dir with:
 
 ```bash
-mkdir MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9
-mkdir MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar
+data_dir=MY_DATA_DIR
 ```
-
-Assuming you have configure your ATLAS environnement on the grid,
- run the following commands to downlaod the data:
+Create the following sub directories:
 
 ```bash
-cd MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar
+mkdir $data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9
+mkdir $data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar
+```
+then download the data with the following commands (assuming you have configure your ATLAS environnement on the grid):
+
+```bash
+cd $data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar
 lsetup rucio
 voms-proxy-init -voms atlas
 rucio download user.jstark:GNN4Itk_v2__mc15_14TeV.600012.PhPy8EG_A14_ttbar_hdamp258p75_nonallhad.recon.RDO.e8185_s3770_s3773_r14431
 ```
 
-Before running the example please replace `MY_DATA_DIR` in all the *.yaml config files or set a environment variable accordignly. 
+The location of this data, as well as all parameters controlling the GNN4ITk reconstruction chain, is specified in yaml config files. The data directory currently has a placeholder MY_DATA_DIR. Replace this with the actual data directory with:
 
-In the following replace `MY_ACORN_DIR` by your local `ACORN` install directory or set a environment variable accordignly.
+```bash
+sed -i "s|MY_DATA_DIR|$data_dir|g" *.yaml
+```
+
+Assuming ACORN directory currently has a placeholder MY_ACORN_DIR, define it by:
+
+```bash
+acorn_dir=MY_ACORN_DIR
+```
 
 ## Data reading stage
 
@@ -53,7 +67,7 @@ The events sampling use for CTD 2023 can be found on `eos` here:
 please copy this files in:
 
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/sampling/
+$data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/sampling/
 ```
 
 ### Inference
@@ -69,7 +83,7 @@ Inference will read the dumped data and will:
 Run the command:
 
 ```bash
-g4i-infer MY_ACORN_DIR/examples/CTD_2023/data_reader.yaml
+g4i-infer $acorn_dir/examples/CTD_2023/data_reader.yaml
 ```
 
 The result will be pyg files containing the events represented as pyg Data object:
@@ -90,7 +104,7 @@ user.avallier:ATLAS-P2-ITK-23-00-03_Rel.21.9_feature_store_ttbar_uncorr_v1_tests
 
 Please copy them in:
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/feature_store/
+$data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/feature_store/
 ``````
 before running the next stages.
 
@@ -120,7 +134,7 @@ MY_ACORN_DIR/model_store/module_map/
 Then run the command:
 
 ```bash
-g4i-infer MY_ACORN_DIR/examples/CTD_2023/module_map_infer.yaml
+g4i-infer $acorn_dir/examples/CTD_2023/module_map_infer.yaml
 ```
 
 The result is the train, val and test sets of pyg files updated by the `event.edge_index`, the `event.truth_map` and the edges target `event.y`.
@@ -130,14 +144,14 @@ The result is the train, val and test sets of pyg files updated by the `event.ed
 Run the command:
 
 ```bash
-g4i-eval MY_ACORN_DIR/examples/CTD_2023/module_map_eval.yaml
+g4i-eval $acorn_dir/examples/CTD_2023/module_map_eval.yaml
 ```
 
 The result will be the graph construction efficiency plots vs eta and pT:
 
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map/edgewise_efficiency_eta.png
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map/edgewise_efficiency_pt.png
+$data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map/edgewise_efficiency_eta.png
+$data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map/edgewise_efficiency_pt.png
 ```
 
 ## Edge Classifier stage
@@ -150,39 +164,39 @@ The `InteractionGNN2` edge classifier GNN model is trained using the train datas
 Details on the model can be found in [REF] and the code is here : 
 
 ```bash
-MY_ACORN_DIR/gnn4itk_cf/stages/edge_classifier/models/interaction_gnn.py
+$acorn_dir/gnn4itk_cf/stages/edge_classifier/models/interaction_gnn.py
 ```
 
 GNN Model and training parameters can be found in the config file here:
 
 ```bash
-MY_ACORN_DIR/examples/CTD_2023/gnn_train.yaml
+$acorn_dir/examples/CTD_2023/gnn_train.yaml
 ```
  
 Run the command to launch the training:
 
 ```bash
-g4i-train MY_ACORN_DIR/examples/CTD_2023/gnn_train.yaml
+g4i-train $acorn_dir/examples/CTD_2023/gnn_train.yaml
 ```
 
 Typically the training will last between ~100 to ~200 epochs to start to plateau significantly.
 
 The hyperparameters of the model and training can be found here:
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/lightning_logs/version_XXX/hparams.yaml
+$data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/lightning_logs/version_XXX/hparams.yaml
 ```
 (XXX = run version number)
 
 The log of the training can be found here:
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/lightning_logs/version_XXX/metrics.csv
+$data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/lightning_logs/version_XXX/metrics.csv
 ```
 (XXX = run version number)
 
 The last and the 'best' checkpoints of the model are stored here:
 
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/artifacts
+$data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/artifacts
 ```
 
 ### Inference
@@ -197,7 +211,7 @@ Inference of the GNN model will:
 Run the command:
 
 ```bash
-g4i-infer MY_ACORN_DIR/examples/CTD_2023/gnn_infer.yaml
+g4i-infer $acorn_dir/examples/CTD_2023/gnn_infer.yaml
 ```
 #### Inference from pre-trained GNN checkpoint
 
@@ -207,8 +221,19 @@ A pre-trained `InteractionGNN2` edge classifier GNN model checkpoint can be foun
 /eos/user/s/scaillou/CTD_2023/model_store/gnn/GNN_IN2_epochs169.ckpt
 ```
 
+copy it here:
+
+```bash
+$acorn_dir/model_store/gnn/
+```
+
 It gives ~99.2% of efficency and ~92.9% of masked purity (see [REF] for masked purity definition) on the test set.
 
+Run the command:
+
+```bash
+g4i-infer $acorn_dir/examples/CTD_2023/gnn_infer.yaml -c MY_ACORN_DIR/model_store/gnn/GNN_IN2_epochs169.ckpt
+```
 
 The result is the scored testset events.
 
@@ -217,7 +242,7 @@ The result is the scored testset events.
 Run the command:
 
 ```bash
-g4i-infer MY_ACORN_DIR/examples/CTD_2023/gnn_eval.yaml
+g4i-eval $acorn_dir/examples/CTD_2023/gnn_eval.yaml
 ```
 The results will be the plots of cumulative efficiency vs (r,z) (graph construction efficiency * gnn signal efficiency), efficiency vs (r,z) (gnn signal efficiency), target purity, purity and total purity vs (r, z):
 
@@ -242,7 +267,7 @@ The inference will:
 Run the command:
 
 ```bash
-g4i-infer MY_ACORN_DIR/examples/CTD_2023/track_building_infer.yaml
+g4i-infer $acorn_dir/examples/CTD_2023/track_building_infer.yaml
 ```
 
 The result is
@@ -250,13 +275,13 @@ The result is
 - the track candidates in ASCII files format, which can be found here:
   
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/testset/tracks/
+$data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/testset/tracks/
 ```
 
 Each lines of the event files contains a sequence of hits which are the track candidates, for instance:
 
 ```bash
-head MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/testset_reco/event005000901_reco_trks.txt
+head $data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/testset_reco/event005000901_reco_trks.txt
 11 68 133 185 15921 15995 17197 17261 17324 48877 101589
 18 78 866 929 17096 17160 17226 18636 18700 18760 52253 80084 92282 101587 240153 243270 246988
 50 112 166 221 900 17238 17298 17359 17424 17490 60676 60730 60780 79951 80005 80139 92235 92345
@@ -272,14 +297,13 @@ head MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/testset_reco/event00
 ### Evaluation
 
 ```bash
-g4i-eval MY_ACORN_DIR/examples/CTD_2023/track_building_eval.yaml
+g4i-eval $acorn_dir/examples/CTD_2023/track_building_eval.yaml
 ```
 The result is the plots of track reconstruction efficiency
 vs eta and of track reconstruction efficiency
 vs pT.
 
 ```bash
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/track_reconstruction_eff_vs_eta.png
-MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/track_reconstruction_eff_vs_pt.png
+$data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/track_reconstruction_eff_vs_eta.png
+$data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/track_reconstruction_eff_vs_pt.png
 ```
-
