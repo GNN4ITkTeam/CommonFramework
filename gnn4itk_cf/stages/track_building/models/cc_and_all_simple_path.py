@@ -25,7 +25,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Local imports
 from ..track_building_stage import TrackBuildingStage
 from torch_geometric.utils import to_scipy_sparse_matrix
-from torch_geometric.utils import remove_isolated_nodes, to_networkx
+from torch_geometric.utils import remove_isolated_nodes, to_networkx, degree
 from torch_geometric.data import Data
 
 from .. import utils
@@ -72,6 +72,11 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
             graph_cc.edge_index = edge_index
             graph_cc.x = graph_cc.x[mask_x]
             num_nodes = graph_cc.x.shape[0]
+
+            src, dst = graph_cc.edge_index
+            in_degree = degree(dst, num_nodes=num_nodes)
+            out_degree = degree(src, num_nodes=num_nodes)
+
             # Convert to sparse scipy array
             sparse_edges = to_scipy_sparse_matrix(
                 graph_cc.edge_index, num_nodes=num_nodes
