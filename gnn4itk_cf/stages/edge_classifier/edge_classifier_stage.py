@@ -161,9 +161,7 @@ class EdgeClassifierStage(LightningModule):
         if self.trainset is None:
             return None
         num_workers = self.hparams.get("num_workers", [1, 1, 1])[0]
-        return DataLoader(
-            self.trainset, batch_size=1, num_workers=num_workers, shuffle=True
-        )
+        return DataLoader(self.trainset, batch_size=1, num_workers=num_workers)
 
     def val_dataloader(self):
         """

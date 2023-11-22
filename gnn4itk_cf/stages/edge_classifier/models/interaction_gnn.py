@@ -655,7 +655,7 @@ class InteractionGNN2WithPyG(InteractionGNN2):
                 or self.hparams.get("edge_net_recurrent")
                 else InteractionConv2(in_node_net, in_edge_net, **self.hparams)
             )
-        self.checkpoint = self.hparams.get("checkpoint") or self.hparams.get(
+        self.checkpoint = self.hparams.get("checkpoint", False) or self.hparams.get(
             "checkpointing", False
         )
 
@@ -693,8 +693,8 @@ class InteractionGNN2WithPyG(InteractionGNN2):
         e = edge_encoder(e)
 
         # memorize initial encodings for concatenate in the gnn loop if request
-        input_x = x
-        input_e = e
+        input_x = x.clone()
+        input_e = e.clone()
         # Initialize outputs
         outputs = []
         # Loop over gnn layers

@@ -20,6 +20,8 @@ import matplotlib.pyplot as plt
 import torch
 import scipy
 
+import seaborn as sns
+
 
 def clopper_pearson(passed: float, total: float, level: float = 0.68):
     """
@@ -170,3 +172,17 @@ def plot_1d_histogram(
     plt.tight_layout()
 
     return fig, ax
+
+
+def plot_score_histogram(scores, y, bins=100, ax=None):
+    """
+    Plot a histogram of scores, labelled by truth
+    """
+    ax = sns.histplot(
+        x=scores, hue=y, bins=100, stat="count", log_scale=(False, True), ax=ax
+    )
+    sns.move_legend(
+        ax, "lower center", bbox_to_anchor=(0.5, 1), ncol=2, title=None, frameon=False
+    )
+
+    return ax
