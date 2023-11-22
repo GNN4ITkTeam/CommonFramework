@@ -14,5 +14,6 @@
 
 from .models.connected_components import ConnectedComponents
 from .models.cc_and_walk import CCandWalk
+from .models.cc_and_all_simple_path import WeaklyConnectedComponentsAllSimplePath
 
-__all__ = ["ConnectedComponents", "CCandWalk"]
+__all__ = ["ConnectedComponents", "CCandWalk", "WeaklyConnectedComponentsAllSimplePath"]

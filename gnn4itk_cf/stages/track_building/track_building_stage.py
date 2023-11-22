@@ -150,7 +150,7 @@ class TrackBuildingStage:
 
     def tracking_efficiency(self, plot_config, config):
         """
-        Plot the graph construction efficiency vs. pT of the edge.
+        Plot the track efficiency vs. pT of the edge.
         """
         all_y_truth, all_pt = [], []
 
@@ -161,8 +161,8 @@ class TrackBuildingStage:
                     event,
                     matching_fraction=config["matching_fraction"],
                     matching_style=config["matching_style"],
+                    sel_conf=config["target_tracks"],
                     min_track_length=config["min_track_length"],
-                    min_particle_length=config["min_particle_length"],
                 )
             )
 
@@ -189,23 +189,30 @@ class TrackBuildingStage:
             len(reconstructed_particles) - n_reconstructed_particles
         )
 
-        logging.info(f"Number of reconstructed particles: {n_reconstructed_particles}")
-        logging.info(f"Number of particles: {n_particles}")
-        logging.info(f"Number of matched tracks: {n_matched_tracks}")
-        logging.info(f"Number of tracks: {n_tracks}")
-        logging.info(
-            "Number of duplicate reconstructed particles:"
-            f" {n_dup_reconstructed_particles}"
-        )
-
-        # Plot the results across pT and eta
         eff = n_reconstructed_particles / n_particles
         fake_rate = 1 - (n_matched_tracks / n_tracks)
         dup_rate = n_dup_reconstructed_particles / n_reconstructed_particles
 
-        logging.info(f"Efficiency: {eff:.3f}")
-        logging.info(f"Fake rate: {fake_rate:.3f}")
-        logging.info(f"Duplication rate: {dup_rate:.3f}")
+        result_summary = make_result_summary(
+            n_reconstructed_particles,
+            n_particles,
+            n_matched_tracks,
+            n_tracks,
+            n_dup_reconstructed_particles,
+            eff,
+            fake_rate,
+            dup_rate,
+        )
+
+        self.log.info("Result Summary :\n\n" + result_summary)
+
+        res_fname = os.path.join(
+            self.hparams["stage_dir"],
+            f"results_summary_{self.hparams['matching_style']}.txt",
+        )
+
+        with open(res_fname, "w") as f:
+            f.write(result_summary)
 
         # First get the list of particles without duplicates
         grouped_reco_particles = particles.groupby("particle_id")[
@@ -220,15 +227,19 @@ class TrackBuildingStage:
         ] = True
         particles = particles.drop_duplicates(subset=["particle_id"])
 
-        # Plot the results across pT and eta
-        pt_units = plot_config["pt_units"] if "pt_units" in plot_config else "GeV"
-        utils.plot_pt_eff(
-            particles,
-            pt_units,
-            save_path=os.path.join(
-                self.hparams["stage_dir"], "track_reconstruction_eff_vs_pt.png"
-            ),
-        )
+        # Plot the results across pT and eta (if provided in conf file)
+        os.makedirs(self.hparams["stage_dir"], exist_ok=True)
+
+        for var, varconf in plot_config["variables"].items():
+            utils.plot_eff(
+                particles,
+                var,
+                varconf,
+                save_path=os.path.join(
+                    self.hparams["stage_dir"],
+                    f"track_reconstruction_eff_vs_{var}_{self.hparams['matching_style']}.png",
+                ),
+            )
 
     def apply_target_conditions(self, event, target_tracks):
         """
@@ -249,6 +260,28 @@ class TrackBuildingStage:
                 passing_tracks = passing_tracks * (event[key] == values)
 
         event.target_mask = passing_tracks
+
+
+def make_result_summary(
+    n_reconstructed_particles,
+    n_particles,
+    n_matched_tracks,
+    n_tracks,
+    n_dup_reconstructed_particles,
+    eff,
+    fake_rate,
+    dup_rate,
+):
+    summary = f"Number of reconstructed particles: {n_reconstructed_particles}\n"
+    summary += f"Number of particles: {n_particles}\n"
+    summary += f"Number of matched tracks: {n_matched_tracks}\n"
+    summary += f"Number of tracks: {n_tracks}\n"
+    summary += f"Number of duplicate reconstructed particles: {n_dup_reconstructed_particles}\n"
+    summary += f"Efficiency: {eff:.3f}\n"
+    summary += f"Fake rate: {fake_rate:.3f}\n"
+    summary += f"Duplication rate: {dup_rate:.3f}\n"
+
+    return summary
 
 
 class GraphDataset(Dataset):

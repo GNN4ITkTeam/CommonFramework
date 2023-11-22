@@ -18,7 +18,8 @@ import numpy as np
 from atlasify import atlasify
 
 import matplotlib.pyplot as plt
-from gnn4itk_cf.utils.plotting_utils import get_ratio
+
+from gnn4itk_cf.utils import get_ratio
 
 # ------------- MATCHING UTILS ----------------
 
@@ -38,10 +39,28 @@ def load_reconstruction_df(graph):
     )
 
 
-def load_particles_df(graph):
+def load_particles_df(graph, sel_conf: dict):
     """Load the particles from a file."""
     # Get the particle dataframe
-    particles_df = pd.DataFrame({"particle_id": graph.particle_id, "pt": graph.pt})
+
+    # By default have only particle pt
+    cols = {"particle_id": graph.particle_id, "pt": graph.pt}
+
+    # Add more variable if needed for th fiducial selection
+    for var in sel_conf:
+        if var not in cols:
+            if var == "n_true_hits":
+                # Specific case: not embedded in graphs but added in the dataframe later on
+                # So we ignore it at this stage
+                continue
+            cols[var] = graph[var]
+
+    # particles_df = pd.DataFrame({"particle_id": graph.particle_id,
+    #                              "pt": graph.pt, "eta_particle": graph.eta_particle,
+    #                              "pdgId": graph.pdgId, "radius": graph.radius,
+    #                              "primary": graph.primary})
+
+    particles_df = pd.DataFrame(cols)
 
     # Reduce to only unique particle_ids
     particles_df = particles_df.drop_duplicates(subset=["particle_id"])
@@ -49,9 +68,31 @@ def load_particles_df(graph):
     return particles_df
 
 
-def get_matching_df(
-    reconstruction_df, particles_df, min_track_length=1, min_particle_length=1
-):
+def apply_fiducial_sel(df: pd.DataFrame, sel_conf: dict):
+    """Add 'is_reconstructable' item to the dataframe based on the fiducial selection defined in config"""
+
+    df["is_reconstructable"] = True
+
+    for key, values in sel_conf.items():
+        if isinstance(values, list):
+            if values[0] == "not_in":
+                for val in values[1]:
+                    df["is_reconstructable"] = df["is_reconstructable"] * (
+                        df[key] != val
+                    )
+            else:
+                df["is_reconstructable"] = (
+                    df["is_reconstructable"]
+                    * (df[key] >= values[0])
+                    * (df[key] <= values[1])
+                )
+        else:
+            df["is_reconstructable"] = df["is_reconstructable"] * (df[key] >= values)
+
+    return df
+
+
+def get_matching_df(reconstruction_df, particles_df, sel_conf, min_track_length=1):
     # Get track lengths
     candidate_lengths = (
         reconstruction_df.track_id.value_counts(sort=False)
@@ -88,9 +129,8 @@ def get_matching_df(
     spacepoint_matching["is_matchable"] = (
         spacepoint_matching.n_reco_hits >= min_track_length
     )
-    spacepoint_matching["is_reconstructable"] = (
-        spacepoint_matching.n_true_hits >= min_particle_length
-    )
+
+    spacepoint_matching = apply_fiducial_sel(spacepoint_matching, sel_conf)
 
     return spacepoint_matching
 
@@ -112,10 +152,10 @@ def calculate_matching_fraction(spacepoint_matching_df):
 
 def evaluate_labelled_graph(
     graph,
+    sel_conf,
     matching_fraction=0.5,
     matching_style="ATLAS",
     min_track_length=1,
-    min_particle_length=1,
 ):
     if matching_fraction < 0.5:
         raise ValueError("Matching fraction must be >= 0.5")
@@ -126,14 +166,14 @@ def evaluate_labelled_graph(
 
     # Load the labelled graphs as reconstructed dataframes
     reconstruction_df = load_reconstruction_df(graph)
-    particles_df = load_particles_df(graph)
+    particles_df = load_particles_df(graph, sel_conf)
 
     # Get matching dataframe
     matching_df = get_matching_df(
         reconstruction_df,
         particles_df,
+        sel_conf,
         min_track_length=min_track_length,
-        min_particle_length=min_particle_length,
     )
     # Flatten event_id if it's a list
     event_id = graph.event_id
@@ -172,20 +212,34 @@ default_eta_configs = {
 }
 
 
-def plot_pt_eff(particles, pt_units, save_path="track_reconstruction_eff_vs_pt.png"):
-    pt = particles.pt.values
+def plot_eff(particles, var, varconf, save_path="track_reconstruction_eff_vs_XXX.png"):
+    if var not in ["pt", "eta"]:
+        raise ValueError(f"Unsupported variable {var}, should be either pt or eta.")
 
-    true_pt = pt[particles["is_reconstructable"]]
-    reco_pt = pt[particles["is_reconstructable"] & particles["is_reconstructed"]]
+    if var == "pt":
+        x = particles.pt.values
+        if "x_bins" in varconf:
+            x_bins = varconf["x_bins"]
+        else:
+            x_bins = np.logspace(
+                np.log10(varconf["x_lim"][0]), np.log10(varconf["x_lim"][1]), 10
+            )
+    elif var == "eta":
+        x = particles.eta_particle.values
+        if "x_bins" in varconf:
+            x_bins = varconf["x_bins"]
+        else:
+            x_bins = np.arange(varconf["x_lim"][0], varconf["x_lim"][1], step=0.4)
 
-    pt_min, pt_max = 1, 20
-    if pt_units == "MeV":
-        pt_min, pt_max = pt_min * 1000, pt_max * 1000
-    pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
+    if "x_scale" in varconf:
+        x = x * varconf["x_scale"]
+
+    true_x = x[particles["is_reconstructable"]]
+    reco_x = x[particles["is_reconstructable"] & particles["is_reconstructed"]]
 
     # Get histogram values of true_pt and reco_pt
-    true_vals, true_bins = np.histogram(true_pt, bins=pt_bins)
-    reco_vals, reco_bins = np.histogram(reco_pt, bins=pt_bins)
+    true_vals, true_bins = np.histogram(true_x, bins=x_bins)
+    reco_vals, reco_bins = np.histogram(reco_x, bins=x_bins)
 
     # Plot the ratio of the histograms as an efficiency
     eff, err = get_ratio(reco_vals, true_vals)
@@ -195,17 +249,26 @@ def plot_pt_eff(particles, pt_units, save_path="track_reconstruction_eff_vs_pt.p
 
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.errorbar(
-        xvals, eff, xerr=xerrs, yerr=err, fmt="o", color="black", label="Efficiency"
+        xvals,
+        eff,
+        xerr=xerrs,
+        yerr=err,
+        fmt="o",
+        color="black",
+        label="Track efficiency",
     )
     # Add x and y labels
-    ax.set_xlabel(f"$p_T [{pt_units}]$", fontsize=16)
-    ax.set_ylabel("Efficiency", fontsize=16)
+    ax.set_xlabel(varconf["x_label"], fontsize=16)
+    ax.set_ylabel("Track Efficiency", fontsize=16)
+    if "y_lim" in varconf:
+        ax.set_ylim(ymin=varconf["y_lim"][0], ymax=varconf["y_lim"][1])
 
     atlasify(
         "Internal",
-        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-        r" \bar{t}$ and soft interactions) " + "\n"
-        r"$p_T > 1$GeV, $|\eta < 4$",
+        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries ($t \bar{t}$ and soft interactions) "
+        + "\n"
+        r"$p_T > 1$GeV, $|\eta| < 4$",
+        enlarge=1,
     )
 
     # Save the plot
