@@ -40,24 +40,23 @@ def load_reconstruction_df(graph):
     )
 
 
-def load_particles_df(graph, sel_conf : dict):
+def load_particles_df(graph, sel_conf: dict):
     """Load the particles from a file."""
     # Get the particle dataframe
 
     # By default have only particle pt
-    cols = { "particle_id": graph.particle_id, "pt": graph.pt }
+    cols = {"particle_id": graph.particle_id, "pt": graph.pt}
 
     # Add more variable if needed for th fiducial selection
     for var in sel_conf:
         if var not in cols:
-            if var=="n_true_hits":
+            if var == "n_true_hits":
                 # Specific case: not embedded in graphs but added in the dataframe later on
                 # So we ignore it at this stage
                 continue
             cols[var] = graph[var]
 
-
-    # particles_df = pd.DataFrame({"particle_id": graph.particle_id, 
+    # particles_df = pd.DataFrame({"particle_id": graph.particle_id,
     #                              "pt": graph.pt, "eta_particle": graph.eta_particle,
     #                              "pdgId": graph.pdgId, "radius": graph.radius,
     #                              "primary": graph.primary})
@@ -70,26 +69,31 @@ def load_particles_df(graph, sel_conf : dict):
     return particles_df
 
 
-def apply_fiducial_sel(df : pd.DataFrame, sel_conf : dict):
-    """Add 'is_reconstructable' item to the dataframe based on the fiducial selection defined in config """
+def apply_fiducial_sel(df: pd.DataFrame, sel_conf: dict):
+    """Add 'is_reconstructable' item to the dataframe based on the fiducial selection defined in config"""
 
     df["is_reconstructable"] = True
 
-    for key, values in sel_conf.items():            
-            if isinstance(values, list):
-                if values[0] == 'not_in':
-                    for val in values[1]:
-                         df["is_reconstructable"] = df["is_reconstructable"] * (df[key]!=val)
-                else:
-                    df["is_reconstructable"] = df["is_reconstructable"] * (df[key]>=values[0]) * (df[key]<=values[1])
+    for key, values in sel_conf.items():
+        if isinstance(values, list):
+            if values[0] == "not_in":
+                for val in values[1]:
+                    df["is_reconstructable"] = df["is_reconstructable"] * (
+                        df[key] != val
+                    )
             else:
-                df["is_reconstructable"] = df["is_reconstructable"] * (df[key]>=values)
-    
+                df["is_reconstructable"] = (
+                    df["is_reconstructable"]
+                    * (df[key] >= values[0])
+                    * (df[key] <= values[1])
+                )
+        else:
+            df["is_reconstructable"] = df["is_reconstructable"] * (df[key] >= values)
+
     return df
 
 
 def get_matching_df(reconstruction_df, particles_df, sel_conf, min_track_length=1):
-
     # Get track lengths
     candidate_lengths = (
         reconstruction_df.track_id.value_counts(sort=False)
@@ -127,7 +131,7 @@ def get_matching_df(reconstruction_df, particles_df, sel_conf, min_track_length=
         spacepoint_matching.n_reco_hits >= min_track_length
     )
 
-    spacepoint_matching = apply_fiducial_sel(spacepoint_matching,sel_conf)
+    spacepoint_matching = apply_fiducial_sel(spacepoint_matching, sel_conf)
 
     return spacepoint_matching
 
@@ -210,26 +214,26 @@ default_eta_configs = {
 
 
 def plot_eff(particles, var, varconf, save_path="track_reconstruction_eff_vs_XXX.png"):
-
-    if var not in ['pt', 'eta']:
+    if var not in ["pt", "eta"]:
         raise ValueError(f"Unsupported variable {var}, should be either pt or eta.")
 
-    if var=='pt':
+    if var == "pt":
         x = particles.pt.values
-        if 'x_bins' in varconf:
-            x_bins = varconf['x_bins']
+        if "x_bins" in varconf:
+            x_bins = varconf["x_bins"]
         else:
-            x_bins = np.logspace(np.log10(varconf['x_lim'][0]), np.log10(varconf['x_lim'][1]), 10)
-    elif var=='eta':
+            x_bins = np.logspace(
+                np.log10(varconf["x_lim"][0]), np.log10(varconf["x_lim"][1]), 10
+            )
+    elif var == "eta":
         x = particles.eta_particle.values
-        if 'x_bins' in varconf:
-            x_bins = varconf['x_bins']
+        if "x_bins" in varconf:
+            x_bins = varconf["x_bins"]
         else:
-            x_bins = np.arange(varconf['x_lim'][0], varconf['x_lim'][1], step=0.4)
+            x_bins = np.arange(varconf["x_lim"][0], varconf["x_lim"][1], step=0.4)
 
-    if 'x_scale' in varconf:
-        x = x * varconf['x_scale']
-
+    if "x_scale" in varconf:
+        x = x * varconf["x_scale"]
 
     true_x = x[particles["is_reconstructable"]]
     reco_x = x[particles["is_reconstructable"] & particles["is_reconstructed"]]
@@ -245,16 +249,28 @@ def plot_eff(particles, var, varconf, save_path="track_reconstruction_eff_vs_XXX
     xerrs = (true_bins[1:] - true_bins[:-1]) / 2
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.errorbar(xvals, eff, xerr=xerrs, yerr=err, fmt='o', color='black', label='Track efficiency')
+    ax.errorbar(
+        xvals,
+        eff,
+        xerr=xerrs,
+        yerr=err,
+        fmt="o",
+        color="black",
+        label="Track efficiency",
+    )
     # Add x and y labels
-    ax.set_xlabel(varconf['x_label'], fontsize=16)
-    ax.set_ylabel('Track Efficiency', fontsize=16)
-    if 'y_lim' in varconf:
-        ax.set_ylim(ymin=varconf['y_lim'][0],ymax=varconf['y_lim'][1])
+    ax.set_xlabel(varconf["x_label"], fontsize=16)
+    ax.set_ylabel("Track Efficiency", fontsize=16)
+    if "y_lim" in varconf:
+        ax.set_ylim(ymin=varconf["y_lim"][0], ymax=varconf["y_lim"][1])
 
-    atlasify("Internal",
-             r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries ($t \bar{t}$ and soft interactions) " + "\n"
-             r"$p_T > 1$GeV, $|\eta| < 4$",enlarge=1)
+    atlasify(
+        "Internal",
+        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries ($t \bar{t}$ and soft interactions) "
+        + "\n"
+        r"$p_T > 1$GeV, $|\eta| < 4$",
+        enlarge=1,
+    )
 
     # Save the plot
     fig.savefig(save_path)

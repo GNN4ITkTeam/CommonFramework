@@ -162,7 +162,9 @@ class TrackBuildingStage:
                     matching_fraction=config["matching_fraction"],
                     matching_style=config["matching_style"],
                     sel_conf=config["target_tracks"],
-                    min_track_length=config["min_track_length"]))
+                    min_track_length=config["min_track_length"],
+                )
+            )
 
         evaluated_events = pd.concat(evaluated_events)
 
@@ -191,14 +193,25 @@ class TrackBuildingStage:
         fake_rate = 1 - (n_matched_tracks / n_tracks)
         dup_rate = n_dup_reconstructed_particles / n_reconstructed_particles
 
-        result_summary = make_result_summary(n_reconstructed_particles,n_particles,n_matched_tracks,n_tracks,
-                                             n_dup_reconstructed_particles,eff,fake_rate,dup_rate)
-        
-        self.log.info("Result Summary :\n\n"+result_summary)
+        result_summary = make_result_summary(
+            n_reconstructed_particles,
+            n_particles,
+            n_matched_tracks,
+            n_tracks,
+            n_dup_reconstructed_particles,
+            eff,
+            fake_rate,
+            dup_rate,
+        )
 
-        res_fname = os.path.join(self.hparams["stage_dir"],f"results_summary_{self.hparams['matching_style']}.txt")
+        self.log.info("Result Summary :\n\n" + result_summary)
 
-        with open(res_fname,'w') as f:
+        res_fname = os.path.join(
+            self.hparams["stage_dir"],
+            f"results_summary_{self.hparams['matching_style']}.txt",
+        )
+
+        with open(res_fname, "w") as f:
             f.write(result_summary)
 
         # First get the list of particles without duplicates
@@ -217,12 +230,16 @@ class TrackBuildingStage:
         # Plot the results across pT and eta (if provided in conf file)
         os.makedirs(self.hparams["stage_dir"], exist_ok=True)
 
-        for var,varconf in plot_config["variables"].items():
-            utils.plot_eff(particles, var, varconf,
-                           save_path=os.path.join(
-                                self.hparams["stage_dir"],
-                                f"track_reconstruction_eff_vs_{var}_{self.hparams['matching_style']}.png")
-                                )
+        for var, varconf in plot_config["variables"].items():
+            utils.plot_eff(
+                particles,
+                var,
+                varconf,
+                save_path=os.path.join(
+                    self.hparams["stage_dir"],
+                    f"track_reconstruction_eff_vs_{var}_{self.hparams['matching_style']}.png",
+                ),
+            )
 
     def apply_target_conditions(self, event, target_tracks):
         """
@@ -245,9 +262,16 @@ class TrackBuildingStage:
         event.target_mask = passing_tracks
 
 
-def make_result_summary(n_reconstructed_particles,n_particles,n_matched_tracks,n_tracks,
-                                             n_dup_reconstructed_particles,eff,fake_rate,dup_rate):
-    
+def make_result_summary(
+    n_reconstructed_particles,
+    n_particles,
+    n_matched_tracks,
+    n_tracks,
+    n_dup_reconstructed_particles,
+    eff,
+    fake_rate,
+    dup_rate,
+):
     summary = f"Number of reconstructed particles: {n_reconstructed_particles}\n"
     summary += f"Number of particles: {n_particles}\n"
     summary += f"Number of matched tracks: {n_matched_tracks}\n"
@@ -258,6 +282,7 @@ def make_result_summary(n_reconstructed_particles,n_particles,n_matched_tracks,n
     summary += f"Duplication rate: {dup_rate:.3f}\n"
 
     return summary
+
 
 class GraphDataset(Dataset):
     """

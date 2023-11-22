@@ -55,7 +55,7 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
         logging.info(f"Saving tracks to {output_dir}")
 
         for graph in tqdm(dataset):
-            #TODO check isolated nodes
+            # TODO check isolated nodes
 
             graph.labels = -torch.ones(graph.hit_id.shape).long()
 
@@ -67,7 +67,9 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
             # Keep only non-masked edges
             graph_cc.edge_index = graph_cc.edge_index[:, edge_mask]
             # Remove isolated nodes
-            edge_index, _, mask_x = remove_isolated_nodes( graph_cc.edge_index, num_nodes= num_nodes)
+            edge_index, _, mask_x = remove_isolated_nodes(
+                graph_cc.edge_index, num_nodes=num_nodes
+            )
             graph_cc.edge_index = edge_index
             graph_cc.x = graph_cc.x[mask_x]
             num_nodes = graph_cc.x.shape[0]
@@ -77,49 +79,79 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
             )
             # Run connected components
             n_cc, candidate_labels = sps.csgraph.connected_components(
-                sparse_edges, directed=True, connection='weak', return_labels=True
+                sparse_edges, directed=True, connection="weak", return_labels=True
             )
-            #print("Found ", n_cc, "Weakly Connected Components")
+            # print("Found ", n_cc, "Weakly Connected Components")
 
             graph.labels[mask_x] = torch.from_numpy(candidate_labels).long()
 
-            
             #####################################################
             graph_residual = Data(x=graph.hit_id, edge_index=graph.edge_index)
-            edge_mask = (graph.scores > self.hparams["score_cut_low"]) & (graph.scores < self.hparams["score_cut_high"])
+            edge_mask = (graph.scores > self.hparams["score_cut_low"]) & (
+                graph.scores < self.hparams["score_cut_high"]
+            )
             graph_residual.edge_index = graph_residual.edge_index[:, edge_mask]
             num_nodes = graph_residual.x.shape[0]
-            edge_index, _, mask_x = remove_isolated_nodes(graph_residual.edge_index, num_nodes=num_nodes)
+            edge_index, _, mask_x = remove_isolated_nodes(
+                graph_residual.edge_index, num_nodes=num_nodes
+            )
             graph_residual.edge_index = edge_index
             graph_residual.x = graph_residual.x[mask_x]
 
             graph_residual_nx = to_networkx(graph_residual)
-            sources = [node for node, in_degree in graph_residual_nx.in_degree() if in_degree == 0]
-            targets = [node for node, out_degree in graph_residual_nx.out_degree() if out_degree == 0]
-            
+            sources = [
+                node
+                for node, in_degree in graph_residual_nx.in_degree()
+                if in_degree == 0
+            ]
+            targets = [
+                node
+                for node, out_degree in graph_residual_nx.out_degree()
+                if out_degree == 0
+            ]
+
             labels = {node_idx: -1 for node_idx in graph_residual_nx.nodes}
-            label=torch.max(graph.labels)+1
+            label = torch.max(graph.labels) + 1
             for source in sources:
-                paths = nx.all_simple_paths(graph_residual_nx, source=source, target=targets, cutoff=25)
+                paths = nx.all_simple_paths(
+                    graph_residual_nx, source=source, target=targets, cutoff=25
+                )
                 for path in paths:
-                    if len(path)>7:
-                        #print(path)
+                    if len(path) > 7:
+                        # print(path)
                         labels.update({node_idx: label for node_idx in path})
-                        label+=1
+                        label += 1
 
             graph.labels[mask_x] = torch.tensor(list(labels.values()))
-            
+
             graph.config.append(self.hparams)
 
             # TODO: Graph name file??
-            #torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
+            # torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
 
             # Make a dataframe from pyg graph
             d = utils.load_reconstruction_df(graph)
             # Keep only hit_id associtated to a tracks (label >= 0, not -1)
-            d = d[ d.track_id>=0 ]
+            d = d[d.track_id >= 0]
             # Make a dataframe of list of hits (one row = one list of hits, ie one track)
-            tracks = d.groupby('track_id')['hit_id'].apply(list)
-            os.makedirs(os.path.join(self.hparams["stage_dir"], os.path.basename(output_dir)+"_tracks"), exist_ok=True) 
-            with open(os.path.join(self.hparams["stage_dir"], os.path.basename(output_dir)+"_tracks" ,f"event{graph.event_id[0]}.txt"),'w') as f:
-                f.write("\n".join(str(t).replace(',','').replace('[','').replace(']','')  for t in tracks.values))
+            tracks = d.groupby("track_id")["hit_id"].apply(list)
+            os.makedirs(
+                os.path.join(
+                    self.hparams["stage_dir"], os.path.basename(output_dir) + "_tracks"
+                ),
+                exist_ok=True,
+            )
+            with open(
+                os.path.join(
+                    self.hparams["stage_dir"],
+                    os.path.basename(output_dir) + "_tracks",
+                    f"event{graph.event_id[0]}.txt",
+                ),
+                "w",
+            ) as f:
+                f.write(
+                    "\n".join(
+                        str(t).replace(",", "").replace("[", "").replace("]", "")
+                        for t in tracks.values
+                    )
+                )
