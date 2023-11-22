@@ -1,0 +1,18 @@
+# CommonFramework configuration
+stage: track_building
+model: CCandWalk
+input_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/ # Should contain the files used in training and inference
+stage_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/ # A directory to be created that will store logs, artifacts, and output data
+
+# Dataset parameters
+data_split: [10, 10, 10] # Number of [training, validation, testing] examples
+
+# Connected Components and Walkthrough thresholds
+score_cut_cc: 0.01
+score_cut_walk: 
+  min: 0.1
+  add: 0.6
+
+max_workers: 8
+
+log_level: INFO
