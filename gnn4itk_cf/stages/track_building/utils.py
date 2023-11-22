@@ -15,7 +15,6 @@
 import torch
 import pandas as pd
 import numpy as np
-import math
 from atlasify import atlasify
 
 import matplotlib.pyplot as plt

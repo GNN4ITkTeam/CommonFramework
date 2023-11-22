@@ -19,7 +19,6 @@ import torch
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from functools import partial
-import pandas as pd
 
 from . import cc_and_walk_utils
 

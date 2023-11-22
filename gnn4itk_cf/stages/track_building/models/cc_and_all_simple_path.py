@@ -18,7 +18,6 @@ import logging
 import torch
 import scipy.sparse as sps
 from tqdm import tqdm
-import pandas as pd
 import networkx as nx
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -26,7 +25,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Local imports
 from ..track_building_stage import TrackBuildingStage
 from torch_geometric.utils import to_scipy_sparse_matrix
-from torch_geometric.utils import remove_isolated_nodes, degree, to_networkx
+from torch_geometric.utils import remove_isolated_nodes, to_networkx
 from torch_geometric.data import Data
 
 from .. import utils
@@ -36,7 +35,7 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
     def __init__(self, hparams):
         super().__init__(hparams)
         """
-        
+        Model to process labels of track candidate id for nodes in the graph.
         """
         self.hparams = hparams
         self.gpu_available = torch.cuda.is_available()

@@ -242,7 +242,7 @@ def find_next_hits(G, current_hit, used_hits, score_name, th_min, th_add):
     if th_add < th_min:
         print(
             f"WARNING : the minimal threshold {th_min} is above the additional"
-            f" threshold {th_multi},               this is not how the walkthrough is"
+            f" threshold {th_add},               this is not how the walkthrough is"
             " supposed to be run."
         )
 
