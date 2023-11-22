@@ -18,11 +18,6 @@ from gnn4itk_cf.utils.plotting_utils import (
 )
 
 
-def get_dataset(lightning_module, config):
-    dataset = config["dataset"]
-    return dataset, lightning_module.__dict__[dataset]
-
-
 def graph_construction_efficiency(lightning_module, plot_config, config):
     """
     Plot the graph construction efficiency vs. pT of the edge.
@@ -31,7 +26,8 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
     all_eta = []
     graph_size = []
 
-    dataset_name, dataset = get_dataset(lightning_module, config)
+    dataset_name = config["dataset"]
+    dataset = getattr(lightning_module, dataset_name)
 
     for event in tqdm(dataset):
         if isinstance(lightning_module, LightningModule):
@@ -135,7 +131,8 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
     else:
         print("No track selection criteria found, accepting all tracks.")
 
-    dataset_name, dataset = get_dataset(lightning_module, config)
+    dataset_name = config["dataset"]
+    dataset = getattr(lightning_module, dataset_name)
 
     for event in tqdm(dataset):
         event = event.to(lightning_module.device)
@@ -288,31 +285,48 @@ def graph_roc_curve(lightning_module, plot_config, config):
     print(
         f"Plotting the ROC curve and score distribution, events from {config['dataset']}"
     )
-    all_y_truth, all_scores = [], []
-
-    dataset_name, dataset = get_dataset(lightning_module, config)
+    all_y_truth, all_scores, masked_scores, masked_y_truth = [], [], [], []
+    masks = []
+    dataset_name = config["dataset"]
+    dataset = getattr(lightning_module, dataset_name)
 
     for event in tqdm(dataset):
         event = event.to(lightning_module.device)
         # Need to apply score cut and remap the truth_map
         if "weights" in event.keys:
             target_y = event.weights.bool() & event.y.bool()
+            mask = event.weights > 0
         else:
             target_y = event.y.bool()
+            mask = torch.ones_like(target_y).bool().to(target_y.device)
 
         all_y_truth.append(target_y)
         all_scores.append(event.scores)
+        masked_scores.append(event.scores[mask])
+        masked_y_truth.append(target_y[mask])
+        masks.append(mask)
 
     all_scores = torch.cat(all_scores).cpu().numpy()
     all_y_truth = torch.cat(all_y_truth).cpu().numpy()
+    masked_scores = torch.cat(masked_scores).cpu().numpy()
+    masked_y_truth = torch.cat(masked_y_truth).cpu().numpy()
+    masks = torch.cat(masks).cpu().numpy()
 
+    fig, ax = plt.subplots(figsize=(8, 6))
     # Get the ROC curve
     fpr, tpr, _ = roc_curve(all_y_truth, all_scores)
-    auc_score = auc(fpr, tpr)
+    full_auc_score = auc(fpr, tpr)
 
     # Plot the ROC curve
-    fig, ax = plt.subplots(figsize=(8, 6))
     ax.plot(fpr, tpr, color="black", label="ROC curve")
+
+    # Get the ROC curve
+    fpr, tpr, _ = roc_curve(masked_y_truth, masked_scores)
+    masked_auc_score = auc(fpr, tpr)
+
+    # Plot the ROC curve
+    ax.plot(fpr, tpr, color="green", label="masked ROC curve")
+
     ax.plot([0, 1], [0, 1], color="black", linestyle="--", label="Random classifier")
     ax.set_xlabel("False Positive Rate", ha="right", x=0.95, fontsize=14)
     ax.set_ylabel("True Positive Rate", ha="right", y=0.95, fontsize=14)
@@ -322,7 +336,7 @@ def graph_roc_curve(lightning_module, plot_config, config):
     ax.text(
         0.95,
         0.20,
-        f"AUC: {auc_score:.3f}",
+        f"Full AUC: {full_auc_score:.3f}, Masked AUC: {masked_auc_score: .3f}",
         ha="right",
         va="bottom",
         transform=ax.transAxes,
@@ -344,7 +358,9 @@ def graph_roc_curve(lightning_module, plot_config, config):
     )
     plt.close()
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax = plot_score_histogram(all_scores, all_y_truth.astype(np.int16), ax=ax)
+    all_y_truth = all_y_truth.astype(np.int16)
+    all_y_truth[~masks] = 2
+    ax = plot_score_histogram(all_scores, all_y_truth, ax=ax)
     ax.set_xlabel("Edge score", ha="right", x=0.95, fontsize=14)
     ax.set_ylabel("Count", ha="right", y=0.95, fontsize=14)
     atlasify(
@@ -366,7 +382,8 @@ def graph_region_efficiency_purity(lightning_module, plot_config, config):
     edge_truth, edge_regions, edge_positive = [], [], []
     node_r, node_z, node_regions = [], [], []
 
-    dataset_name, dataset = get_dataset(lightning_module, config)
+    dataset_name = config["dataset"]
+    dataset = getattr(lightning_module, dataset_name)
 
     for event in tqdm(dataset):
         with torch.no_grad():
@@ -434,7 +451,8 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
     true_positive = target.copy()
     input_graph_size, graph_size, n_graphs = (0, 0, 0)
 
-    dataset_name, dataset = get_dataset(lightning_module, config)
+    dataset_name = config["dataset"]
+    dataset = getattr(lightning_module, dataset_name)
 
     for event in tqdm(dataset):
         event = event.to(lightning_module.device)
@@ -573,7 +591,8 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
     pred = true_positive.copy()
     masked_pred = true_positive.copy()
 
-    dataset_name, dataset = get_dataset(lightning_module, config)
+    dataset_name = config["dataset"]
+    dataset = getattr(lightning_module, dataset_name)
 
     for event in tqdm(dataset):
         event = event.to(lightning_module.device)

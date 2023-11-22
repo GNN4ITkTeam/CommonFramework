@@ -179,10 +179,23 @@ def plot_score_histogram(scores, y, bins=100, ax=None):
     Plot a histogram of scores, labelled by truth
     """
     ax = sns.histplot(
-        x=scores, hue=y, bins=100, stat="count", log_scale=(False, True), ax=ax
+        x=scores,
+        hue=y,
+        bins=100,
+        stat="count",
+        log_scale=(False, True),
+        ax=ax,
+        element="step",
+        palette="colorblind",
+        fill=False,
     )
     sns.move_legend(
-        ax, "lower center", bbox_to_anchor=(0.5, 1), ncol=2, title=None, frameon=False
+        ax,
+        "lower center",
+        bbox_to_anchor=(0.5, 1),
+        ncol=np.unique(y).shape[0],
+        title=None,
+        frameon=False,
     )
 
     return ax
