@@ -26,7 +26,10 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
     all_eta = []
     graph_size = []
 
-    for event in tqdm(lightning_module.testset):
+    dataset_name = config["dataset"]
+    dataset = getattr(lightning_module, dataset_name)
+
+    for event in tqdm(dataset):
         if isinstance(lightning_module, LightningModule):
             event = event.to(lightning_module.device)
         if "target_tracks" in config:
@@ -99,7 +102,9 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
             + r"$\pm$"
             + f"{np.std(graph_size):.2e}"
             + "\n"
-            + f"Global efficiency: {all_y_truth.sum() / all_pt.shape[0] :.4f}",
+            + f"Global efficiency: {all_y_truth.sum() / all_pt.shape[0] :.4f}"
+            + "\n"
+            + f"Evaluated on {dataset_name}",
         )
         fig.savefig(os.path.join(config["stage_dir"], filename))
 
@@ -118,13 +123,18 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
     pred = []
     graph_truth = []
 
-    print(f"Using score cut: {config.get('score_cut')}")
+    print(
+        f"Using score cut: {config.get('score_cut')}, events from {config['dataset']}"
+    )
     if "target_tracks" in config:
         print(f"Track selection criteria: \n{yaml.dump(config.get('target_tracks'))}")
     else:
         print("No track selection criteria found, accepting all tracks.")
 
-    for event in tqdm(lightning_module.testset):
+    dataset_name = config["dataset"]
+    dataset = getattr(lightning_module, dataset_name)
+
+    for event in tqdm(dataset):
         event = event.to(lightning_module.device)
 
         # Need to apply score cut and remap the truth_map
@@ -234,7 +244,9 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
             f"Mean graph size: {mean_graph_size:.2e}, Signal Efficiency:"
             f" {target_efficiency:.4f}"
             + "\n"
-            + f"Cumulative Signal Efficiency: {cumulative_efficiency:.4f}",
+            + f"Cumulative Signal Efficiency: {cumulative_efficiency:.4f}"
+            + "\n"
+            + f"Evaluated on {dataset_name}",
         )
 
         fig.savefig(os.path.join(config["stage_dir"], filename))
@@ -270,30 +282,51 @@ def graph_roc_curve(lightning_module, plot_config, config):
     """
     Plot the ROC curve for the graph construction efficiency.
     """
-    print("Plotting the ROC curve and score distribution")
-    all_y_truth, all_scores = [], []
+    print(
+        f"Plotting the ROC curve and score distribution, events from {config['dataset']}"
+    )
+    all_y_truth, all_scores, masked_scores, masked_y_truth = [], [], [], []
+    masks = []
+    dataset_name = config["dataset"]
+    dataset = getattr(lightning_module, dataset_name)
 
-    for event in tqdm(lightning_module.testset):
+    for event in tqdm(dataset):
         event = event.to(lightning_module.device)
         # Need to apply score cut and remap the truth_map
         if "weights" in event.keys:
             target_y = event.weights.bool() & event.y.bool()
+            mask = event.weights > 0
         else:
             target_y = event.y.bool()
+            mask = torch.ones_like(target_y).bool().to(target_y.device)
 
         all_y_truth.append(target_y)
         all_scores.append(event.scores)
+        masked_scores.append(event.scores[mask])
+        masked_y_truth.append(target_y[mask])
+        masks.append(mask)
 
     all_scores = torch.cat(all_scores).cpu().numpy()
     all_y_truth = torch.cat(all_y_truth).cpu().numpy()
+    masked_scores = torch.cat(masked_scores).cpu().numpy()
+    masked_y_truth = torch.cat(masked_y_truth).cpu().numpy()
+    masks = torch.cat(masks).cpu().numpy()
 
+    fig, ax = plt.subplots(figsize=(8, 6))
     # Get the ROC curve
     fpr, tpr, _ = roc_curve(all_y_truth, all_scores)
-    auc_score = auc(fpr, tpr)
+    full_auc_score = auc(fpr, tpr)
 
     # Plot the ROC curve
-    fig, ax = plt.subplots(figsize=(8, 6))
     ax.plot(fpr, tpr, color="black", label="ROC curve")
+
+    # Get the ROC curve
+    fpr, tpr, _ = roc_curve(masked_y_truth, masked_scores)
+    masked_auc_score = auc(fpr, tpr)
+
+    # Plot the ROC curve
+    ax.plot(fpr, tpr, color="green", label="masked ROC curve")
+
     ax.plot([0, 1], [0, 1], color="black", linestyle="--", label="Random classifier")
     ax.set_xlabel("False Positive Rate", ha="right", x=0.95, fontsize=14)
     ax.set_ylabel("True Positive Rate", ha="right", y=0.95, fontsize=14)
@@ -303,7 +336,7 @@ def graph_roc_curve(lightning_module, plot_config, config):
     ax.text(
         0.95,
         0.20,
-        f"AUC: {auc_score:.3f}",
+        f"Full AUC: {full_auc_score:.3f}, Masked AUC: {masked_auc_score: .3f}",
         ha="right",
         va="bottom",
         transform=ax.transAxes,
@@ -316,7 +349,7 @@ def graph_roc_curve(lightning_module, plot_config, config):
         f"{plot_config['title']} \n"
         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
         r" \bar{t}$ and soft interactions) " + "\n"
-        r"$p_T > 1$GeV, $|\eta| < 4$",
+        r"$p_T > 1$GeV, $|\eta| < 4$" + "\n" + f"Evaluated on {dataset_name}",
     )
     fig.savefig(os.path.join(config["stage_dir"], "roc_curve.png"))
     print(
@@ -325,7 +358,9 @@ def graph_roc_curve(lightning_module, plot_config, config):
     )
     plt.close()
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax = plot_score_histogram(all_scores, all_y_truth.astype(np.int16), ax=ax)
+    all_y_truth = all_y_truth.astype(np.int16)
+    all_y_truth[~masks] = 2
+    ax = plot_score_histogram(all_scores, all_y_truth, ax=ax)
     ax.set_xlabel("Edge score", ha="right", x=0.95, fontsize=14)
     ax.set_ylabel("Count", ha="right", y=0.95, fontsize=14)
     atlasify(
@@ -333,7 +368,7 @@ def graph_roc_curve(lightning_module, plot_config, config):
         f"Score Distribution \n"
         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
         r" \bar{t}$ and soft interactions) " + "\n"
-        r"$p_T > 1$GeV, $|\eta| < 4$",
+        r"$p_T > 1$GeV, $|\eta| < 4$" + "\n" + f"Evaluated on {dataset_name}",
     )
     fig.savefig(os.path.join(config["stage_dir"], "score_distribution.png"))
     print(
@@ -343,11 +378,14 @@ def graph_roc_curve(lightning_module, plot_config, config):
 
 
 def graph_region_efficiency_purity(lightning_module, plot_config, config):
-    print("Plotting efficiency and purity by region")
+    print(f"Plotting efficiency and purity by region , events from {config['dataset']}")
     edge_truth, edge_regions, edge_positive = [], [], []
     node_r, node_z, node_regions = [], [], []
 
-    for event in tqdm(lightning_module.testset):
+    dataset_name = config["dataset"]
+    dataset = getattr(lightning_module, dataset_name)
+
+    for event in tqdm(dataset):
         with torch.no_grad():
             eval_dict = lightning_module.shared_evaluation(
                 event.to(lightning_module.device), 0
@@ -400,7 +438,9 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
     """
 
     print("Plotting edgewise efficiency as a function of rz")
-    print(f"Using score cut: {config.get('score_cut')}")
+    print(
+        f"Using score cut: {config.get('score_cut')}, events from {config['dataset']}"
+    )
     if "target_tracks" in config:
         print(f"Track selection criteria: \n{yaml.dump(config.get('target_tracks'))}")
     else:
@@ -411,7 +451,10 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
     true_positive = target.copy()
     input_graph_size, graph_size, n_graphs = (0, 0, 0)
 
-    for event in tqdm(lightning_module.testset):
+    dataset_name = config["dataset"]
+    dataset = getattr(lightning_module, dataset_name)
+
+    for event in tqdm(dataset):
         event = event.to(lightning_module.device)
 
         # Need to apply score cut and remap the truth_map
@@ -474,7 +517,9 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
         + f", Mean graph size: {graph_size / n_graphs :.2e} \n"
         "Signal Efficiency:"
         f" {true_positive['z'].shape[0] / target['z'].shape[0] :.4f} \n"
-        f"Cumulative signal efficiency: {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}",
+        f"Cumulative signal efficiency: {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}"
+        + "\n"
+        + f"Evaluated on {dataset_name}",
     )
     plt.tight_layout()
     save_dir = os.path.join(
@@ -505,7 +550,9 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
         + f", Mean graph size: {graph_size / n_graphs :.2e} \n"
         "Signal Efficiency:"
         f" {true_positive['z'].shape[0] / target['z'].shape[0] :.4f} \n"
-        f"Cumulative signal efficiency: {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}",
+        f"Cumulative signal efficiency: {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}"
+        + "\n"
+        + f"Evaluated on {dataset_name}",
     )
     plt.tight_layout()
     save_dir = os.path.join(
@@ -528,7 +575,9 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
     """
 
     print("Plotting edgewise purity as a function of rz")
-    print(f"Using score cut: {config.get('score_cut')}")
+    print(
+        f"Using score cut: {config.get('score_cut')}, events from {config['dataset']}"
+    )
     if "target_tracks" in config:
         print(f"Track selection criteria: \n{yaml.dump(config.get('target_tracks'))}")
     else:
@@ -542,7 +591,10 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
     pred = true_positive.copy()
     masked_pred = true_positive.copy()
 
-    for event in tqdm(lightning_module.testset):
+    dataset_name = config["dataset"]
+    dataset = getattr(lightning_module, dataset_name)
+
+    for event in tqdm(dataset):
         event = event.to(lightning_module.device)
         # Need to apply score cut and remap the truth_map
         if "score_cut" in config:
@@ -632,7 +684,9 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
             + "\n"
             + purity_definition_label[suffix]
             + ": "
-            + f"{numerator['z'].size(0) / denominator['z'].size(0) : .5f}",
+            + f"{numerator['z'].size(0) / denominator['z'].size(0) : .5f}"
+            + "\n"
+            + f"Evaluated on {dataset_name}",
         )
         plt.tight_layout()
         save_dir = os.path.join(
