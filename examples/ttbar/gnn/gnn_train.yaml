@@ -1,0 +1,104 @@
+stage: edge_classifier
+model: InteractionGNNWithPyG
+dataset_class: GraphDataset
+input_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/igcn_14999421_epoch66_redo # Should contain the files used in training and inference
+stage_dir: /global/cfs/cdirs/m2616/pmtuan/GNN4ITK/CommonFrameworkExamples/2023_ttbar_uncorrelated/gnn # A directory to be created that will store logs, artifacts, and output data
+project: TTBAR_GNN_LOOSE_CUT_GRAPHS # Used in logging
+gpus: 1
+nodes: 1
+group: 
+precision: '16-mixed'
+
+# Dataset parameters
+data_split: [7800, 500, 1000] # [400, 50, 50] # Number of [training, validation, testing] examples
+input_cut: 0.01
+
+# Truth and weighting parameters. Syntax is...
+# Single value: track[key] == value
+# List of 2 floats: value1 <= track[key] <= value2
+# List with a string as the first value: First value defines the boolean test, the second value is a list or value. Boolean tests are: (in, not_in, is, is_not, within, not_within)
+# All other tracks follow the default: If a true edge, weight=0. If a fake edge, weight=1.
+weighting:
+  - weight: 1
+    conditions: 
+      y: False
+  - weight: 0.
+    conditions:
+      y: True
+  - weight: 1.
+    conditions:
+      y: True
+      pt: [1000., .inf]
+      nhits: [3, .inf]
+      primary: True
+      pdgId: [not_in, [11, -11]]
+      radius: [0, 260.]
+      redundant_split_edges: false
+      eta_particle: [-4., 4.]
+
+loss_balance: proportional
+
+# A list of hard cut conditions. Any hits not passing these conditions will be removed from the training and validation dataset.
+# By definition, noise will not pass any of these cuts, so any hard cuts will remove noise.
+hard_cuts:
+
+# Model parameters
+edge_cut: 0.5
+undirected: false
+node_features: [r,    phi,  z, cluster_x_1, cluster_y_1, cluster_z_1, cluster_x_2, cluster_y_2, cluster_z_2, 
+                count_1, charge_count_1, loc_eta_1, loc_phi_1, localDir0_1, localDir1_1, localDir2_1, lengthDir0_1, lengthDir1_1, lengthDir2_1, 
+                glob_eta_1, glob_phi_1, eta_angle_1, phi_angle_1, 
+                count_2, charge_count_2, loc_eta_2, loc_phi_2, localDir0_2, localDir1_2, localDir2_2, lengthDir0_2, lengthDir1_2, lengthDir2_2, 
+                glob_eta_2, glob_phi_2, eta_angle_2, phi_angle_2]
+node_scales:   [1000, 3.14, 1000, 1000, 1000, 1000, 1000, 1000, 1000,
+                1, 1, 3.14, 3.14, 1, 1, 1, 1, 1, 1,
+                3.14, 3.14, 3.14, 3.14,
+                1, 1, 3.14, 3.14, 1, 1, 1, 1, 1, 1,
+                3.14, 3.14, 3.14, 3.14]
+edge_features: [dr, dphi, dz, deta]
+hidden: 128
+n_graph_iters: 8
+nb_node_layer: 3
+nb_edge_layer: 3
+layernorm: False
+batchnorm: true
+aggregation: [mean, max, min]
+hidden_activation: SiLU
+output_activation: SiLU
+node_net_recurrent: False
+edge_net_recurrent: False
+
+concat_node: true
+concat_edge: true
+hetero_level: 4
+recurrent: false
+modulewise_aggregation: mean
+
+# Training parameters
+warmup: 10
+lr: 0.001
+min_lr: 0.00005
+factor: 0.9
+patience: 20
+max_epochs: 1000
+checkpoint: true
+debug: true
+log_wandb: true
+
+# heterogeneous data parameters
+region_ids: [
+  {'id': [1,5,3], 'name': 'pixel'},
+  {'id': [2,6,4], 'name': 'strip'},
+]
+simplified_edge_conv: false
+num_workers: [8,8,8]
+node_updater: DirectedNodeUpdater
+
+gnn_config: [
+  {module_name: torch_geometric.nn.SAGEConv, kwargs: {in_channels: 37, out_channels: 128, }},
+  {module_name: torch_geometric.nn.SAGEConv, kwargs: {in_channels: 128, out_channels: 128, }},
+  {module_name: torch_geometric.nn.SAGEConv, kwargs: {in_channels: 128, out_channels: 128, }},
+]
+transform: [
+  { module_name: torch_geometric.transforms, class_name: ToSparseTensor, init_kwargs: {remove_edge_index: false}}
+]

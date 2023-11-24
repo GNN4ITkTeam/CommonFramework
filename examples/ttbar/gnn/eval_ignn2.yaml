@@ -1,0 +1,41 @@
+stage: edge_classifier
+model: InteractionGNN2WithPyG
+dataset_class: GraphDataset
+input_dir: /pscratch/sd/p/pmtuan/2023_ttbar_uncorrelated/gfilter_13810901_epoch360_redo/ # Should contain the files used in training and inference
+stage_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/ignn2_18036494_epoch78 # A directory to be created that will store logs, artifacts, and output data
+project: CF_CHEP2022_IGCN # Used in logging
+gpus: 1
+nodes: 1
+
+data_split: [10, 1000, 1000] # Number of [training, validation, testing] examples
+
+# Evaluation parameters
+score_cut: 0.5
+undirected: false
+target_tracks: 
+  pt: [1000., .inf]
+  nhits: [3., .inf]
+  primary: True
+  pdgId: [not_in, [11, -11]]
+  radius: [0., 260.]
+  eta_particle: [-4., 4.]
+  redundant_split_edges: False
+
+# Plotting parameters
+plots:
+  # gnn_efficiency_rz: 
+  #   title: Filter efficiency
+  #   vmin: 0.9
+  #   vmax: 1.
+  #   filename: gnn_edgewise_eff_rz
+  # gnn_purity_rz: 
+  #   title: Filter purity
+  #   vmin: 0.4
+  #   vmax: 1.
+  graph_roc_curve:
+    title: Filter ROC curve
+  # multi_edgecut_graph_scoring_efficiency: 
+  #   title: Filter Edge-wise Efficiency
+  #   pt_units: MeV
+  #   template_filename: gnn_edgewise_efficiency_edgecut
+  #   score_cuts: [0.5]

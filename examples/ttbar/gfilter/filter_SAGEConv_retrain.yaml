@@ -1,0 +1,97 @@
+stage: edge_classifier
+model: GNNFilter
+dataset_class: GraphDataset
+input_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/metric_learning_11292882_redo/ # Should contain the files used in training and inference
+stage_dir: /global/cfs/cdirs/m2616/pmtuan/GNN4ITK/CommonFrameworkExamples/2023_ttbar_uncorrelated/fgnn # A directory to be created that will store logs, artifacts, and output data
+project: CF_2023_Ttbar_Uncorr_GNNFilter # Used in logging
+group: SAGEConv_retrain_with_dev
+gpus: 4
+nodes: 1
+debug: true
+precision: 32
+
+# Dataset parameters
+data_split: [7800, 500, 1000] #[10, 5, 5] # [400, 50, 50] # Number of [training, validation, testing] examples
+
+# Truth and weighting parameters. Syntax is...
+# Single value: track[key] == value
+# List of 2 floats: value1 <= track[key] <= value2
+# List with a string as the first value: First value defines the boolean test, the second value is a list or value. Boolean tests are: (in, not_in, is, is_not, within, not_within)
+# All other tracks follow the default: If a true edge, weight=0. If a fake edge, weight=1.
+weighting:
+  - weight: 1.
+    conditions: 
+      y: False
+  - weight: 0.
+    conditions:
+      y: True
+  - weight: 10.
+    conditions:
+      y: True
+      pt: [1000., .inf]
+      nhits: [3, .inf]
+      primary: True
+      pdgId: [not_in, [11, -11]]
+      radius: [0., 260.]
+      redundant_split_edges: false
+loss_balance: proportional
+
+# A list of hard cut conditions. Any hits not passing these conditions will be removed from the training and validation dataset.
+# By definition, noise will not pass any of these cuts, so any hard cuts will remove noise.
+hard_cuts:
+
+ratio: 10
+
+
+# Model parameters
+edge_cut: 0.1
+# undirected: true
+node_features: [r,    phi,  z, cluster_x_1, cluster_y_1, cluster_z_1, cluster_x_2, cluster_y_2, cluster_z_2, 
+                count_1, charge_count_1, loc_eta_1, loc_phi_1, localDir0_1, localDir1_1, localDir2_1, lengthDir0_1, lengthDir1_1, lengthDir2_1, 
+                glob_eta_1, glob_phi_1, eta_angle_1, phi_angle_1, 
+                count_2, charge_count_2, loc_eta_2, loc_phi_2, localDir0_2, localDir1_2, localDir2_2, lengthDir0_2, lengthDir1_2, lengthDir2_2, 
+                glob_eta_2, glob_phi_2, eta_angle_2, phi_angle_2]
+node_scales:   [1000, 3.14, 1000, 1000, 1000, 1000, 1000, 1000, 1000,
+                1, 1, 3.14, 3.14, 1, 1, 1, 1, 1, 1,
+                3.14, 3.14, 3.14, 3.14,
+                1, 1, 3.14, 3.14, 1, 1, 1, 1, 1, 1,
+                3.14, 3.14, 3.14, 3.14]
+hidden: 1024
+nb_layer: 6
+layernorm: true
+batchnorm: False
+aggregation: [sum, mean]
+hidden_activation: SiLU
+output_activation: SiLU
+
+# Training parameters
+warmup: 10
+lr: 0.001
+min_lr: 0.00005
+factor: 0.9
+patience: 25
+min_lr: 0.00005
+max_epochs: 1000
+# checkpoint: true
+num_workers: [8,8,8]
+metric_to_monitor: auc
+metric_mode: max
+log_wandb: true
+
+# the out_channels of the last GNN conv must be the same as hidden
+gnn_config: [
+  {module_name: torch_geometric.nn, class_name: SAGEConv, init_kwargs: {in_channels: 37, out_channels: 256, }, inputs: [x, adj_t]},
+  {module_name: torch.nn, class_name: LayerNorm, init_kwargs: {normalized_shape: 256}, inputs: [x]},
+  {module_name: torch.nn, class_name: ReLU, init_kwargs: {}, inputs: [x]},
+
+  {module_name: torch_geometric.nn, class_name: SAGEConv, init_kwargs: {in_channels: 256, out_channels: 512, }, inputs: [x, adj_t]},
+  {module_name: torch.nn, class_name: LayerNorm, init_kwargs: {normalized_shape: 512}, inputs: [x]},
+  {module_name: torch.nn, class_name: ReLU, init_kwargs: {}, inputs: [x]},
+
+  {module_name: torch_geometric.nn, class_name: SAGEConv, init_kwargs: {in_channels: 512, out_channels: 1024, }, inputs: [x, adj_t]},
+  {module_name: torch.nn, class_name: LayerNorm, init_kwargs: {normalized_shape: 1024}, inputs: [x]},
+  {module_name: torch.nn, class_name: ReLU, init_kwargs: {}, inputs: [x]},
+]
+transform: [
+  {module_name: torch_geometric.transforms, class_name: ToSparseTensor, init_kwargs: {remove_edge_index: false}}
+]

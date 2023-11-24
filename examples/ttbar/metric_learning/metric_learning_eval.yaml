@@ -1,0 +1,25 @@
+# CommonFramework configuration
+stage: graph_construction
+model: MetricLearning
+input_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/feature_sets/ # Should contain the files used in training and inference
+stage_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/metric_learning_11292882_redo/ # A directory to be created that will store logs, artifacts, and output data
+project: CF_2023_TTBAR_UNCORR_METRIC_LEARNING # Used in logging
+
+data_split: [10, 1000, 1000]
+
+# Evaluation parameters
+target_tracks: 
+  pt: [1000., .inf]
+  nhits: [3., .inf]
+  primary: true
+  pdgId: [not_in, [11, -11]]
+
+# Plotting parameters
+plots:
+  graph_construction_efficiency: 
+    title: Metric Learning Edge-wise Efficiency
+    pt_units: MeV
+    ylim: [0.97, 1.01]
+    filename: no_radius_splitedge
+  # graph_region_efficiency_purity:
+  #   title: Metric Learning Region Efficiency

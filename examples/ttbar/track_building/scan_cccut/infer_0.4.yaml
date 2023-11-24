@@ -1,0 +1,23 @@
+# CommonFramework configuration
+stage: track_building
+model: CCandWalk
+input_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/ignn2_18036494_epoch78 # Should contain the files used in training and inference
+stage_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/ignn2_18036494_epoch78_track_candidates/0.4/ # A directory to be created that will store logs, artifacts, and output data
+
+# Dataset parameters
+data_split: [4, 4, 1000] # Number of [training, validation, testing] examples
+
+# Connected Components and Walkthrough thresholds
+on_true_graph : False
+
+cc_only : False
+
+score_cut_cc: 0.4
+score_cut_walk: 
+  min: 0.1
+  add: 0.6
+
+max_workers : 16
+
+log_level : INFO
+log_wandb: false

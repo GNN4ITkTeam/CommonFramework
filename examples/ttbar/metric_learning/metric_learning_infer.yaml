@@ -1,0 +1,15 @@
+# CommonFramework configuration
+stage: graph_construction
+model: MetricLearning
+input_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/alexis_feature_set # Should contain the files used in training and inference
+stage_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/metric_learning_11292882_alexis_dataset/ # A directory to be created that will store logs, artifacts, and output data
+project: CF_2023_TTBAR_UNCORR_METRIC_LEARNING # Used in logging
+gpus: 4
+nodes: 1
+
+data_split: [10, 1000, 1000]
+checkpoint: false
+
+# Model inference parameters
+r_infer: 0.1
+knn_infer: 1000
