@@ -153,9 +153,10 @@ class TrackBuildingStage:
         Plot the track efficiency vs. pT of the edge.
         """
         all_y_truth, all_pt = [], []
+        dataset = getattr(self, config["dataset"])
 
         evaluated_events = []
-        for event in tqdm(self.testset):
+        for event in tqdm(dataset):
             evaluated_events.append(
                 utils.evaluate_labelled_graph(
                     event,

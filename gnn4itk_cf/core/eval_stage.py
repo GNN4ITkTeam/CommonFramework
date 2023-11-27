@@ -68,6 +68,7 @@ def evaluate(config_file, checkpoint, dataset):
     stage = config["stage"]
     model = config["model"]
     stage_module = str_to_class(stage, model)
+    config["dataset"] = dataset
 
     if issubclass(stage_module, LightningModule):
         checkpoint_path = (
@@ -85,7 +86,6 @@ def evaluate(config_file, checkpoint, dataset):
             checkpoint_path, map_location=torch.device("cpu")
         )["hyper_parameters"]
         config = {**checkpoint_config, **config}
-        config["dataset"] = dataset
 
     stage_module.evaluate(config)
 
