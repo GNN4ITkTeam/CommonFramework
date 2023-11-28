@@ -1,12 +1,15 @@
 <div align="center">
 
-# Common Framework for GNN4ITk Project
+
+<img src="docs/media/acorn_logo_1.png" width="400px">
 
 [![Static Badge](https://img.shields.io/badge/documentation-blue)](https://atlas-gnn-tracking.docs.cern.ch/)  [![pipeline status](https://gitlab.cern.ch/gnn4itkteam/commonframework/badges/dev/pipeline.svg)](https://gitlab.cern.ch/gnn4itkteam/commonframework/-/commits/dev) [![coverage report](https://gitlab.cern.ch/gnn4itkteam/commonframework/badges/dev/coverage.svg)](https://gitlab.cern.ch/gnn4itkteam/commonframework/-/commits/dev)
 
 This repository contains the framework used for developing, testing and presenting the GNN-based ITk track reconstruction project GNN4ITk.
 
 </div>
+
+---
 
 Related work can be found here:
 1. https://arxiv.org/abs/2103.06995
@@ -28,12 +31,9 @@ To install the GNN4ITK common framework, assuming GPU capability, run
 ```
 git checkout dev
 conda env create -f gpu_environment.yml
-conda activate gnn4itk
+conda activate acorn
 pip install -e .
-```
-
-otherwise use the `cpu_environment.yml` file. Note however that CPU performance of the networks in this framework is not guaranteed or optimized.
-
+``
 ## Framework Structure & Examples
 
 Please see the [documentation](https://atlas-gnn-tracking.docs.cern.ch/) for more details, examples and tutorials.

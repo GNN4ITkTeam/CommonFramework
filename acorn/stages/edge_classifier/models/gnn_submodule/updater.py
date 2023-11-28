@@ -5,7 +5,7 @@ from torch_scatter import scatter_add, scatter_mean, scatter_max
 from torch_geometric.nn import aggr, HeteroConv, MessagePassing
 from torch_geometric.nn.conv.hgt_conv import group
 
-from gnn4itk_cf.utils import make_mlp
+from acorn.utils import make_mlp
 
 
 def get_aggregation(aggregation):

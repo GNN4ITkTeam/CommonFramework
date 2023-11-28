@@ -31,7 +31,7 @@ import torch
 import pandas as pd
 from tqdm import tqdm
 
-from gnn4itk_cf.utils import (
+from acorn.utils import (
     run_data_tests,
     load_datafiles_in_dir,
     handle_hard_cuts,
@@ -277,7 +277,10 @@ def make_result_summary(
     summary += f"Number of particles: {n_particles}\n"
     summary += f"Number of matched tracks: {n_matched_tracks}\n"
     summary += f"Number of tracks: {n_tracks}\n"
-    summary += f"Number of duplicate reconstructed particles: {n_dup_reconstructed_particles}\n"
+    summary += (
+        "Number of duplicate reconstructed particles:"
+        f" {n_dup_reconstructed_particles}\n"
+    )
     summary += f"Efficiency: {eff:.3f}\n"
     summary += f"Fake rate: {fake_rate:.3f}\n"
     summary += f"Duplication rate: {dup_rate:.3f}\n"

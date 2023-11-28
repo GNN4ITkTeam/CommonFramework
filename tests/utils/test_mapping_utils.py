@@ -1,6 +1,6 @@
 import pytest
 import torch
-from gnn4itk_cf.utils.mapping_utils import (
+from acorn.utils.mapping_utils import (
     infer_input_type,
     map_nodes_to_edges,
     map_nodes_to_tracks,

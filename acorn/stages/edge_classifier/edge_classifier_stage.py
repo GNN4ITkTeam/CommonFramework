@@ -25,12 +25,12 @@ from sklearn.metrics import roc_auc_score
 import torch
 from class_resolver import ClassResolver
 
-from gnn4itk_cf.stages.track_building.utils import rearrange_by_distance
-from gnn4itk_cf.utils import eval_utils
+from acorn.stages.track_building.utils import rearrange_by_distance
+from acorn.utils import eval_utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-from gnn4itk_cf.utils import (
+from acorn.utils import (
     load_datafiles_in_dir,
     run_data_tests,
     handle_weighting,
@@ -40,7 +40,7 @@ from gnn4itk_cf.utils import (
     get_optimizers,
     get_condition_lambda,
 )
-from gnn4itk_cf.stages.graph_construction.models.utils import graph_intersection
+from acorn.stages.graph_construction.models.utils import graph_intersection
 
 # TODO: What is this for??
 torch.multiprocessing.set_sharing_strategy("file_system")

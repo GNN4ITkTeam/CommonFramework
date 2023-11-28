@@ -83,7 +83,7 @@ Inference will read the dumped data and will:
 Run the command:
 
 ```bash
-g4i-infer $acorn_dir/examples/CTD_2023/data_reader.yaml
+acorn infer $acorn_dir/examples/CTD_2023/data_reader.yaml
 ```
 
 The result will be pyg files containing the events represented as pyg Data object:
@@ -134,7 +134,7 @@ MY_ACORN_DIR/model_store/module_map/
 Then run the command:
 
 ```bash
-g4i-infer $acorn_dir/examples/CTD_2023/module_map_infer.yaml
+acorn infer $acorn_dir/examples/CTD_2023/module_map_infer.yaml
 ```
 
 The result is the train, val and test sets of pyg files updated by the `event.edge_index`, the `event.truth_map` and the edges target `event.y`.
@@ -144,7 +144,7 @@ The result is the train, val and test sets of pyg files updated by the `event.ed
 Run the command:
 
 ```bash
-g4i-eval $acorn_dir/examples/CTD_2023/module_map_eval.yaml
+acorn eval $acorn_dir/examples/CTD_2023/module_map_eval.yaml
 ```
 
 The result will be the graph construction efficiency plots vs eta and pT:
@@ -176,7 +176,7 @@ $acorn_dir/examples/CTD_2023/gnn_train.yaml
 Run the command to launch the training:
 
 ```bash
-g4i-train $acorn_dir/examples/CTD_2023/gnn_train.yaml
+acorn train $acorn_dir/examples/CTD_2023/gnn_train.yaml
 ```
 
 Typically the training will last between ~100 to ~200 epochs to start to plateau significantly.
@@ -211,7 +211,7 @@ Inference of the GNN model will:
 Run the command:
 
 ```bash
-g4i-infer $acorn_dir/examples/CTD_2023/gnn_infer.yaml
+acorn infer $acorn_dir/examples/CTD_2023/gnn_infer.yaml
 ```
 #### Inference from pre-trained GNN checkpoint
 
@@ -232,7 +232,7 @@ It gives ~99.2% of efficency and ~92.9% of masked purity (see [REF] for masked p
 Run the command:
 
 ```bash
-g4i-infer $acorn_dir/examples/CTD_2023/gnn_infer.yaml -c MY_ACORN_DIR/model_store/gnn/GNN_IN2_epochs169.ckpt
+acorn infer $acorn_dir/examples/CTD_2023/gnn_infer.yaml -c MY_ACORN_DIR/model_store/gnn/GNN_IN2_epochs169.ckpt
 ```
 
 The result is the scored testset events.
@@ -242,7 +242,7 @@ The result is the scored testset events.
 Run the command:
 
 ```bash
-g4i-eval $acorn_dir/examples/CTD_2023/gnn_eval.yaml
+acorn eval $acorn_dir/examples/CTD_2023/gnn_eval.yaml
 ```
 The results will be the plots of cumulative efficiency vs (r,z) (graph construction efficiency * gnn signal efficiency), efficiency vs (r,z) (gnn signal efficiency), target purity, purity and total purity vs (r, z):
 
@@ -267,7 +267,7 @@ The inference will:
 Run the command:
 
 ```bash
-g4i-infer $acorn_dir/examples/CTD_2023/track_building_infer.yaml
+acorn infer $acorn_dir/examples/CTD_2023/track_building_infer.yaml
 ```
 
 The result is
@@ -297,7 +297,7 @@ head $data_dir/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/testset_reco/event0050
 ### Evaluation
 
 ```bash
-g4i-eval $acorn_dir/examples/CTD_2023/track_building_eval.yaml
+acorn eval $acorn_dir/examples/CTD_2023/track_building_eval.yaml
 ```
 The result is the plots of track reconstruction efficiency
 vs eta and of track reconstruction efficiency
