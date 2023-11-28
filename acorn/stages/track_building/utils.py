@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 
 from acorn.utils import get_ratio
 
-# ------------- MATCHING UTILS ---------------
+# ------------- MATCHING UTILS --------------
 
 
 def load_reconstruction_df(graph):
