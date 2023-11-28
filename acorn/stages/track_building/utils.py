@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 
 from acorn.utils import get_ratio
 
-# ------------- MATCHING UTILS ---------------
+# ------------- MATCHING UTILS ----------------
 
 
 def load_reconstruction_df(graph):
@@ -69,8 +69,7 @@ def load_particles_df(graph, sel_conf: dict):
 
 
 def apply_fiducial_sel(df: pd.DataFrame, sel_conf: dict):
-    """Add 'is_reconstructable' item to the dataframe based on the fiducial selection defined in config
-    """
+    """Add 'is_reconstructable' item to the dataframe based on the fiducial selection defined in config"""
 
     df["is_reconstructable"] = True
 
