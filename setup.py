@@ -32,9 +32,9 @@ setup(
     packages=find_packages(include=["acorn", "acorn.*"]),
     entry_points={
         "console_scripts": [
-            "g4i-train = gnn4itk_cf.core.train_stage:main",
-            "g4i-infer = gnn4itk_cf.core.infer_stage:main",
-            "g4i-eval = gnn4itk_cf.core.eval_stage:main",
+            "g4i-train = acorn.core.entrypoint_stage_cf:main",
+            "g4i-infer = acorn.core.entrypoint_stage_cf:main",
+            "g4i-eval = acorn.core.entrypoint_stage_cf:main",
             "acorn = acorn.core.entrypoint_stage:main",
         ]
     },
