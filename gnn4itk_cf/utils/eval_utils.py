@@ -370,7 +370,7 @@ def graph_roc_curve(lightning_module, plot_config, config):
     labels[all_y_truth == 1] = "Target True"
     labels[all_y_truth == 2] = "Non-target True"
     weight = 1 / dataset.len()
-    ax = plot_score_histogram(all_scores, labels, ax=ax, weight=weight)
+    ax = plot_score_histogram(all_scores, labels, ax=ax, inverse_dataset_length=weight)
     ax.set_xlabel("Edge score", ha="right", x=0.95, fontsize=14)
     ax.set_ylabel("Count/event", ha="right", y=0.95, fontsize=14)
     atlasify(
