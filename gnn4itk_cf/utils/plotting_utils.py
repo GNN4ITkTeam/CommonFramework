@@ -174,15 +174,17 @@ def plot_1d_histogram(
     return fig, ax
 
 
-def plot_score_histogram(scores, y, bins=100, ax=None):
+def plot_score_histogram(scores, y, bins=100, ax=None, weight=1):
     """
     Plot a histogram of scores, labelled by truth
     """
+    weights = np.array([weight] * len(scores))
     ax = sns.histplot(
         x=scores,
         hue=y,
         bins=100,
         stat="count",
+        weights=weights,
         log_scale=(False, True),
         ax=ax,
         element="step",
