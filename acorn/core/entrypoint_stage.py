@@ -37,7 +37,7 @@ def infer(config_file, verbose, checkpoint):
 @click.option(
     "--checkpoint", "-c", default=None, help="Checkpoint to use for evaluation"
 )
-@click.option("--dataset", "-d", default=None, help="Dataset to use for evaluation")
+@click.option("--dataset", "-d", default="valset", help="Dataset to use for evaluation")
 def eval(config_file, verbose, checkpoint, dataset):
     eval_stage.evaluate(config_file, verbose, checkpoint, dataset)
 

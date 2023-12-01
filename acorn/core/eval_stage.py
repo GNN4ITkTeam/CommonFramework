@@ -54,8 +54,7 @@ def main(config_file, verbose, checkpoint, dataset):
     evaluate(config_file, verbose, checkpoint, dataset)
 
 
-def evaluate(config_file, verbose=None, checkpoint=None, dataset=None):
-
+def evaluate(config_file, verbose=None, checkpoint=None, dataset="valset"):
     # set up logging
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
