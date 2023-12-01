@@ -32,10 +32,10 @@ setup(
     packages=find_packages(include=["acorn", "acorn.*"]),
     entry_points={
         "console_scripts": [
-            "g4i-train = acorn.core.entrypoint_stage_cf:main",
-            "g4i-infer = acorn.core.entrypoint_stage_cf:main",
-            "g4i-eval = acorn.core.entrypoint_stage_cf:main",
-            "acorn = acorn.core.entrypoint_stage:main",
+            "g4i-train = acorn.core.train_stage:main",
+            "g4i-infer = acorn.core.infer_stage:main",
+            "g4i-eval = acorn.core.eval_stage:main",
+            "acorn = acorn.core.entrypoint_stage:cli",
         ]
     },
     long_description=read("README.md"),

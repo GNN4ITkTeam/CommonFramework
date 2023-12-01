@@ -21,10 +21,11 @@ This script:
 5. Tests the output
 """
 
+
 import sys
 
 import yaml
-
+import click
 import logging
 import torch
 
@@ -34,20 +35,28 @@ from pytorch_lightning import LightningModule
 from .core_utils import str_to_class, find_latest_checkpoint
 
 
+@click.command()
+@click.argument("config_file")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose mode")
+@click.option(
+    "--checkpoint", "-c", default=None, help="Checkpoint to use for evaluation"
+)
 def main(config_file, verbose, checkpoint):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.
     """
+
+    infer(config_file, checkpoint)
+
+
+def infer(config_file, verbose=None, checkpoint=None):
+
     # set up logging
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
 
-    infer(config_file, checkpoint)
-
-
-def infer(config_file, checkpoint=None):
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)

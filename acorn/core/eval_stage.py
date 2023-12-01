@@ -25,6 +25,7 @@ This script:
 import sys
 
 import yaml
+import click
 import logging
 
 from pytorch_lightning import LightningModule
@@ -33,20 +34,34 @@ import torch
 from .core_utils import str_to_class, find_latest_checkpoint
 
 
+@click.command()
+@click.argument("config_file")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose mode")
+@click.option(
+    "--checkpoint", "-c", default=None, help="Checkpoint to use for evaluation"
+)
+@click.option(
+    "--dataset",
+    "-d",
+    default="valset",
+    type=click.Choice(["trainset", "valset", "testset"], case_sensitive=True),
+)
 def main(config_file, verbose, checkpoint, dataset):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.
     """
+
+    evaluate(config_file, verbose, checkpoint, dataset)
+
+
+def evaluate(config_file, verbose=None, checkpoint=None, dataset=None):
+
     # set up logging
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
 
-    evaluate(config_file, checkpoint, dataset)
-
-
-def evaluate(config_file, checkpoint, dataset):
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
