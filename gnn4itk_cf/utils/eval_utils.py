@@ -375,7 +375,7 @@ def graph_roc_curve(lightning_module, plot_config, config):
     ax.set_ylabel("Count/event", ha="right", y=0.95, fontsize=14)
     atlasify(
         "Internal",
-        f"Score Distribution \n"
+        "Score Distribution \n"
         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
         r" \bar{t}$ and soft interactions) " + "\n"
         r"$p_T > 1$GeV, $|\eta| < 4$"
@@ -523,7 +523,7 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
     atlasify(
         "Internal",
         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-        r" \bar{t}$ and soft interactions) " + f"\n"
+        r" \bar{t}$ and soft interactions) " + "\n"
         r"$p_T > 1$ GeV, $ | \eta | < 4$ " + f"\n"
         "Graph Construction Efficiency:"
         f" {(target['z'].shape[0] / all_target['z'].shape[0]):.4f}, Input graph size: {input_graph_size / n_graphs: .2e} \n"
@@ -556,8 +556,8 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
     atlasify(
         "Internal",
         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-        r" \bar{t}$ and soft interactions) " + f"\n"
-        r"$p_T > 1$ GeV, $ | \eta | < 4$ " + f"\n"
+        r" \bar{t}$ and soft interactions) " + "\n"
+        r"$p_T > 1$ GeV, $ | \eta | < 4$ " + "\n"
         "Graph Construction Efficiency:"
         f" {(target['z'].shape[0] / all_target['z'].shape[0]):.4f}, Input graph size: {input_graph_size / n_graphs: .2e} \n"
         r"Edge score cut: "
