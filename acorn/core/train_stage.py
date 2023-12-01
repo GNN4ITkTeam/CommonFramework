@@ -22,7 +22,6 @@ This script:
 """
 import os
 import yaml
-import click
 
 try:
     import wandb
@@ -34,16 +33,6 @@ from pytorch_lightning import LightningModule
 from .core_utils import str_to_class, get_trainer, get_stage_module
 
 
-@click.command()
-@click.argument("config_file")
-# Add an optional click argument to specify the checkpoint to use
-@click.option("--checkpoint", "-c", default=None, help="Checkpoint to use for training")
-@click.option("--sweep", "-s", default=False, type=bool, help="Run WANDB sweep")
-@click.option(
-    "--checkpoint_resume_dir",
-    default=None,
-    help="Pass a default rootdir for saving model checkpoint",
-)
 def main(config_file, checkpoint, sweep, checkpoint_resume_dir):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.

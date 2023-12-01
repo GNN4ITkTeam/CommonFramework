@@ -24,7 +24,7 @@ This script:
 import sys
 
 import yaml
-import click
+
 import logging
 import torch
 
@@ -34,12 +34,6 @@ from pytorch_lightning import LightningModule
 from .core_utils import str_to_class, find_latest_checkpoint
 
 
-@click.command()
-@click.argument("config_file")
-@click.option("--verbose", "-v", is_flag=True, help="Verbose mode")
-@click.option(
-    "--checkpoint", "-c", default=None, help="Checkpoint to use for evaluation"
-)
 def main(config_file, verbose, checkpoint):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.
