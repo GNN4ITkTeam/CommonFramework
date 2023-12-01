@@ -22,6 +22,9 @@ class GCNEncoder(nn.Module):
             # gather input elements from conf['inputs']
             inputs = []
             for key in conf["inputs"]:
-                inputs.append(locals()[key])
+                if key == "x":
+                    inputs.append(x)
+                if key == "adj_t":
+                    inputs.append(adj_t)
             x = layer(*inputs)
         return x
