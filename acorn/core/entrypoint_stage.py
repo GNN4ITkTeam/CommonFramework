@@ -1,18 +1,20 @@
-import sys
+import click
 from . import train_stage, infer_stage, eval_stage
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: acorn {train|infer|eval}")
-        return
-
-    command = sys.argv[1]
+@click.command()
+@click.argument("command")
+@click.argument("config_file")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose mode")
+@click.option(
+    "--checkpoint", "-c", default=None, help="Checkpoint to use for evaluation"
+)
+def main(command, config_file, verbose, checkpoint):
     if command == "train":
-        train_stage.main()
+        train_stage.main(config_file, verbose, checkpoint)
     elif command == "infer":
-        infer_stage.main()
+        infer_stage.main(config_file, verbose, checkpoint)
     elif command == "eval":
-        eval_stage.main()
+        eval_stage.main(config_file, verbose, checkpoint)
     else:
         print(f"Unknown command: {command}")
