@@ -26,8 +26,8 @@ import yaml
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from gnn4itk_cf import stages
-from gnn4itk_cf.stages import *  # noqa
+from acorn import stages
+from acorn.stages import *  # noqa
 from pytorch_lightning.strategies.ddp import DDPStrategy
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.loggers.wandb import WandbLogger
@@ -110,7 +110,8 @@ def get_trainer(config, default_root_dir):
         and find_latest_checkpoint(default_root_dir) is not None
     ):
         logging.info(
-            f"Found checkpoint from a previous run in {default_root_dir}, resuming from {find_latest_checkpoint(default_root_dir)}"
+            f"Found checkpoint from a previous run in {default_root_dir}, resuming from"
+            f" {find_latest_checkpoint(default_root_dir)}"
         )
 
     logging.info(f"Job ID: {job_id}, resume: {resume}")
@@ -181,7 +182,8 @@ def get_stage_module(
             )
         if not find_latest_checkpoint(checkpoint_resume_dir, "*.ckpt"):
             raise Exception(
-                f"No checkpoint found in checkpoint resume directory {checkpoint_resume_dir}."
+                "No checkpoint found in checkpoint resume directory"
+                f" {checkpoint_resume_dir}."
             )
         default_root_dir = checkpoint_resume_dir
 

@@ -8,8 +8,8 @@ import torch
 from tqdm import tqdm
 import yaml
 
-from gnn4itk_cf.stages.track_building.utils import rearrange_by_distance
-from gnn4itk_cf.utils.plotting_utils import (
+from acorn.stages.track_building.utils import rearrange_by_distance
+from acorn.utils.plotting_utils import (
     get_ratio,
     plot_1d_histogram,
     plot_eff_pur_region,
@@ -283,7 +283,8 @@ def graph_roc_curve(lightning_module, plot_config, config):
     Plot the ROC curve for the graph construction efficiency.
     """
     print(
-        f"Plotting the ROC curve and score distribution, events from {config['dataset']}"
+        "Plotting the ROC curve and score distribution, events from"
+        f" {config['dataset']}"
     )
     all_y_truth, all_scores, masked_scores, masked_y_truth = [], [], [], []
     masks = []
@@ -365,7 +366,7 @@ def graph_roc_curve(lightning_module, plot_config, config):
     ax.set_ylabel("Count", ha="right", y=0.95, fontsize=14)
     atlasify(
         "Internal",
-        f"Score Distribution \n"
+        "Score Distribution \n"
         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
         r" \bar{t}$ and soft interactions) " + "\n"
         r"$p_T > 1$GeV, $|\eta| < 4$" + "\n" + f"Evaluated on {dataset_name}",
@@ -508,16 +509,18 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
     atlasify(
         "Internal",
         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-        r" \bar{t}$ and soft interactions) " + f"\n"
-        r"$p_T > 1$ GeV, $ | \eta | < 4$ " + f"\n"
+        r" \bar{t}$ and soft interactions) \n"
+        r"$p_T > 1$ GeV, $ | \eta | < 4$ \n"
         "Graph Construction Efficiency:"
-        f" {(target['z'].shape[0] / all_target['z'].shape[0]):.4f}, Input graph size: {input_graph_size / n_graphs: .2e} \n"
+        f" {(target['z'].shape[0] / all_target['z'].shape[0]):.4f}, Input graph size:"
+        f" {input_graph_size / n_graphs: .2e} \n"
         r"Edge score cut: "
         + str(config["score_cut"])
         + f", Mean graph size: {graph_size / n_graphs :.2e} \n"
         "Signal Efficiency:"
         f" {true_positive['z'].shape[0] / target['z'].shape[0] :.4f} \n"
-        f"Cumulative signal efficiency: {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}"
+        "Cumulative signal efficiency:"
+        f" {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}"
         + "\n"
         + f"Evaluated on {dataset_name}",
     )
@@ -541,16 +544,18 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
     atlasify(
         "Internal",
         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-        r" \bar{t}$ and soft interactions) " + f"\n"
-        r"$p_T > 1$ GeV, $ | \eta | < 4$ " + f"\n"
+        r" \bar{t}$ and soft interactions) \n"
+        r"$p_T > 1$ GeV, $ | \eta | < 4$ \n"
         "Graph Construction Efficiency:"
-        f" {(target['z'].shape[0] / all_target['z'].shape[0]):.4f}, Input graph size: {input_graph_size / n_graphs: .2e} \n"
+        f" {(target['z'].shape[0] / all_target['z'].shape[0]):.4f}, Input graph size:"
+        f" {input_graph_size / n_graphs: .2e} \n"
         r"Edge score cut: "
         + str(config["score_cut"])
         + f", Mean graph size: {graph_size / n_graphs :.2e} \n"
         "Signal Efficiency:"
         f" {true_positive['z'].shape[0] / target['z'].shape[0] :.4f} \n"
-        f"Cumulative signal efficiency: {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}"
+        "Cumulative signal efficiency:"
+        f" {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}"
         + "\n"
         + f"Evaluated on {dataset_name}",
     )

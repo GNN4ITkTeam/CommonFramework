@@ -1,12 +1,15 @@
 <div align="center">
 
-# Common Framework for GNN4ITk Project
+
+<img src="docs/media/acorn_logo_1.png" width="400px">
 
 [![Static Badge](https://img.shields.io/badge/documentation-blue)](https://atlas-gnn-tracking.docs.cern.ch/)  [![pipeline status](https://gitlab.cern.ch/gnn4itkteam/commonframework/badges/dev/pipeline.svg)](https://gitlab.cern.ch/gnn4itkteam/commonframework/-/commits/dev) [![coverage report](https://gitlab.cern.ch/gnn4itkteam/commonframework/badges/dev/coverage.svg)](https://gitlab.cern.ch/gnn4itkteam/commonframework/-/commits/dev)
 
 This repository contains the framework used for developing, testing and presenting the GNN-based ITk track reconstruction project GNN4ITk.
 
 </div>
+
+---
 
 Related work can be found here:
 1. https://arxiv.org/abs/2103.06995
@@ -17,22 +20,45 @@ Related work can be found here:
 
 ## Get Started
 
-To get started, run the setup commands (Install instructions section below), then take a look at the examples in the `examples` directory. Instructions and further details about the framework are available under the subdirectory of interest - `examples`, `gnn4itk_cf/stages` or `gnn4itk_cf/core`.
+To get started, run the setup commands (Install instructions section below), then take a look at the examples in the `examples` directory. Instructions and further details about the framework are available under the subdirectory of interest - `examples`, `acorn/stages` or `acorn/core`.
 
 ## Install
 
 **IMPORTANT! Please use the `dev` branch to run all Examples: it is the latest version and is fully supported!**
 
-To install the GNN4ITK common framework, assuming GPU capability, run
+To install ACORN, assuming GPU capability, run
 
 ```
 git checkout dev
 conda env create -f gpu_environment.yml
-conda activate gnn4itk
+conda activate acorn
 pip install -e .
 ```
 
-otherwise use the `cpu_environment.yml` file. Note however that CPU performance of the networks in this framework is not guaranteed or optimized.
+---
+**IMPORTANT! On December 2, 2023 a major refactoring of the code was merged on `dev`**
+
+If you have previously installed a version of 'acorn' (formerly known as 'gnn4itk_cf' or GNN4ITK CommonFramework) prior to December 2, 2023, it's important to update your setup. Follow the steps below:
+
+```
+git checkout dev
+git pull dev
+conda create --name acorn --clone gnn4itk
+conda activate acorn
+pip uninstall gnn4itk_cf
+pip install -e .
+```
+
+You may temporarily retain the existing 'gnn4itk' conda environment for branches still in development with the previous version. If you have any active development branches from the previous setup, swiftly switch them to the 'dev' branch for updates
+
+The new setup introduces the following changes:
+
+- Renames the conda environment from `gnn4itk` to `acorn`
+- Updates the command line to use `acorn [train|infer|eval]`
+- Old commands `g4i-train`, `g4i-infer`, and `g4i-eval` remain available for backward compatibility.
+
+---
+
 
 ## Framework Structure & Examples
 

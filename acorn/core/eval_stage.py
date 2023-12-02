@@ -50,16 +50,17 @@ def main(config_file, verbose, checkpoint, dataset):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.
     """
+
+    evaluate(config_file, verbose, checkpoint, dataset)
+
+
+def evaluate(config_file, verbose=None, checkpoint=None, dataset="valset"):
     # set up logging
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
 
-    evaluate(config_file, checkpoint, dataset)
-
-
-def evaluate(config_file, checkpoint, dataset):
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)

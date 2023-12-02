@@ -38,9 +38,9 @@ from tqdm import tqdm
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-from gnn4itk_cf.utils import run_data_tests, plot_eff_pur_region
-from gnn4itk_cf.utils import eval_utils
-from gnn4itk_cf.utils.mapping_utils import get_condition_lambda
+from acorn.utils import run_data_tests, plot_eff_pur_region
+from acorn.utils import eval_utils
+from acorn.utils.mapping_utils import get_condition_lambda
 
 
 class GraphConstructionStage:

@@ -1,5 +1,5 @@
 from torch_geometric.nn import MessagePassing
-from gnn4itk_cf.utils import make_mlp
+from acorn.utils import make_mlp
 import torch
 
 
