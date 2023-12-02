@@ -1,3 +1,5 @@
+{::options parse_block_html="true" /}
+
 <div align="center">
 
 
@@ -20,20 +22,37 @@ Related work can be found here:
 
 ## Get Started
 
-To get started, run the setup commands (Install instructions section below), then take a look at the examples in the `examples` directory. Instructions and further details about the framework are available under the subdirectory of interest - `examples`, `gnn4itk_cf/stages` or `gnn4itk_cf/core`.
+To get started, run the setup commands (Install instructions section below), then take a look at the examples in the `examples` directory. Instructions and further details about the framework are available under the subdirectory of interest - `examples`, `acorn/stages` or `acorn/core`.
 
 ## Install
 
 **IMPORTANT! Please use the `dev` branch to run all Examples: it is the latest version and is fully supported!**
 
-To install the GNN4ITK common framework, assuming GPU capability, run
+To install ACORN, assuming GPU capability, run
 
 ```
 git checkout dev
 conda env create -f gpu_environment.yml
 conda activate acorn
 pip install -e .
-``
+```
+
+**IMPORTANT! On December 2, 2023 a major refactoring of the code was carried out to rename the entire frame to "acorn". If you have installed an old version (before December 2, 2023) of the package formely called GNN4ITK CommonFramework (gnn4itk_cf) please update**
+
+<div class="panel panel-danger">
+**Danger**
+{: .panel-heading}
+<div class="panel-body">
+
+DANGER DESCRIPTION
+
+</div>
+</div>
+
+My danger paragraph.
+{: .alert .alert-danger}
+
+
 ## Framework Structure & Examples
 
 Please see the [documentation](https://atlas-gnn-tracking.docs.cern.ch/) for more details, examples and tutorials.
