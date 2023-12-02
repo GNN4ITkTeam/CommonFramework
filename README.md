@@ -1,5 +1,3 @@
-{::options parse_block_html="true" /}
-
 <div align="center">
 
 
@@ -37,20 +35,29 @@ conda activate acorn
 pip install -e .
 ```
 
-**IMPORTANT! On December 2, 2023 a major refactoring of the code was carried out to rename the entire frame to "acorn". If you have installed an old version (before December 2, 2023) of the package formely called GNN4ITK CommonFramework (gnn4itk_cf) please update**
+---
+**IMPORTANT! On December 2, 2023 a major refactoring of the code was merged on `dev`**
 
-<div class="panel panel-danger">
-**Danger**
-{: .panel-heading}
-<div class="panel-body">
+If you have previously installed a version of 'acorn' (formerly known as 'gnn4itk_cf' or GNN4ITK CommonFramework) prior to December 2, 2023, it's important to update your setup. Follow the steps below:
 
-DANGER DESCRIPTION
+```
+git checkout dev
+git pull dev
+conda create --name acorn --clone gnn4itk
+conda activate acorn
+pip uninstall gnn4itk_cf
+pip install -e .
+```
 
-</div>
-</div>
+You may temporarily retain the existing 'gnn4itk' conda environment for branches still in development with the previous version. If you have any active development branches from the previous setup, swiftly switch them to the 'dev' branch for updates
 
-My danger paragraph.
-{: .alert .alert-danger}
+The new setup introduces the following changes:
+
+- Renames the conda environment from `gnn4itk` to `acorn`
+- Updates the command line to use `acorn [train|infer|eval]`
+- Old commands `g4i-train`, `g4i-infer`, and `g4i-eval` remain available for backward compatibility.
+
+---
 
 
 ## Framework Structure & Examples
