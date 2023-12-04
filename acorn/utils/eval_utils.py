@@ -104,7 +104,7 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
             + "\n"
             + f"Global efficiency: {all_y_truth.sum() / all_pt.shape[0] :.4f}"
             + "\n"
-            + f"Evaluated on {dataset_name}",
+            + f"Evaluated on {dataset.len()} events in {dataset_name}",
         )
         fig.savefig(os.path.join(config["stage_dir"], filename))
 
@@ -246,7 +246,7 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
             + "\n"
             + f"Cumulative Signal Efficiency: {cumulative_efficiency:.4f}"
             + "\n"
-            + f"Evaluated on {dataset_name}",
+            + f"Evaluated on {dataset.len()} events in {dataset_name}",
         )
 
         fig.savefig(os.path.join(config["stage_dir"], filename))
@@ -350,32 +350,47 @@ def graph_roc_curve(lightning_module, plot_config, config):
         f"{plot_config['title']} \n"
         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
         r" \bar{t}$ and soft interactions) " + "\n"
-        r"$p_T > 1$GeV, $|\eta| < 4$" + "\n" + f"Evaluated on {dataset_name}",
+        r"$p_T > 1$GeV, $|\eta| < 4$"
+        + "\n"
+        + f"Evaluated on {dataset.len()} events in {dataset_name}",
     )
-    fig.savefig(os.path.join(config["stage_dir"], "roc_curve.png"))
-    print(
-        "Finish plotting. Find the ROC curve at"
-        f' {os.path.join(config["stage_dir"], "roc_curve.png")}'
+    filename_template = plot_config.get("filename")
+    filename = (
+        f"{filename_template}_roc_curve.png"
+        if filename_template is not None
+        else "roc_curve.png"
     )
+    filename = os.path.join(config["stage_dir"], filename)
+    fig.savefig(filename)
+    print("Finish plotting. Find the ROC curve at" f" {filename}")
     plt.close()
     fig, ax = plt.subplots(figsize=(8, 6))
     all_y_truth = all_y_truth.astype(np.int16)
     all_y_truth[~masks] = 2
-    ax = plot_score_histogram(all_scores, all_y_truth, ax=ax)
+    labels = np.array(["Fake"] * len(all_y_truth))
+    labels[all_y_truth == 1] = "Target True"
+    labels[all_y_truth == 2] = "Non-target True"
+    weight = 1 / dataset.len()
+    ax = plot_score_histogram(all_scores, labels, ax=ax, inverse_dataset_length=weight)
     ax.set_xlabel("Edge score", ha="right", x=0.95, fontsize=14)
-    ax.set_ylabel("Count", ha="right", y=0.95, fontsize=14)
+    ax.set_ylabel("Count/event", ha="right", y=0.95, fontsize=14)
     atlasify(
         "Internal",
         "Score Distribution \n"
         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
         r" \bar{t}$ and soft interactions) " + "\n"
-        r"$p_T > 1$GeV, $|\eta| < 4$" + "\n" + f"Evaluated on {dataset_name}",
+        r"$p_T > 1$GeV, $|\eta| < 4$"
+        + "\n"
+        + f"Evaluated on {dataset.len()} events in {dataset_name}",
     )
-    fig.savefig(os.path.join(config["stage_dir"], "score_distribution.png"))
-    print(
-        "Finish plotting. Find the score distribution at"
-        f' {os.path.join(config["stage_dir"], "score_distribution.png")}'
+    filename = (
+        f"{filename_template}_score_distribution.png"
+        if filename_template is not None
+        else "score_distribution.png"
     )
+    filename = os.path.join(config["stage_dir"], filename)
+    fig.savefig(filename)
+    print("Finish plotting. Find the score distribution at" f" {filename}")
 
 
 def graph_region_efficiency_purity(lightning_module, plot_config, config):
@@ -522,7 +537,7 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
         "Cumulative signal efficiency:"
         f" {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}"
         + "\n"
-        + f"Evaluated on {dataset_name}",
+        + f"Evaluated on {dataset.len()} events in {dataset_name}",
     )
     plt.tight_layout()
     save_dir = os.path.join(
@@ -557,7 +572,7 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
         "Cumulative signal efficiency:"
         f" {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}"
         + "\n"
-        + f"Evaluated on {dataset_name}",
+        + f"Evaluated on {dataset.len()} events in {dataset_name}",
     )
     plt.tight_layout()
     save_dir = os.path.join(
@@ -691,7 +706,7 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
             + ": "
             + f"{numerator['z'].size(0) / denominator['z'].size(0) : .5f}"
             + "\n"
-            + f"Evaluated on {dataset_name}",
+            + f"Evaluated on {dataset.len()} events in {dataset_name}",
         )
         plt.tight_layout()
         save_dir = os.path.join(

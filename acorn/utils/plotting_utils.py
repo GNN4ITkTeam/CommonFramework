@@ -174,15 +174,18 @@ def plot_1d_histogram(
     return fig, ax
 
 
-def plot_score_histogram(scores, y, bins=100, ax=None):
+def plot_score_histogram(scores, y, bins=100, ax=None, inverse_dataset_length=1):
     """
     Plot a histogram of scores, labelled by truth
     """
+    # weight each entry by the inverse of dataset length, such that the y axis relects the count per event per bin
+    weights = np.array([inverse_dataset_length] * len(scores))
     ax = sns.histplot(
         x=scores,
         hue=y,
         bins=100,
         stat="count",
+        weights=weights,
         log_scale=(False, True),
         ax=ax,
         element="step",
