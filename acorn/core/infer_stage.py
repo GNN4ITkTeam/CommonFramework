@@ -50,7 +50,6 @@ def main(config_file, verbose, checkpoint):
 
 
 def infer(config_file, verbose=None, checkpoint=None):
-
     # set up logging
     if verbose:
         logging.basicConfig(level=logging.DEBUG)

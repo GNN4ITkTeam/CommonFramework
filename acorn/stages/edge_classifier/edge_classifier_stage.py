@@ -246,6 +246,9 @@ class EdgeClassifierStage(LightningModule):
         )
 
         if balance not in ["equal", "proportional"]:
+            warnings.warn(
+                f"{balance} is not a proper choice for the loss balance. Use either 'equal' or 'proportional'. Automatically switching to 'proportional' instead."
+            )
             balance = "proportional"
 
         negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
