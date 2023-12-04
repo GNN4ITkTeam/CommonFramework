@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
 
-from gnn4itk_cf.utils import make_mlp
+from acorn.utils import make_mlp
 
 from functools import partial
 from itertools import product, combinations_with_replacement

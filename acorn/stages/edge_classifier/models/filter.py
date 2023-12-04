@@ -15,7 +15,7 @@
 import warnings
 import torch
 
-from gnn4itk_cf.utils import make_mlp
+from acorn.utils import make_mlp
 from .gnn_submodule.gcn_encoder import GCNEncoder
 from ..edge_classifier_stage import EdgeClassifierStage
 

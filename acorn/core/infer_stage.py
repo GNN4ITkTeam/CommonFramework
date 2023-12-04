@@ -21,6 +21,7 @@ This script:
 5. Tests the output
 """
 
+
 import sys
 
 import yaml
@@ -44,16 +45,18 @@ def main(config_file, verbose, checkpoint):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.
     """
+
+    infer(config_file, checkpoint)
+
+
+def infer(config_file, verbose=None, checkpoint=None):
+
     # set up logging
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
 
-    infer(config_file, checkpoint)
-
-
-def infer(config_file, checkpoint=None):
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)

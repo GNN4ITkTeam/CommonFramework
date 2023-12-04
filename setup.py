@@ -24,17 +24,18 @@ dependencies = [
 ]
 
 setup(
-    name="gnn4itk_cf",
+    name="acorn",
     version="0.0.1",
     description="A common framework for GNN4ITK",
     author="GNN4ITK Team",
     install_requires=dependencies,
-    packages=find_packages(include=["gnn4itk_cf", "gnn4itk_cf.*"]),
+    packages=find_packages(include=["acorn", "acorn.*"]),
     entry_points={
         "console_scripts": [
-            "g4i-train = gnn4itk_cf.core.train_stage:main",
-            "g4i-infer = gnn4itk_cf.core.infer_stage:main",
-            "g4i-eval = gnn4itk_cf.core.eval_stage:main",
+            "g4i-train = acorn.core.train_stage:main",
+            "g4i-infer = acorn.core.infer_stage:main",
+            "g4i-eval = acorn.core.eval_stage:main",
+            "acorn = acorn.core.entrypoint_stage:cli",
         ]
     },
     long_description=read("README.md"),
@@ -46,5 +47,5 @@ setup(
         "graph networks",
         "machine learning",
     ],
-    url="https://gitlab.cern.ch/gnn4itkteam/commonframework",
+    url="https://gitlab.cern.ch/gnn4itkteam/acorn",
 )

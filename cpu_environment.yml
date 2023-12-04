@@ -1,10 +1,10 @@
-name: gnn4itk
+name: acorn
 
 channels:
     - pytorch
     - defaults
     - conda-forge
-    
+
 dependencies:
     - python=3.9
     - pip

@@ -19,7 +19,7 @@ from atlasify import atlasify
 
 import matplotlib.pyplot as plt
 
-from gnn4itk_cf.utils import get_ratio
+from acorn.utils import get_ratio
 
 # ------------- MATCHING UTILS ----------------
 
@@ -265,8 +265,8 @@ def plot_eff(particles, var, varconf, save_path="track_reconstruction_eff_vs_XXX
 
     atlasify(
         "Internal",
-        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries ($t \bar{t}$ and soft interactions) "
-        + "\n"
+        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries ($t"
+        r" \bar{t}$ and soft interactions) " + "\n"
         r"$p_T > 1$GeV, $|\eta| < 4$",
         enlarge=1,
     )
