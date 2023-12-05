@@ -156,13 +156,7 @@ class PartialData(object):
             target_selection = self.target_selection,
         )
         
-        full_truth_bgraph, _ = build_truth_bgraph(
-            self._partial_event, 
-            signal_selection = self.signal_selection,
-            target_selection = {},
-        )
-        
-        pid_truth_graph = (full_truth_bgraph @ full_truth_bgraph.T).tocoo()
+        pid_truth_graph = (truth_bgraph @ truth_bgraph.T).tocoo()
         self.pid_truth_graph = torch.stack([
             torch.as_tensor(pid_truth_graph.row), 
             torch.as_tensor(pid_truth_graph.col)
@@ -183,8 +177,8 @@ class PartialData(object):
             unique_truth=True,
         )
         emb_weights = torch.ones(y.shape, device = y.device)
-        emb_weights[y] /= y.sum() * 2 
-        emb_weights[~y] /= (~y).sum() * 2 
+        emb_weights[y] /= y.sum() * 3 
+        emb_weights[~y] /= (~y).sum() * 2 / 3
         hinge = 2 * y.float() - 1
         return edges, hinge, emb_weights
     
@@ -197,7 +191,7 @@ class PartialData(object):
         Everything should be done on cpu.
         """
         tracks, scores = tracks.cpu(), scores.cpu()
-        pred_bgraph, pred_info = build_pred_bgraph(self._partial_event, tracks, 0)
+        pred_bgraph, pred_info = build_pred_bgraph(self._partial_event, tracks, 0, scores=scores.numpy())
         graph = (self.truth_bgraph.T @ pred_bgraph).tocoo()
         graph.eliminate_zeros()
         graph.data = np.square(graph.data) / self._truth_info["nhits"][graph.row].numpy() / pred_info["track_size"][graph.col].numpy()
@@ -215,8 +209,6 @@ class PartialData(object):
         row, col = row[col < num_tracks], col[col < num_tracks]
         track_to_particle = - torch.ones(num_tracks, dtype = torch.long, device = self.device)
         track_to_particle[col] = torch.tensor(row, dtype = torch.long, device = self.device)
-        particle_to_track = - torch.ones(num_particles, dtype = torch.long, device = self.device)
-        particle_to_track[row] = torch.tensor(col, dtype = torch.long, device = self.device)
         
         input_pred_graph = torch.stack([
             tracks[0].to(self.device),
@@ -259,6 +251,9 @@ class PartialData(object):
                 self.partial_event.hit_id[tracks[0]],
                 tracks[1] + self.cc_tracks.max() + 1,
             ], dim = 0)
+        else:
+            tracks = tracks.clone()
+            tracks[0] = self.partial_event.hit_id[tracks[0]]
         return torch.cat([self.cc_tracks, tracks], dim = 1)
 
     @property

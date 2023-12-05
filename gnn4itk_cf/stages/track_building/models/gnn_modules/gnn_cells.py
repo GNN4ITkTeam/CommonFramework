@@ -23,19 +23,18 @@ def find_neighbors(embedding1, embedding2, r_max=1.0, k_max=10):
 
 
 def checkpointing(func):
-    # def checkpointed_fx(*x):
-    #     if torch.is_inference_mode_enabled():
-    #         return func(*x)
-    #     else:
-    #         return checkpoint(func, *x)
+    def checkpointed_fx(*x):
+        if any(y.requires_grad for y in x):
+            return func(*x)
+        else:
+            return checkpoint(func, *x)
     return func
 
 class InteractionGNNCell(nn.Module):
     def __init__(
         self, 
         d_model: int,
-        n_node_layers: Optional[int] = 2,
-        n_edge_layers: Optional[int] = 2,
+        d_hidden: int,
         hidden_activation: Optional[str] = "GELU",
         output_activation: Optional[str] = None,
         dropout: Optional[float] = 0.,
@@ -45,7 +44,7 @@ class InteractionGNNCell(nn.Module):
         # The node network computes new node features
         self.node_network = make_mlp(
             d_model * 2,
-            [d_model] * n_node_layers,
+            [d_hidden, d_model],
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             input_dropout=dropout,
@@ -55,15 +54,15 @@ class InteractionGNNCell(nn.Module):
         # The edge network computes new edge features
         self.edge_network = make_mlp(
             d_model * 3,
-            [d_model] * n_edge_layers,
+            [d_hidden, d_model],
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             input_dropout=dropout,
             hidden_dropout=dropout,
         )
         
-        self.node_norm = nn.BatchNorm1d(d_model * 2)
-        self.edge_norm = nn.BatchNorm1d(d_model * 3)
+        self.node_norm = nn.BatchNorm1d(d_model * 2, track_running_stats = False)
+        self.edge_norm = nn.BatchNorm1d(d_model * 3, track_running_stats = False)
     
     @checkpointing
     def node_update(self, nodes, edges, graph):
@@ -99,7 +98,7 @@ class HierarchicalGNNCell(nn.Module):
     def __init__(
         self, 
         d_model: int,
-        n_node_layers: Optional[int] = 2,
+        d_hidden: int,
         n_edge_layers: Optional[int] = 2,
         hidden_activation: Optional[str] = "GELU",
         output_activation: Optional[str] = None,
@@ -109,7 +108,7 @@ class HierarchicalGNNCell(nn.Module):
 
         self.node_network = make_mlp(
             d_model * 3,
-            [d_model] * n_node_layers,
+            [d_hidden, d_model],
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             input_dropout=dropout,
@@ -118,7 +117,7 @@ class HierarchicalGNNCell(nn.Module):
         
         self.edge_network = make_mlp(
             d_model * 3,
-            [d_model] * n_edge_layers,
+            [d_hidden, d_model],
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             input_dropout=dropout,
@@ -127,7 +126,7 @@ class HierarchicalGNNCell(nn.Module):
         
         self.snode_network = make_mlp(
             d_model * 3,
-            [d_model] * n_node_layers,
+            [d_hidden, d_model],
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             input_dropout=dropout,
@@ -136,26 +135,27 @@ class HierarchicalGNNCell(nn.Module):
         
         self.sedge_network = make_mlp(
             d_model * 3,
-            [d_model] * n_edge_layers,
+            [d_hidden, d_model],
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             input_dropout=dropout,
             hidden_dropout=dropout,
         )
         
-        self.node_norm = nn.BatchNorm1d(d_model * 3)
-        self.edge_norm = nn.BatchNorm1d(d_model * 3)
-        self.snode_norm = nn.BatchNorm1d(d_model * 3)
-        self.sedge_norm = nn.BatchNorm1d(d_model * 3)
+        self.node_norm = nn.BatchNorm1d(d_model * 3, track_running_stats = False)
+        self.edge_norm = nn.BatchNorm1d(d_model * 3, track_running_stats = False)
+        self.snode_norm = nn.BatchNorm1d(d_model * 3, track_running_stats = False)
+        self.sedge_norm = nn.BatchNorm1d(d_model * 3, track_running_stats = False)
     
     @checkpointing 
     def node_update(self, nodes, edges, snodes, graph, bgraph, bweights):
         """
         Calculate node updates with checkpointing
         """
-        snode_messages = scatter_add(bweights*snodes[bgraph[1]], bgraph[0], dim=0, dim_size=nodes.shape[0])
+        snode_messages = scatter_add(bweights*F.normalize(snodes, p=2)[bgraph[1]], bgraph[0], dim=0, dim_size=nodes.shape[0])
         edge_messages = scatter_add(edges, graph[1], dim=0, dim_size=nodes.shape[0])
-        node_inputs = self.node_norm(torch.cat([nodes, edge_messages, snode_messages], dim = -1))
+        node_inputs = torch.cat([nodes, edge_messages, snode_messages], dim = -1)
+        node_inputs = self.node_norm(node_inputs) 
         nodes = self.node_network(node_inputs) + nodes
         return nodes
     
@@ -164,7 +164,8 @@ class HierarchicalGNNCell(nn.Module):
         """
         Calculate edge updates with checkpointing
         """
-        edge_inputs = self.edge_norm(torch.cat([nodes[graph[0]], nodes[graph[1]], edges], dim=-1))
+        edge_inputs = torch.cat([nodes[graph[0]], nodes[graph[1]], edges], dim=-1)
+        edge_inputs = self.edge_norm(edge_inputs)
         edges = self.edge_network(edge_inputs) + edges
         return edges
     
@@ -173,9 +174,10 @@ class HierarchicalGNNCell(nn.Module):
         """
         Calculate supernode updates with checkpointing
         """
-        node_messages = scatter_add(bweights*nodes[bgraph[0]], bgraph[1], dim=0, dim_size=snodes.shape[0])
-        sedge_messages = scatter_add(sedges*sweights, sgraph[1], dim=0, dim_size=snodes.shape[0])
-        snodes_input = self.snode_norm(torch.cat([snodes, sedge_messages, node_messages], dim=-1))
+        node_messages = scatter_add(bweights*F.normalize(nodes, p=2)[bgraph[0]], bgraph[1], dim=0, dim_size=snodes.shape[0])
+        sedge_messages = scatter_add(F.normalize(sedges, p=2)*sweights, sgraph[1], dim=0, dim_size=snodes.shape[0])
+        snodes_input = torch.cat([snodes, sedge_messages, node_messages], dim=-1)
+        snodes_input = self.snode_norm(snodes_input)
         snodes = self.snode_network(snodes_input) + snodes
         return snodes
     
@@ -184,7 +186,8 @@ class HierarchicalGNNCell(nn.Module):
         """
         Calculate superedge updates with checkpointing
         """
-        sedges_input = self.sedge_norm(torch.cat([snodes[sgraph[0]], snodes[sgraph[1]], sedges], dim=-1))
+        sedges_input = torch.cat([snodes[sgraph[0]], snodes[sgraph[1]], sedges], dim=-1)
+        sedges_input = self.sedge_norm(sedges_input)
         sedges = self.sedge_network(sedges_input) + sedges
         return sedges
     
@@ -211,7 +214,7 @@ class DynamicGraphConstruction(nn.Module):
         weighting_function: str, 
         symmetrize: Optional[bool] = False,
         normalize: Optional[bool] = True,
-        return_logits: Optional[bool] = True,
+        return_logits: Optional[bool] = False
     ):
         """
         weighting function is used to turn dot products into weights
@@ -222,9 +225,9 @@ class DynamicGraphConstruction(nn.Module):
         self.symmetrize = symmetrize
         self.normalize = normalize
         self.return_logits = return_logits
-        self.weight_normalization = nn.BatchNorm1d(1)  
+        self.weight_normalization = nn.BatchNorm1d(1, track_running_stats=False)  
         self.weighting_function = getattr(torch, weighting_function)
-        self.register_buffer("knn_radius", torch.tensor([1]), persistent=True)
+        self.register_buffer("knn_radius", torch.ones(1), persistent=True)
         
     def forward(self, src_embeddings, dst_embeddings, original_graph=None):
         """
@@ -254,7 +257,9 @@ class DynamicGraphConstruction(nn.Module):
         
         if self.normalize:
             edge_weights = edge_weights / edge_weights.mean()
+            
         edge_weights = edge_weights.unsqueeze(1)
+        
         if self.return_logits:
             return graph, edge_weights, edge_weights_logits
 

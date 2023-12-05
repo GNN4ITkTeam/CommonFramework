@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-from torch_scatter import scatter_add
+from torch_scatter import scatter_add, scatter_mean
 from sklearn.mixture import GaussianMixture
 import numpy as np
 from scipy.sparse.csgraph import connected_components
@@ -21,8 +21,7 @@ class InteractionGNNBlock(nn.Module):
         self,
         d_model: int,
         n_node_features: int,
-        n_node_layers: int,
-        n_edge_layers: int,
+        d_hidden: int,
         n_iterations: int,
         hidden_activation: Optional[str] = "GELU",
         output_activation: Optional[str] = None,
@@ -37,7 +36,7 @@ class InteractionGNNBlock(nn.Module):
         # Setup input network
         self.node_encoder = make_mlp(
             n_node_features,
-            [d_model]*n_node_layers,
+            [d_hidden, d_model],
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             input_dropout=0.,
@@ -47,7 +46,7 @@ class InteractionGNNBlock(nn.Module):
         # The edge network computes new edge features from connected nodes
         self.edge_encoder = make_mlp(
             2 * d_model,
-            [d_model]*n_edge_layers,
+            [d_hidden, d_model],
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             input_dropout=0.,
@@ -58,8 +57,7 @@ class InteractionGNNBlock(nn.Module):
         layers = [
             InteractionGNNCell(
                 d_model = d_model,
-                n_node_layers = n_node_layers,
-                n_edge_layers = n_edge_layers,
+                d_hidden = d_hidden,
                 hidden_activation = hidden_activation,
                 output_activation = output_activation,
                 dropout = dropout,
@@ -71,7 +69,6 @@ class InteractionGNNBlock(nn.Module):
         
     def forward(self, node_attr, graph):
         
-        node_attr.requires_grad = True
         nodes = self.node_encoder(node_attr)
         edges = self.edge_encoder(torch.cat([nodes[graph[0]], nodes[graph[1]]], dim = 1))
         
@@ -90,8 +87,7 @@ class HierarchicalGNNBlock(nn.Module):
         self,
         d_model: int,
         emb_size: int,
-        n_node_layers: int,
-        n_edge_layers: int,
+        d_hidden: int,
         n_output_layers: int,
         n_iterations: int,
         hidden_activation: Optional[str] = "GELU",
@@ -105,8 +101,8 @@ class HierarchicalGNNBlock(nn.Module):
         """                
         
         self.snode_encoder = make_mlp(
-            d_model + emb_size,
-            [d_model]*n_node_layers,
+            d_model,
+            [d_hidden, d_model],
             hidden_activation=hidden_activation,
             output_activation=hidden_activation,
             input_dropout=0.,
@@ -116,7 +112,7 @@ class HierarchicalGNNBlock(nn.Module):
         
         self.sedge_encoder = make_mlp(
             2 * d_model,
-            [d_model]*n_edge_layers,
+            [d_hidden, d_model],
             hidden_activation=hidden_activation,
             output_activation=hidden_activation,
             input_dropout=0.,
@@ -125,19 +121,20 @@ class HierarchicalGNNBlock(nn.Module):
         
         self.output_classifier = make_mlp(
             2 * d_model,
-            [d_model]*(n_output_layers - 1) + [1],
+            [d_hidden]*(n_output_layers - 1) + [1],
             hidden_activation=hidden_activation,
             output_activation=None,
             input_dropout=0.,
             hidden_dropout=0.,
         )
+        
+        self.output_norm = nn.BatchNorm1d(d_model * 2, track_running_stats = False)
 
         # Initialize GNN blocks
         layers = [
             HierarchicalGNNCell(
                 d_model = d_model,
-                n_node_layers = n_node_layers,
-                n_edge_layers = n_edge_layers,
+                d_hidden = d_hidden,
                 hidden_activation = hidden_activation,
                 output_activation = output_activation,
                 dropout = dropout,
@@ -150,8 +147,7 @@ class HierarchicalGNNBlock(nn.Module):
     def forward(self, nodes, edges, semb, graph, bgraph, bweights, sgraph, sweights):
 
         # Initialize supernode & edges by aggregating node features. Normalizing with 1-norm to improve training stability
-        snodes = scatter_add((F.normalize(nodes, p=1)[bgraph[0]])*bweights, bgraph[1], dim=0, dim_size=semb.shape[0])
-        snodes = torch.cat([semb, snodes], dim = -1)
+        snodes = scatter_add((F.normalize(nodes, p=2)[bgraph[0]])*bweights, bgraph[1], dim=0, dim_size=semb.shape[0])
         snodes = self.snode_encoder(snodes)
         sedges = self.sedge_encoder(torch.cat([snodes[sgraph[0]], snodes[sgraph[1]]], dim=1))
 
@@ -167,8 +163,10 @@ class HierarchicalGNNBlock(nn.Module):
                 sgraph,
                 sweights
             )
-            
-        logits = self.output_classifier(torch.cat([nodes[bgraph[0]], snodes[bgraph[1]]], dim = 1))
+        
+        outputs = torch.cat([nodes[bgraph[0]], snodes[bgraph[1]]], dim = 1)
+        outputs = self.output_norm(outputs)
+        logits = self.output_classifier(outputs)
         
         return logits.squeeze(1)
 
@@ -177,12 +175,13 @@ class Pooling(nn.Module):
     def __init__(
         self, 
         d_model: int,
+        d_hidden: int,
         emb_size: int,
         n_output_layers: int,
         hidden_activation: Optional[str] = "GELU",
         output_activation: Optional[str] = None,
         dropout: Optional[float] = 0.,
-        momentum: Optional[float] = 0.95,
+        momentum: Optional[float] = 0.99,
         bsparsity: Optional[int] = 5,
         ssparsity: Optional[int] = 10,
         resolution: Optional[float] = 0., 
@@ -195,7 +194,7 @@ class Pooling(nn.Module):
         self.gmm_model = GaussianMixture(2)
         self.node_encoder = make_mlp(
             d_model,
-            [d_model] * (n_output_layers - 1) + [emb_size],
+            [d_hidden] * (n_output_layers - 1) + [emb_size],
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             input_dropout=dropout,
@@ -206,7 +205,7 @@ class Pooling(nn.Module):
             "exp",
             symmetrize=False,
             normalize=True,
-            return_logits=True
+            return_logits=True,
         )
         self.sgraph_construction = DynamicGraphConstruction(
             ssparsity,
@@ -247,7 +246,7 @@ class Pooling(nn.Module):
     def forward(self, nodes, graph):
         
         emb = self.node_encoder(nodes)
-        emb = F.normalize(emb)
+        # emb = F.normalize(emb)
         
         likelihood = - torch.log((emb[graph[0]] - emb[graph[1]]).square().sum(-1).clamp(min=1e-12))
             
@@ -270,8 +269,8 @@ class Pooling(nn.Module):
         ], dim = 0)
         
         # Compute centroids
-        semb = scatter_add(emb[valid_mask], idxs, dim = 0)
-        semb = F.normalize(semb)
+        semb = scatter_mean(emb[valid_mask], idxs, dim = 0)
+        # semb = F.normalize(semb)
         
         # Construct graphs
         bgraph, bweights, logits = self.bgraph_construction(emb, semb, original_bgraph)

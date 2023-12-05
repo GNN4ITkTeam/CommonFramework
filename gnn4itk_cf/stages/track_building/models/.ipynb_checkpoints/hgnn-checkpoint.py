@@ -54,8 +54,7 @@ class HierarchicalGNN(TrackBuildingStage, LightningModule):
         self.interaction_layer = InteractionGNNBlock(
             d_model = model_config["d_model"],
             n_node_features = len(hparams["node_features"]),
-            n_node_layers = model_config["n_node_layers"],
-            n_edge_layers = model_config["n_edge_layers"],
+            d_hidden = model_config["d_hidden"],
             n_iterations = model_config["n_interaction_iterations"],
             hidden_activation = model_config["hidden_activation"],
             output_activation = model_config["output_activation"],
@@ -64,6 +63,7 @@ class HierarchicalGNN(TrackBuildingStage, LightningModule):
         
         self.pooling_layer = Pooling(
             d_model = model_config["d_model"],
+            d_hidden = model_config["d_hidden"],
             emb_size = model_config["emb_size"],
             n_output_layers = model_config["n_output_layers"],
             hidden_activation = model_config["hidden_activation"],
@@ -79,8 +79,7 @@ class HierarchicalGNN(TrackBuildingStage, LightningModule):
         self.hgnn_layer = HierarchicalGNNBlock(
             d_model = model_config["d_model"],
             emb_size = model_config["emb_size"],
-            n_node_layers = model_config["n_node_layers"],
-            n_edge_layers = model_config["n_edge_layers"],
+            d_hidden = model_config["d_hidden"],
             n_output_layers = model_config["n_output_layers"],
             n_iterations = model_config["n_hierarchical_iterations"],
             hidden_activation = model_config["hidden_activation"],
@@ -161,44 +160,55 @@ class HierarchicalGNN(TrackBuildingStage, LightningModule):
         emb, semb, bgraph, bweights, sgraph, sweights, emb_logits = self.pooling_layer(nodes, graph)
         logits = self.hgnn_layer(nodes, edges, semb, graph, bgraph, bweights, sgraph, sweights)
         
-        return bgraph, logits, emb_logits, emb
+        return bgraph, logits, emb, emb_logits
     
-    def loss_function(self, batch, bgraph, logits, emb_logits, emb, prefix="train"):
+    def loss_function(self, batch, bgraph, logits, emb, emb_logits, prefix="train"):
         
-        loss_weight = math.sin(
-            math.pi / 2 * min(1, max(0, self.trainer.global_step - self.hparams["auxiliary_emb_steps"]) / self.hparams["auxiliary_logit_steps"])
-        )
-        
-        logits = logits + (1 - loss_weight) * emb_logits
-        bgraph_y, weights, relavent_mask, truth_graph = batch.fetch_truth(bgraph, torch.sigmoid(logits))
+        if self.trainer.global_step < self.hparams["pretraining_steps"] + self.hparams["auxiliary_steps"]:
+            loss_weight = math.cos(
+                math.pi / 2 * max(0, self.trainer.global_step - self.hparams["pretraining_steps"]) / self.hparams["auxiliary_steps"]
+            ) ** 2
+            bgraph_y, weights, relavent_mask = batch.fetch_truth(bgraph, torch.sigmoid((1 - loss_weight) * logits + loss_weight * emb_logits).detach())
+        else:
+            bgraph_y, weights, relavent_mask = batch.fetch_truth(bgraph, torch.sigmoid(logits).detach())
         classification_loss = (
             weights * F.binary_cross_entropy_with_logits(logits[relavent_mask], bgraph_y.float())
         ).sum()
         
-        hnm_graph_idxs = find_neighbors(emb, emb, r_max=self.hparams["margin"], k_max=50)
-        positive_idxs = (hnm_graph_idxs >= 0)
-        ind = torch.arange(hnm_graph_idxs.shape[0], device = self.device).unsqueeze(1).expand(hnm_graph_idxs.shape)
-        hnm_graph = torch.stack([ind[positive_idxs], hnm_graph_idxs[positive_idxs]], dim = 0)
-        hnm_graph = torch.cat([hnm_graph, batch.partial_event.edge_index], dim = 1)
-        hnm_graph, hinge, emb_weights = batch.fetch_emb_truth(hnm_graph)
-        dist = (emb[hnm_graph[0]] - emb[hnm_graph[1]]).square().sum(-1)
-        dist = (dist + 1e-12).sqrt()
-        embedding_loss = (F.hinge_embedding_loss(dist, hinge, margin=self.hparams["margin"], reduction = "none") / self.hparams["margin"]).square()
-        embedding_loss = (emb_weights * embedding_loss).sum()
+        if self.trainer.global_step < self.hparams["pretraining_steps"] + self.hparams["auxiliary_steps"]:
+            hnm_graph_idxs = find_neighbors(emb, emb, r_max=self.hparams["margin"], k_max=50)
+            positive_idxs = (hnm_graph_idxs >= 0)
+            ind = torch.arange(hnm_graph_idxs.shape[0], device = self.device).unsqueeze(1).expand(hnm_graph_idxs.shape)
+            hnm_graph = torch.stack([ind[positive_idxs], hnm_graph_idxs[positive_idxs]], dim = 0)
+            hnm_graph = torch.cat([hnm_graph, batch.partial_event.edge_index, batch.partial_event.track_edges], dim = 1)
+            hnm_graph, hinge, emb_weights = batch.fetch_emb_truth(hnm_graph)
+            dist = (emb[hnm_graph[0]] - emb[hnm_graph[1]]).square().sum(-1)
+            dist = (dist + 1e-12).sqrt()
+            embedding_loss = (F.hinge_embedding_loss(dist, hinge, margin=self.hparams["margin"], reduction = "none") / self.hparams["margin"]).square()
+            embedding_loss = (emb_weights * embedding_loss).sum()
+
+            loss = (1 - loss_weight) * classification_loss + loss_weight * embedding_loss
+            return loss, {
+                prefix + "_loss": loss,
+                prefix + "_classification_loss": classification_loss, 
+                prefix + "_embedding_loss": embedding_loss,
+                prefix + "_graph_construction_efficiency": bgraph_y.sum() / batch.truth_info["nhits"].sum()        
+            }
+            
+        else:
+            loss = classification_loss
+            return loss, {
+                prefix + "_loss": loss,
+                prefix + "_classification_loss": classification_loss, 
+                prefix + "_graph_construction_efficiency": bgraph_y.sum() / batch.truth_info["nhits"].sum()        
+            }
         
-        loss = loss_weight * classification_loss + (1 - loss_weight) * embedding_loss
         
-        return loss, {
-            prefix + "_loss": loss,
-            prefix + "_classification_loss": classification_loss, 
-            prefix + "_embedding_loss": embedding_loss,
-            prefix + "_graph_construction_efficiency": bgraph_y.sum() / batch.truth_info["nhits"].sum()        
-        }
         
 
     def training_step(self, batch, batch_idx):
-        bgraph, logits, emb_logits, emb, semb = self(batch.partial_event)
-        loss, info = self.loss_function(batch, bgraph, logits, emb_logits, emb, prefix="train")
+        bgraph, logits, emb, emb_logits = self(batch.partial_event)
+        loss, info = self.loss_function(batch, bgraph, logits, emb, emb_logits, prefix="train")
         
         info["num_cluster"] = (bgraph[1].max() + 1).float()
         info["score_cut"] = self.pooling_layer.score_cut.item()
@@ -211,8 +221,8 @@ class HierarchicalGNN(TrackBuildingStage, LightningModule):
         return loss
 
     def shared_evaluation(self, batch, batch_idx, stage = "val"):
-        bgraph, logits, emb_logits, emb, semb = self(batch.partial_event)
-        loss, info = self.loss_function(batch, bgraph, logits, emb_logits, emb, prefix=stage)
+        bgraph, logits, emb, emb_logits = self(batch.partial_event)
+        loss, info = self.loss_function(batch, bgraph, logits, emb, emb_logits, prefix=stage)
         
         # evaluation
         scores = torch.sigmoid(logits)
@@ -306,8 +316,7 @@ class HierarchicalGNN(TrackBuildingStage, LightningModule):
     
     def build_track(self, batch, output_dir):
         
-        bgraph, logits, emb_logits, emb = self(batch.partial_event)
-        loss, info = self.loss_function(batch, bgraph, logits, emb_logits, emb, prefix="val")
+        bgraph, logits, _, _ = self(batch.partial_event)
         
         # evaluation
         scores = torch.sigmoid(logits)

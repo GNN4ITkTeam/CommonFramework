@@ -15,6 +15,7 @@
 import torch.nn as nn
 import torch
 
+
 def make_mlp(
     input_size,
     sizes,
@@ -22,7 +23,8 @@ def make_mlp(
     output_activation=None,
     layer_norm=False,
     batch_norm=False,
-    affine_param=False,
+    input_dropout=0,
+    hidden_dropout=0,
 ):
     """Construct an MLP with specified fully-connected layers."""
     hidden_activation = getattr(nn, hidden_activation)
@@ -33,23 +35,34 @@ def make_mlp(
     sizes = [input_size] + sizes
     # Hidden layers
     for i in range(n_layers - 1):
+        if i == 0 and input_dropout > 0:
+            layers.append(nn.Dropout(input_dropout))
         layers.append(nn.Linear(sizes[i], sizes[i + 1]))
         if layer_norm:
-            layers.append(nn.LayerNorm(sizes[i + 1], elementwise_affine=affine_param))
+            layers.append(nn.LayerNorm(sizes[i + 1], elementwise_affine=False))
         if batch_norm:
-            layers.append(nn.BatchNorm1d(sizes[i + 1], track_running_stats=False, affine=False))
+            layers.append(
+                nn.BatchNorm1d(sizes[i + 1], track_running_stats=False, affine=False)
+            )
         layers.append(hidden_activation())
+        if hidden_dropout > 0:
+            layers.append(nn.Dropout(hidden_dropout))
     # Final layer
     layers.append(nn.Linear(sizes[-2], sizes[-1]))
     if output_activation is not None:
         if layer_norm:
-            layers.append(nn.LayerNorm(sizes[-1], elementwise_affine=True))
+            layers.append(nn.LayerNorm(sizes[-1], elementwise_affine=False))
         if batch_norm:
-            layers.append(nn.BatchNorm1d(sizes[-1], track_running_stats=False, affine=False))
+            layers.append(
+                nn.BatchNorm1d(sizes[-1], track_running_stats=False, affine=False)
+            )
         layers.append(output_activation())
     return nn.Sequential(*layers)
 
+
 def get_optimizers(parameters, hparams):
+    """Get the optimizer and scheduler."""
+    weight_decay = hparams.get("lr_weight_decay", 0.01)
     optimizer = [
         torch.optim.AdamW(
             parameters,
@@ -57,10 +70,15 @@ def get_optimizers(parameters, hparams):
             betas=(0.9, 0.999),
             eps=1e-08,
             amsgrad=True,
+            weight_decay=weight_decay,
         )
     ]
 
-    if "scheduler" not in hparams or hparams["scheduler"] is None or hparams["scheduler"] == "StepLR":
+    if (
+        "scheduler" not in hparams
+        or hparams["scheduler"] is None
+        or hparams["scheduler"] == "StepLR"
+    ):
         scheduler = [
             {
                 "scheduler": torch.optim.lr_scheduler.StepLR(
@@ -73,17 +91,20 @@ def get_optimizers(parameters, hparams):
             }
         ]
     elif hparams["scheduler"] == "ReduceLROnPlateau":
+        metric_mode = hparams.get("metric_mode", "min")
+        metric_to_monitor = hparams.get("metric_to_monitor", "val_loss")
         scheduler = [
             {
                 "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer[0],
-                    mode="min",
+                    mode=metric_mode,
                     factor=hparams["factor"],
                     patience=hparams["patience"],
                     verbose=True,
                 ),
                 "interval": "epoch",
                 "frequency": 1,
+                "monitor": metric_to_monitor,
             }
         ]
     elif hparams["scheduler"] == "CosineAnnealingWarmRestarts":
@@ -92,7 +113,7 @@ def get_optimizers(parameters, hparams):
                 "scheduler": torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
                     optimizer[0],
                     T_0=hparams["patience"],
-                    T_mult=2,
+                    T_mult=hparams["T_mult"],
                     eta_min=1e-8,
                     last_epoch=-1,
                 ),
