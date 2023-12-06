@@ -15,6 +15,7 @@
 import os
 import uproot
 import logging
+import warnings
 
 from ..data_reading_stage import EventReader
 from . import athena_utils
@@ -37,7 +38,7 @@ class AthenaRootReader(EventReader):
         # Get list of all root files in input_dir (sorted)
         input_sets = {
             dataset_name: self.config["input_sets"][f"{dataset_name}"]
-            for dataset_name in self.setnames
+            for dataset_name in self.setnames if dataset_name in self.config["input_sets"]
         }
 
         self.root_files = {dataset_name: [] for dataset_name in self.setnames}
@@ -68,21 +69,24 @@ class AthenaRootReader(EventReader):
         validset = [e for e, v in self.evtsmap.items() if v["dataset_name"] == "valid"]
         testset = [e for e, v in self.evtsmap.items() if v["dataset_name"] == "test"]
 
-        self.log.info(
-            "Training events   : {0:>7} -> {1:>7} ({2} evts)".format(
-                trainset[0], trainset[-1], len(trainset)
+        if trainset:
+            self.log.info(
+                "Training events   : {0:>7} -> {1:>7} ({2} evts)".format(
+                    trainset[0], trainset[-1], len(trainset)
+                )
             )
-        )
-        self.log.info(
-            "Validation events : {0:>7} -> {1:>7} ({2} evts)".format(
-                validset[0], validset[-1], len(validset)
+        if validset:
+            self.log.info(
+                "Validation events : {0:>7} -> {1:>7} ({2} evts)".format(
+                    validset[0], validset[-1], len(validset)
+                )
             )
-        )
-        self.log.info(
-            "Test events       : {0:>7} -> {1:>7} ({2} evts)".format(
-                testset[0], testset[-1], len(testset)
+        if testset:
+            self.log.info(
+                "Test events       : {0:>7} -> {1:>7} ({2} evts)".format(
+                    testset[0], testset[-1], len(testset)
+                )
             )
-        )
 
         if len(trainset) + len(validset) + len(testset) < nEvts:
             raise ValueError("Error in data splitting, we are not using all events!")
@@ -161,6 +165,9 @@ class AthenaRootReader(EventReader):
 
             # Read particles
             particles = athena_root_utils.read_particles(part_branches)
+            if particles is None:
+                warnings.warn(f"No particles found in event numbre {event}")
+                return
             particles = athena_utils.convert_barcodes(particles)
             particles = particles.astype(
                 {k: v for k, v in PARTICLES_DATATYPES.items() if k in particles.columns}

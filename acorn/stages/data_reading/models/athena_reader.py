@@ -39,12 +39,13 @@ class AthenaReader(EventReader):
 
         # Very opinionated: We split the data by 80/10/10: train/val/test
         torch.manual_seed(42)  # We want the same split every time for convenience
+        data_split = self.config.get("data_split", [0.8, 0.1, 0.1])
         self.trainset, self.valset, self.testset = random_split(
             self.raw_events,
             [
-                int(len(self.raw_events) * 0.8),
-                int(len(self.raw_events) * 0.1),
-                int(len(self.raw_events) * 0.1),
+                int(len(self.raw_events) * data_split[0]),
+                int(len(self.raw_events) * data_split[1]),
+                int(len(self.raw_events) * data_split[2]),
             ],
         )
         self.module_lookup = self.get_module_lookup()

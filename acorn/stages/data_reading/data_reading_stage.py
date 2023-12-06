@@ -82,14 +82,14 @@ class EventReader:
         """
 
         reader = cls(config)
-        reader.convert_to_csv()
+        reader._convert_to_csv()
         reader._test_csv_conversion()
         reader._convert_to_pyg()
         reader._test_pyg_conversion()
 
         return reader
 
-    def convert_to_csv(self):
+    def _convert_to_csv(self):
         """
         Convert the full set of Athena events to CSV. This produces files in /trainset, /valset and /testset to ensure no overlaps.
         """
@@ -161,6 +161,9 @@ class EventReader:
         self._save_pyg_data(graph, output_dir, event_id)
 
     def _build_all_pyg(self, dataset_name):
+        dataset = getattr(self, dataset_name)
+        if dataset is None:
+            return
         stage_dir = os.path.join(self.config["stage_dir"], dataset_name)
         csv_events = self.get_file_names(
             stage_dir, filename_terms=["particles", "truth"]
@@ -476,21 +479,19 @@ class EventReader:
 
         track_edges = hid_mapping[track_edges]
 
-        # This test imposes a limit to how we simplify the graph: We don't allow shared EDGES (i.e. two different particles can share a hit, but not an edge between the same two hits). We want to ensure these are in a tiny minority
-        assert (
-            (hits.particle_id.values[track_edges[0]] != track_features["particle_id"])
-            & (hits.particle_id.values[track_edges[1]] != track_features["particle_id"])
-        ).sum() < 50, "The number of shared EDGES is unusually high!"
-
         # Remove duplicate edges
-        track_edges, unique_track_edge_indices = np.unique(
+        unique_track_edges, unique_track_edge_indices = np.unique(
             track_edges, axis=1, return_index=True
         )
         track_features = {
             k: v[unique_track_edge_indices] for k, v in track_features.items()
         }
 
-        return track_edges, track_features, hits
+        # This test imposes a limit to how we simplify the graph: We don't allow shared EDGES (i.e. two different particles can share a hit, but not an edge between the same two hits). We want to ensure these are in a tiny minority
+        n_shared_edges = track_edges.shape[1] - unique_track_edges.shape[1]
+        assert (n_shared_edges < 50), "The number of shared EDGES is unusually high!"
+
+        return unique_track_edges, track_features, hits
 
     def get_file_names(self, inputdir, filename_terms: Union[str, list] = None):
         """
@@ -541,6 +542,9 @@ class EventReader:
 
     def _test_csv_conversion(self):
         for data_name in ["trainset", "valset", "testset"]:
+            dataset = getattr(self, data_name)
+            if dataset is None:
+                continue
             self.csv_events = self.get_file_names(
                 os.path.join(self.config["stage_dir"], data_name),
                 filename_terms=["truth", "particles"],
