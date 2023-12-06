@@ -16,7 +16,6 @@ dependencies:
     - matplotlib
     - cudf=22.08
     - cugraph=22.08
-    - cuml=22.08
     - cudatoolkit=11.6
     - pytorch=1.12.1
     - pytorch-lightning=1.9.2
