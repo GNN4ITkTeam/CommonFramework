@@ -489,7 +489,7 @@ class EventReader:
 
         # This test imposes a limit to how we simplify the graph: We don't allow shared EDGES (i.e. two different particles can share a hit, but not an edge between the same two hits). We want to ensure these are in a tiny minority
         n_shared_edges = track_edges.shape[1] - unique_track_edges.shape[1]
-        assert (n_shared_edges < 50), "The number of shared EDGES is unusually high!"
+        assert n_shared_edges < 50, "The number of shared EDGES is unusually high!"
 
         return unique_track_edges, track_features, hits
 

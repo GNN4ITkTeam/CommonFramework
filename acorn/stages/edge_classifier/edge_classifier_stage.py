@@ -185,8 +185,14 @@ class EdgeClassifierStage(LightningModule):
         """
         Load the prediction sets (which is a list of the three datasets)
         """
-        dataloaders = [self.train_dataloader(), self.val_dataloader(), self.test_dataloader()]
-        dataloaders = [dataloader for dataloader in dataloaders if dataloader is not None]
+        dataloaders = [
+            self.train_dataloader(),
+            self.val_dataloader(),
+            self.test_dataloader(),
+        ]
+        dataloaders = [
+            dataloader for dataloader in dataloaders if dataloader is not None
+        ]
         return dataloaders
 
     def configure_optimizers(self):

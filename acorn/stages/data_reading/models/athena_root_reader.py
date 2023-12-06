@@ -38,7 +38,8 @@ class AthenaRootReader(EventReader):
         # Get list of all root files in input_dir (sorted)
         input_sets = {
             dataset_name: self.config["input_sets"][f"{dataset_name}"]
-            for dataset_name in self.setnames if dataset_name in self.config["input_sets"]
+            for dataset_name in self.setnames
+            if dataset_name in self.config["input_sets"]
         }
 
         self.root_files = {dataset_name: [] for dataset_name in self.setnames}
