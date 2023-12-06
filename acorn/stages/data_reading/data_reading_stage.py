@@ -82,14 +82,14 @@ class EventReader:
         """
 
         reader = cls(config)
-        reader._convert_to_csv()
+        reader.convert_to_csv()
         reader._test_csv_conversion()
         reader._convert_to_pyg()
         reader._test_pyg_conversion()
 
         return reader
 
-    def _convert_to_csv(self):
+    def convert_to_csv(self):
         """
         Convert the full set of Athena events to CSV. This produces files in /trainset, /valset and /testset to ensure no overlaps.
         """
