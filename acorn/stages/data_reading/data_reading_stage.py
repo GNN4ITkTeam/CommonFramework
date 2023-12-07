@@ -150,8 +150,9 @@ class EventReader:
             return
 
         particles = pd.read_csv(event["particles"])
-        particles = particles.rename(columns={"eta": "eta_particle"})
+        particles = self._add_column_name_prefix(particles, "particle")
         hits = pd.read_csv(event["truth"])
+        hits = self._add_column_name_prefix(hits, "hit")
         hits, particles = self._merge_particles_to_hits(hits, particles)
         hits = self._add_handengineered_features(hits)
         hits = self._clean_noise_duplicates(hits)
@@ -192,11 +193,22 @@ class EventReader:
         ):
             graph[feature] = torch.from_numpy(hits[feature].values)
 
+        # hit_truths = self.config["feature_sets"]["hit_truths"]
+        # hit_truths = [hit_truth.replace("hit_", "") for hit_truth in hit_truths]
+        # for feature in set(hit_truths).intersection(
+        #     set(hits.columns)
+        # ):
+        #     graph["hit_" + feature] = torch.from_numpy(hits[feature].values)
+
         graph.track_edges = torch.from_numpy(tracks)
-        for feature in set(self.config["feature_sets"]["track_features"]).intersection(
+        track_feature_names = self.config["feature_sets"]["track_features"]
+        track_feature_names = [
+            track_feature.replace("track_", "") for track_feature in track_feature_names
+        ]
+        for feature in set(track_feature_names).intersection(
             set(track_features.keys())
         ):
-            graph[feature] = torch.from_numpy(track_features[feature])
+            graph["track_" + feature] = torch.from_numpy(track_features[feature])
 
         # Add config dictionary to the graph object, so every data has a record of how it was built
         graph.config = [self.config]
@@ -221,43 +233,61 @@ class EventReader:
         This is a bit messy, since Athena, ACTS and TrackML have a variety of different conventions and features for particles.
         """
 
-        if "barcode" in particles.columns:
+        if "particle_barcode" in particles.columns:
             particles = particles.assign(
-                primary=(particles.barcode < 200000).astype(int)
+                particle_primary=(particles.particle_barcode < 200000).astype(int)
             )
 
-        if "nhits" not in particles.columns:
-            hits["nhits"] = hits.groupby("particle_id")["particle_id"].transform(
-                "count"
-            )
+        if "particle_nhits" not in particles.columns:
+            hits["particle_nhits"] = hits.groupby("hit_particle_id")[
+                "hit_particle_id"
+            ].transform("count")
 
         assert all(
-            vertex in particles.columns for vertex in ["vx", "vy", "vz"]
+            vertex in particles.columns
+            for vertex in ["particle_vx", "particle_vy", "particle_vz"]
         ), "Particles must have vertex information!"
-        particle_features = self.config["feature_sets"]["track_features"] + [
-            "vx",
-            "vy",
-            "vz",
+        track_features = self.config["feature_sets"]["track_features"] + [
+            "particle_vx",
+            "particle_vy",
+            "particle_vz",
         ]
-
         # Get intersection of particle features and the columns in particles
-        particle_features = [
-            feature for feature in particle_features if feature in particles.columns
+        track_features = [
+            track_feature.replace("track_", "") for track_feature in track_features
         ]
+        track_features = set(track_features).intersection(set(particles.columns))
+        particle_features = list(track_features)
+        # hit_truths = self.config["feature_sets"]["hit_truths"]
+        # hit_truths = [hit_truth.replace("hit_", "") for hit_truth in hit_truths]
+        # hit_truths = set(self.config["feature_sets"]["hit_truths"]).intersection(set(particles.columns))
+        # particle_features = list(particle_features | hit_truths)
 
         assert (
-            "particle_id" in hits.columns and "particle_id" in particles.columns
+            "hit_particle_id" in hits.columns and "particle_id" in particles.columns
         ), "Hits and particles must have a particle_id column!"
         hits = hits.merge(
             particles[particle_features],
-            on="particle_id",
+            left_on="hit_particle_id",
+            right_on="particle_id",
             how="left",
         )
 
+        hits["hit_particle_id"] = hits["hit_particle_id"].fillna(0).astype(int)
         hits["particle_id"] = hits["particle_id"].fillna(0).astype(int)
-        hits.loc[hits.particle_id == 0, "nhits"] = -1
+        hits.loc[hits.hit_particle_id == 0, "particle_nhits"] = -1
 
         return hits, particles
+
+    @staticmethod
+    def _add_column_name_prefix(df, prefix):
+        rename_map = {
+            column: f"{prefix}_{column}"
+            for column in df.columns
+            if not column.startswith(prefix + "_")
+        }
+        df = df.rename(columns=rename_map)
+        return df
 
     @staticmethod
     def _clean_noise_duplicates(hits):
@@ -266,8 +296,8 @@ class EventReader:
         This is not sensible, so we remove those duplicated noise hits.
         """
 
-        noise_hits = hits[hits.particle_id == 0].drop_duplicates(subset="hit_id")
-        signal_hits = hits[hits.particle_id != 0]
+        noise_hits = hits[hits.hit_particle_id == 0].drop_duplicates(subset="hit_id")
+        signal_hits = hits[hits.hit_particle_id != 0]
 
         non_duplicate_noise_hits = noise_hits[
             ~noise_hits.hit_id.isin(signal_hits.hit_id)
@@ -283,7 +313,7 @@ class EventReader:
         for region_id, desc in self.config["region_labels"].items():
             if desc["hardware"] == "PIXEL":
                 pixel_regions_index = pixel_regions_index.append(
-                    hits.index[hits.region == region_id]
+                    hits.index[hits.hit_region == region_id]
                 )
         return pixel_regions_index
 
@@ -292,59 +322,72 @@ class EventReader:
         assert all(
             col in hits.columns
             for col in [
-                "x",
-                "y",
-                "z",
-                "cluster_x_1",
-                "cluster_y_1",
-                "cluster_z_1",
-                "cluster_x_2",
-                "cluster_y_2",
-                "cluster_z_2",
+                "hit_x",
+                "hit_y",
+                "hit_z",
+                "hit_cluster_x_1",
+                "hit_cluster_y_1",
+                "hit_cluster_z_1",
+                "hit_cluster_x_2",
+                "hit_cluster_y_2",
+                "hit_cluster_z_2",
             ]
         ), "Need to add (x,y,z) features"
-        if "r" in self.config["feature_sets"]["hit_features"]:
-            r = np.sqrt(hits.x**2 + hits.y**2)
-            hits = hits.assign(r=r)
-        if "phi" in self.config["feature_sets"]["hit_features"]:
-            phi = np.arctan2(hits.y, hits.x)
-            hits = hits.assign(phi=phi)
-        if "eta" in self.config["feature_sets"]["hit_features"]:
-            eta = self.calc_eta(
-                r, hits.z
+        if "hit_r" in self.config["feature_sets"]["hit_features"]:
+            hit_r = np.sqrt(hits.hit_x**2 + hits.hit_y**2)
+            hits = hits.assign(hit_r=hit_r)
+        if "hit_phi" in self.config["feature_sets"]["hit_features"]:
+            hit_phi = np.arctan2(hits.hit_y, hits.hit_x)
+            hits = hits.assign(hit_phi=hit_phi)
+        if "hit_eta" in self.config["feature_sets"]["hit_features"]:
+            hit_eta = self.calc_eta(
+                hit_r, hits.hit_z
             )  # TODO check if r is defined (same for clusters, below)
-            hits = hits.assign(eta=eta)
-        if "cluster_r_1" in self.config["feature_sets"]["hit_features"]:
-            cluster_r_1 = np.sqrt(hits.cluster_x_1**2 + hits.cluster_y_1**2)
-            cluster_r_1.loc[pixel_regions_idx] = r.loc[pixel_regions_idx]
-            hits = hits.assign(cluster_r_1=cluster_r_1)
-        if "cluster_phi_1" in self.config["feature_sets"]["hit_features"]:
-            cluster_phi_1 = np.arctan2(hits.cluster_y_1, hits.cluster_x_1)
-            cluster_phi_1.loc[pixel_regions_idx] = phi.loc[pixel_regions_idx]
-            hits = hits.assign(cluster_phi_1=cluster_phi_1)
-        if "cluster_eta_1" in self.config["feature_sets"]["hit_features"]:
-            cluster_eta_1 = self.calc_eta(cluster_r_1, hits.cluster_z_1)
-            cluster_eta_1.loc[pixel_regions_idx] = eta.loc[pixel_regions_idx]
-            hits = hits.assign(cluster_eta_1=cluster_eta_1)
-        if "cluster_r_2" in self.config["feature_sets"]["hit_features"]:
-            cluster_r_2 = np.sqrt(hits.cluster_x_2**2 + hits.cluster_y_2**2)
-            cluster_r_2.loc[pixel_regions_idx] = r.loc[pixel_regions_idx]
-            hits = hits.assign(cluster_r_2=cluster_r_2)
-        if "cluster_phi_2" in self.config["feature_sets"]["hit_features"]:
-            cluster_phi_2 = np.arctan2(hits.cluster_y_2, hits.cluster_x_2)
-            cluster_phi_2.loc[pixel_regions_idx] = phi.loc[pixel_regions_idx]
-            hits = hits.assign(cluster_phi_2=cluster_phi_2)
-        if "cluster_eta_2" in self.config["feature_sets"]["hit_features"]:
-            cluster_eta_2 = self.calc_eta(cluster_r_2, hits.cluster_z_2)
-            cluster_eta_2.loc[pixel_regions_idx] = eta.loc[pixel_regions_idx]
-            hits = hits.assign(cluster_eta_2=cluster_eta_2)
+            hits = hits.assign(hit_eta=hit_eta)
+        if "hit_cluster_r_1" in self.config["feature_sets"]["hit_features"]:
+            hit_cluster_r_1 = np.sqrt(
+                hits.hit_cluster_x_1**2 + hits.hit_cluster_y_1**2
+            )
+            hit_cluster_r_1.loc[pixel_regions_idx] = hit_r.loc[pixel_regions_idx]
+            hits = hits.assign(hit_cluster_r_1=hit_cluster_r_1)
+        if "hit_cluster_phi_1" in self.config["feature_sets"]["hit_features"]:
+            hit_cluster_phi_1 = np.arctan2(hits.hit_cluster_y_1, hits.hit_cluster_x_1)
+            hit_cluster_phi_1.loc[pixel_regions_idx] = hit_phi.loc[pixel_regions_idx]
+            hits = hits.assign(hit_cluster_phi_1=hit_cluster_phi_1)
+        if "hit_cluster_eta_1" in self.config["feature_sets"]["hit_features"]:
+            hit_cluster_eta_1 = self.calc_eta(hit_cluster_r_1, hits.hit_cluster_z_1)
+            hit_cluster_eta_1.loc[pixel_regions_idx] = hit_eta.loc[pixel_regions_idx]
+            hits = hits.assign(hit_cluster_eta_1=hit_cluster_eta_1)
+        if "hit_cluster_r_2" in self.config["feature_sets"]["hit_features"]:
+            hit_cluster_r_2 = np.sqrt(
+                hits.hit_cluster_x_2**2 + hits.hit_cluster_y_2**2
+            )
+            hit_cluster_r_2.loc[pixel_regions_idx] = hit_r.loc[pixel_regions_idx]
+            hits = hits.assign(hit_cluster_r_2=hit_cluster_r_2)
+        if "hit_cluster_phi_2" in self.config["feature_sets"]["hit_features"]:
+            hit_cluster_phi_2 = np.arctan2(hits.hit_cluster_y_2, hits.hit_cluster_x_2)
+            hit_cluster_phi_2.loc[pixel_regions_idx] = hit_phi.loc[pixel_regions_idx]
+            hits = hits.assign(hit_cluster_phi_2=hit_cluster_phi_2)
+        if "hit_cluster_eta_2" in self.config["feature_sets"]["hit_features"]:
+            hit_cluster_eta_2 = self.calc_eta(hit_cluster_r_2, hits.hit_cluster_z_2)
+            hit_cluster_eta_2.loc[pixel_regions_idx] = hit_eta.loc[pixel_regions_idx]
+            hits = hits.assign(hit_cluster_eta_2=hit_cluster_eta_2)
 
         return hits
 
     def _build_true_tracks(self, hits):
         assert all(
             col in hits.columns
-            for col in ["particle_id", "hit_id", "x", "y", "z", "vx", "vy", "vz"]
+            for col in [
+                "hit_particle_id",
+                "hit_id",
+                "hit_x",
+                "hit_y",
+                "hit_z",
+                "particle_vx",
+                "particle_vy",
+                "particle_vz",
+            ]
         ), (
             "Need to add (particle_id, hit_id), (x,y,z) and (vx,vy,vz) features to hits"
             " dataframe in custom EventReader class"
@@ -353,30 +396,30 @@ class EventReader:
         # Sort by increasing distance from production
         hits = hits.assign(
             R=np.sqrt(
-                (hits.x - hits.vx) ** 2
-                + (hits.y - hits.vy) ** 2
-                + (hits.z - hits.vz) ** 2
+                (hits.hit_x - hits.particle_vx) ** 2
+                + (hits.hit_y - hits.particle_vy) ** 2
+                + (hits.hit_z - hits.particle_vz) ** 2
             )
         )
 
-        signal = hits[(hits.particle_id != 0)]
+        signal = hits[(hits.hit_particle_id != 0)]
         signal = signal.sort_values("R").reset_index(drop=False)
 
         # Group by particle ID
         if "module_columns" not in self.config or self.config["module_columns"] is None:
             module_columns = [
-                "barrel_endcap",
-                "hardware",
-                "layer_disk",
-                "eta_module",
-                "phi_module",
+                "hit_barrel_endcap",
+                "hit_hardware",
+                "hit_layer_disk",
+                "hit_eta_module",
+                "hit_phi_module",
             ]
         else:
             module_columns = self.config["module_columns"]
 
         signal_index_list = (
             signal.groupby(
-                ["particle_id"] + module_columns,
+                ["hit_particle_id"] + module_columns,
                 sort=False,
             )["index"]
             .agg(lambda x: list(x))
@@ -393,7 +436,7 @@ class EventReader:
         track_edges = hits.hit_id.values[track_index_edges]
 
         assert (
-            hits[hits.hit_id.isin(track_edges.flatten())].particle_id == 0
+            hits[hits.hit_id.isin(track_edges.flatten())].hit_particle_id == 0
         ).sum() == 0, "There are hits in the track edges that are noise"
 
         track_features = self._get_track_features(hits, track_index_edges, track_edges)
@@ -408,9 +451,11 @@ class EventReader:
     def _get_track_features(self, hits, track_index_edges, track_edges):
         track_features = {}
         # There may be track_features in the config that are not in the hits dataframe, so loop over the intersection of the two
-        for track_feature in set(
-            self.config["feature_sets"]["track_features"]
-        ).intersection(set(hits.columns)):
+        track_feature_names = self.config["feature_sets"]["track_features"]
+        track_feature_names = [
+            track_feature.replace("track_", "") for track_feature in track_feature_names
+        ]
+        for track_feature in set(track_feature_names).intersection(set(hits.columns)):
             assert (
                 hits[track_feature].values[track_index_edges][0]
                 == hits[track_feature].values[track_index_edges][1]
@@ -419,10 +464,13 @@ class EventReader:
                 track_index_edges[0]
             ]
 
-        if "redundant_split_edges" in self.config["feature_sets"]["track_features"]:
-            track_features["redundant_split_edges"] = self._get_redundant_split_edges(
-                track_edges, hits, track_features
-            )
+        if (
+            "track_redundant_split_edges"
+            in self.config["feature_sets"]["track_features"]
+        ):
+            track_features[
+                "track_redundant_split_edges"
+            ] = self._get_redundant_split_edges(track_edges, hits, track_features)
 
         return track_features
 
@@ -440,7 +488,7 @@ class EventReader:
             axis=1,
         )
         hits_unique = hits.drop_duplicates(subset="hit_id")[
-            ["hit_id", "module_id", "R"]
+            ["hit_id", "hit_module_id", "R"]
         ]
         truth_track_df = (
             truth_track_df[["hit_id_0", "hit_id_1", "particle_id"]]
@@ -450,8 +498,8 @@ class EventReader:
             .drop(columns=["hit_id"])
         )
         primary_cluster_df = truth_track_df.sort_values(
-            by=["module_id_y", "R_x", "R_y"]
-        ).drop_duplicates(subset=["module_id_y", "particle_id"], keep="first")
+            by=["hit_module_id_y", "R_x", "R_y"]
+        ).drop_duplicates(subset=["hit_module_id_y", "particle_id"], keep="first")
         secondary_clusters = ~truth_track_df.index.isin(primary_cluster_df.index)
 
         return secondary_clusters
@@ -478,8 +526,14 @@ class EventReader:
 
         # This test imposes a limit to how we simplify the graph: We don't allow shared EDGES (i.e. two different particles can share a hit, but not an edge between the same two hits). We want to ensure these are in a tiny minority
         assert (
-            (hits.particle_id.values[track_edges[0]] != track_features["particle_id"])
-            & (hits.particle_id.values[track_edges[1]] != track_features["particle_id"])
+            (
+                hits.hit_particle_id.values[track_edges[0]]
+                != track_features["particle_id"]
+            )
+            & (
+                hits.hit_particle_id.values[track_edges[1]]
+                != track_features["particle_id"]
+            )
         ).sum() < 50, "The number of shared EDGES is unusually high!"
 
         # Remove duplicate edges
@@ -497,7 +551,7 @@ class EventReader:
         Takes a list of filename terms and searches for all files containing those terms AND a number. Returns the files and numbers.
         For the list of numbers, search for each of the matching terms and files containing that number AND ONLY THAT NUMBER.
         """
-
+        self.log.info("Getting input file names")
         if isinstance(filename_terms, str):
             filename_terms = [filename_terms]
         elif filename_terms is None:
