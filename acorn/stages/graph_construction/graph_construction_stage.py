@@ -215,9 +215,9 @@ class GraphConstructionStage:
         Apply the target conditions to the event. This is used for the evaluation stage.
         Target_tracks is a list of dictionaries, each of which contains the conditions to be applied to the event.
         """
-        passing_tracks = torch.ones(event.truth_map.shape[0], dtype=torch.bool).to(
-            self.device
-        )
+        passing_tracks = torch.ones(
+            event.track_to_edge_map.shape[0], dtype=torch.bool
+        ).to(self.device)
 
         for condition_key, condition_val in target_tracks.items():
             condition_lambda = get_condition_lambda(condition_key, condition_val)

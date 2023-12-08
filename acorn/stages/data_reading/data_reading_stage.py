@@ -202,13 +202,10 @@ class EventReader:
 
         graph.track_edges = torch.from_numpy(tracks)
         track_feature_names = self.config["feature_sets"]["track_features"]
-        track_feature_names = [
-            track_feature.replace("track_", "") for track_feature in track_feature_names
-        ]
         for feature in set(track_feature_names).intersection(
             set(track_features.keys())
         ):
-            graph["track_" + feature] = torch.from_numpy(track_features[feature])
+            graph[feature] = torch.from_numpy(track_features[feature])
 
         # Add config dictionary to the graph object, so every data has a record of how it was built
         graph.config = [self.config]
@@ -460,7 +457,7 @@ class EventReader:
                 hits[track_feature].values[track_index_edges][0]
                 == hits[track_feature].values[track_index_edges][1]
             ).all(), f"Track features must be the same for each side of edge: {track_feature}"
-            track_features[track_feature] = hits[track_feature].values[
+            track_features["track_" + track_feature] = hits[track_feature].values[
                 track_index_edges[0]
             ]
 
@@ -491,7 +488,7 @@ class EventReader:
             ["hit_id", "hit_module_id", "R"]
         ]
         truth_track_df = (
-            truth_track_df[["hit_id_0", "hit_id_1", "particle_id"]]
+            truth_track_df[["hit_id_0", "hit_id_1", "track_particle_id"]]
             .merge(hits_unique, left_on="hit_id_0", right_on="hit_id", how="left")
             .drop(columns=["hit_id"])
             .merge(hits_unique, left_on="hit_id_1", right_on="hit_id", how="left")
@@ -499,7 +496,7 @@ class EventReader:
         )
         primary_cluster_df = truth_track_df.sort_values(
             by=["hit_module_id_y", "R_x", "R_y"]
-        ).drop_duplicates(subset=["hit_module_id_y", "particle_id"], keep="first")
+        ).drop_duplicates(subset=["hit_module_id_y", "track_particle_id"], keep="first")
         secondary_clusters = ~truth_track_df.index.isin(primary_cluster_df.index)
 
         return secondary_clusters
@@ -528,11 +525,11 @@ class EventReader:
         assert (
             (
                 hits.hit_particle_id.values[track_edges[0]]
-                != track_features["particle_id"]
+                != track_features["track_particle_id"]
             )
             & (
                 hits.hit_particle_id.values[track_edges[1]]
-                != track_features["particle_id"]
+                != track_features["track_particle_id"]
             )
         ).sum() < 50, "The number of shared EDGES is unusually high!"
 

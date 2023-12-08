@@ -224,8 +224,8 @@ class PyModuleMap(GraphConstructionStage):
                 return_y_pred=True,
                 return_truth_to_pred=True,
             )
-            graph.y = y.cpu()
-            graph.truth_map = truth_map.cpu()
+            graph.edge_y = y.cpu()
+            graph.track_to_edge_map = truth_map.cpu()
 
             # print(f"Time to get y: {time.time() - start_time}")
 
