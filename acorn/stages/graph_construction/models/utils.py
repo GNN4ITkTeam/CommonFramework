@@ -162,7 +162,6 @@ def make_mlp(
     output_activation=None,
     layer_norm=False,
     batch_norm=False,
-    track_running_stats=False,
 ):
     """Construct an MLP with specified fully-connected layers."""
     hidden_activation = getattr(nn, hidden_activation)
@@ -178,7 +177,7 @@ def make_mlp(
             layers.append(nn.LayerNorm(sizes[i + 1], elementwise_affine=False))
         if batch_norm:
             layers.append(
-                nn.BatchNorm1d(sizes[i + 1], track_running_stats=track_running_stats, affine=False)
+                nn.BatchNorm1d(sizes[i + 1], track_running_stats=False, affine=False)
             )
         layers.append(hidden_activation())
     # Final layer
@@ -188,7 +187,7 @@ def make_mlp(
             layers.append(nn.LayerNorm(sizes[-1], elementwise_affine=False))
         if batch_norm:
             layers.append(
-                nn.BatchNorm1d(sizes[-1], track_running_stats=track_running_stats, affine=False)
+                nn.BatchNorm1d(sizes[-1], track_running_stats=False, affine=False)
             )
         layers.append(output_activation())
     return nn.Sequential(*layers)
