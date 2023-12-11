@@ -65,6 +65,9 @@ class InteractionGNN(EdgeClassifierStage):
         hparams["output_activation"] = (
             None if "output_activation" not in hparams else hparams["output_activation"]
         )
+        hparams["track_running_stats"] = (
+            False if "track_running_stats" not in hparams else hparams["track_running_stats"]
+        )
 
         # Setup input network
         self.node_encoder = make_mlp(
@@ -269,6 +272,9 @@ class InteractionGNNWithPyG(EdgeClassifierStage):
         hparams["output_activation"] = (
             None if "output_activation" not in hparams else hparams["output_activation"]
         )
+        hparams["track_running_stats"] = (
+            False if "track_running_stats" not in hparams else hparams["track_running_stats"]
+        )
 
         # Setup input network
         self.node_encoder = make_mlp(
@@ -401,6 +407,9 @@ class InteractionGNN2(EdgeClassifierStage):
         )
         hparams["edge_output_transform_final_batch_norm"] = hparams.get(
             "edge_output_transform_final_batch_norm", False
+        )
+        hparams["track_running_stats"] = (
+            False if "track_running_stats" not in hparams else hparams["track_running_stats"]
         )
 
         # TODO: Add equivalent check and default values for other model parameters ?
