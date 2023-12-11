@@ -26,6 +26,7 @@ class GravNetMetricLearning(MetricLearning):
             output_activation=None,
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
+            track_running_stats=hparams["track_running_stats"],
         )
 
         # Construct the GravNet convolution modules
@@ -43,6 +44,7 @@ class GravNetMetricLearning(MetricLearning):
             hidden_activation=hparams["activation"],
             output_activation=None,
             layer_norm=hparams["layernorm"],
+            track_running_stats=hparams["track_running_stats"],
         )
 
         self.dataset_class = GraphDataset
@@ -110,6 +112,7 @@ class GravConv(nn.Module):
             output_activation=None,
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
+            track_running_stats=hparams["track_running_stats"],
         )
 
         self.spatial_network = make_mlp(
@@ -119,6 +122,7 @@ class GravConv(nn.Module):
             output_activation=None,
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
+            track_running_stats=hparams["track_running_stats"],
         )
 
         # This handles the various r, k, and random edge options
