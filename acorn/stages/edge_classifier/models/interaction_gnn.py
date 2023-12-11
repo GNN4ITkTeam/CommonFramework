@@ -20,7 +20,7 @@ from torch.utils.checkpoint import checkpoint
 from torch_scatter import scatter_add
 from torch_geometric.nn import aggr
 
-from gnn4itk_cf.utils import make_mlp
+from acorn.utils import make_mlp
 from ..edge_classifier_stage import EdgeClassifierStage
 from .gnn_submodule.encoder import HeteroEdgeEncoder, HeteroNodeEncoder
 from .gnn_submodule.updater import (
