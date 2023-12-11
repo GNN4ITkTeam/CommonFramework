@@ -15,7 +15,7 @@
 import warnings
 import torch
 
-from acorn.utils import make_mlp
+from gnn4itk_cf.utils import make_mlp
 from .gnn_submodule.gcn_encoder import GCNEncoder
 from ..edge_classifier_stage import EdgeClassifierStage
 
@@ -108,6 +108,7 @@ class Filter(EdgeClassifierStage, FilterMixin):
             batch_norm=hparams["batchnorm"],
             output_activation=None,
             hidden_activation=hparams["hidden_activation"],
+            track_running_stats=hparams["track_running_stats"],
         )
 
     def forward(self, batch):
@@ -233,6 +234,7 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
             batch_norm=hparams["batchnorm"],
             output_activation=None,
             hidden_activation=hparams["hidden_activation"],
+            track_running_stats=hparams["track_running_stats"],
         )
 
         self.gnn = GCNEncoder(self.hparams["gnn_config"])
@@ -261,9 +263,7 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
 
         x = self.stack_x(batch)
         output = self(x, batch.edge_index, batch.adj_t)
-        loss, pos_loss, neg_loss = self.loss_function(
-            output, batch, self.hparams.get("loss_balance")
-        )
+        loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
         self.log("train_pos_loss", pos_loss, on_step=False, on_epoch=True, batch_size=1)
@@ -305,9 +305,7 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
     def shared_evaluation(self, batch, batch_idx):
         z = self.gnn(self.stack_x(batch), batch.adj_t)
         output = self.memory_robust_eval(z, batch.edge_index)
-        loss, pos_loss, neg_loss = self.loss_function(
-            output, batch, self.hparams.get("loss_balance")
-        )
+        loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
         batch.scores = torch.sigmoid(output)
 
