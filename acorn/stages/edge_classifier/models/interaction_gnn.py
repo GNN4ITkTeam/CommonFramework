@@ -189,7 +189,7 @@ class InteractionGNN(EdgeClassifierStage):
         scores = self.output_edge_classifier(classifier_inputs).squeeze(-1)
 
         if (
-            self.hparams.get("undirected)")
+            self.hparams.get("undirected")
             and self.hparams.get("dataset_class") != "HeteroGraphDataset"
         ):
             scores = torch.mean(scores.view(2, -1), dim=0)
