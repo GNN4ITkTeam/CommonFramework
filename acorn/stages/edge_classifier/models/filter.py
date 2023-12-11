@@ -263,7 +263,10 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
 
         x = self.stack_x(batch)
         output = self(x, batch.edge_index, batch.adj_t)
-        loss, pos_loss, neg_loss = self.loss_function(output, batch)
+        loss, pos_loss, neg_loss = self.loss_function(
+            output, batch, self.hparams.get("loss_balance")
+        )
+
 
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
         self.log("train_pos_loss", pos_loss, on_step=False, on_epoch=True, batch_size=1)
@@ -305,7 +308,9 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
     def shared_evaluation(self, batch, batch_idx):
         z = self.gnn(self.stack_x(batch), batch.adj_t)
         output = self.memory_robust_eval(z, batch.edge_index)
-        loss, pos_loss, neg_loss = self.loss_function(output, batch)
+        loss, pos_loss, neg_loss = self.loss_function(
+            output, batch, self.hparams.get("loss_balance")
+        )
 
         batch.scores = torch.sigmoid(output)
 
