@@ -32,6 +32,7 @@ except ImportError:
 from pytorch_lightning import LightningModule
 from pytorch_lightning.callbacks import ModelPruning
 
+# import torch.nn.utils.prune as prune # only needed for evil hack, see below
 
 from .core_utils import str_to_class, get_trainer, get_stage_module
 from ..utils import onnx_export
@@ -87,7 +88,7 @@ def train(config_file, checkpoint=None):
 
 
 def lightning_train(config, stage_module_class, checkpoint=None):
-    global stage_module, trainer
+    global stage_module, trainer, parameters_to_prune
     stage_module, config, default_root_dir = get_stage_module(
         config, stage_module_class, checkpoint_path=checkpoint
     )
@@ -99,12 +100,17 @@ def lightning_train(config, stage_module_class, checkpoint=None):
 
     if config["pruning_allow"]:
         # we only want to prune weights from the Linear or QuantLinear layers;
-        # checking if layer has weights, and excluding LayerNorm (we may need to expand that list)
+        # checking if layer has weights, and excluding LayerNorm (we may need to expand that list; added BatchNorm1d)
         parameters_to_prune = [
             (x, "weight")
             for x in stage_module.network[:]
-            if (hasattr(x, "weight") and (x.__class__.__name__ != "LayerNorm"))
+            if (
+                hasattr(x, "weight")
+                and (x.__class__.__name__ != "LayerNorm")
+                and (x.__class__.__name__ != "BatchNorm1d")
+            )
         ]
+        # print(parameters_to_prune)
 
         trainer.callbacks.append(
             ModelPruning(
@@ -113,23 +119,34 @@ def lightning_train(config, stage_module_class, checkpoint=None):
                 amount=config["pruning_amount"],
                 apply_pruning=apply_pruning,
                 # settings below only for structured!
-                #                pruning_dim = metric_learning_configs["pruning_dim"],
-                #                pruning_norm = metric_learning_configs["pruning_norm"],
-                #                use_global_unstructured = metric_learning_configs["use_global_unstructured"],
+                pruning_dim=config["pruning_dim"],
+                pruning_norm=config["pruning_norm"],
+                use_global_unstructured=config["use_global_unstructured"],
                 verbose=1,  # 2 for per-layer sparsity, #1 for overall sparsity
             )
         )
     # if wanted, add here with another config to the callback function
     # , auc_score()],
+
     trainer.fit(stage_module)
 
 
 # ToDo: kinda ugly using global stage_module and global trainer I guess???
 def apply_pruning(epoch):
+    # evil hack, to prune after 0'th epoch --> should be fine!
+    # if(epoch == 0):
+    #    prune.global_unstructured(
+    #        parameters_to_prune,
+    #        pruning_method=prune.L1Unstructured,
+    #        amount=0.9265,
+    #    )
+    #    stage_module.last_pruned = epoch
+    #    return False
+
     stage_module.val_loss.append(trainer.callback_metrics["val_loss"].cpu().numpy())
     # print(max(stage_module.val_loss), min(stage_module.val_loss))
     # include feedback from validation loss here
-    if (len(stage_module.val_loss) > 10) and (stage_module.last_pruned > -1):
+    if (len(stage_module.val_loss) > 50) and (stage_module.last_pruned > -1):
         stage_module.val_loss.pop(0)
         if (
             max(stage_module.val_loss) - min(stage_module.val_loss)

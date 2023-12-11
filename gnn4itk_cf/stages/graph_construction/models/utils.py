@@ -177,7 +177,7 @@ def make_mlp(
             layers.append(nn.LayerNorm(sizes[i + 1], elementwise_affine=False))
         if batch_norm:
             layers.append(
-                nn.BatchNorm1d(sizes[i + 1], track_running_stats=False, affine=False)
+                nn.BatchNorm1d(sizes[i + 1], track_running_stats=True, affine=True)
             )
         layers.append(hidden_activation())
     # Final layer
@@ -187,7 +187,7 @@ def make_mlp(
             layers.append(nn.LayerNorm(sizes[-1], elementwise_affine=False))
         if batch_norm:
             layers.append(
-                nn.BatchNorm1d(sizes[-1], track_running_stats=False, affine=False)
+                nn.BatchNorm1d(sizes[-1], track_running_stats=True, affine=True)
             )
         layers.append(output_activation())
     return nn.Sequential(*layers)

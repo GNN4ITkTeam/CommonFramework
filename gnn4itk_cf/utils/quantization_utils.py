@@ -153,7 +153,11 @@ class onnx_export(Callback):
                 parameters_to_prune = [
                     (x, "weight")
                     for x in model_copy
-                    if (hasattr(x, "weight") and (x.__class__.__name__ != "LayerNorm"))
+                    if (
+                        hasattr(x, "weight")
+                        and (x.__class__.__name__ != "LayerNorm")
+                        and (x.__class__.__name__ != "BatchNorm1d")
+                    )
                 ]
                 if model.last_pruned > -1:
                     for paras in parameters_to_prune:
@@ -192,8 +196,8 @@ class onnx_export(Callback):
                         if weighted_bops < model.final_bops:
                             model.final_bops = weighted_bops
                             model.final_pur_98 = model.pur_98
-                        if (
-                            weighted_bops == model.final_bops
+                        elif (
+                            np.isclose(int(weighted_bops), int(model.final_bops))
                             and model.pur_98 > model.final_pur_98
                         ):
                             model.final_pur_98 = model.pur_98

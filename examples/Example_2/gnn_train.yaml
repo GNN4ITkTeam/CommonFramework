@@ -32,7 +32,7 @@ hard_cuts:
 edge_cut: 0.5
 undirected: True
 node_features: [r, phi, z]
-node_scales:   [1000, 3.14, 1000]
+node_scales: [1000, 3.14, 1000]
 hidden: 128
 n_graph_iters: 8
 nb_node_layer: 2
@@ -42,6 +42,10 @@ batchnorm: False
 aggregation: [sum, mean, max, std]
 hidden_activation: SiLU
 output_activation: Tanh
+
+onnx_export: False
+quantized_network: False
+pruning_allow: False
 
 # Training parameters
 warmup: 10

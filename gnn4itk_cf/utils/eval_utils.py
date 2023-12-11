@@ -20,7 +20,7 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
     Plot the graph construction efficiency vs. pT of the edge.
     """
     all_y_truth, all_pt = [], []
-    all_eta = []
+    # all_eta = []
     graph_size = []
 
     for event in tqdm(lightning_module.testset):
@@ -34,12 +34,12 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
         all_y_truth.append((event.truth_map[event.target_mask] >= 0).cpu())
         all_pt.append((event.pt[event.target_mask].cpu()))
 
-        all_eta.append((event.eta[event.track_edges[:, event.target_mask][0]].cpu()))
+        # all_eta.append((event.eta[event.track_edges[:, event.target_mask][0]].cpu()))
         graph_size.append(event.edge_index.size(1))
 
     #  TODO: Handle different pT units!
     all_pt = torch.cat(all_pt).cpu().numpy()
-    all_eta = torch.cat(all_eta).cpu().numpy()
+    # all_eta = torch.cat(all_eta).cpu().numpy()
     all_y_truth = torch.cat(all_y_truth).cpu().numpy()
 
     # Get the edgewise efficiency
@@ -53,18 +53,18 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
     true_pt_hist, _ = np.histogram(all_pt, bins=pt_bins)
     true_pos_pt_hist, _ = np.histogram(all_pt[all_y_truth], bins=pt_bins)
 
-    true_eta_hist, true_eta_bins = np.histogram(all_eta, bins=eta_bins)
-    true_pos_eta_hist, _ = np.histogram(all_eta[all_y_truth], bins=eta_bins)
+    # true_eta_hist, true_eta_bins = np.histogram(all_eta, bins=eta_bins)
+    # true_pos_eta_hist, _ = np.histogram(all_eta[all_y_truth], bins=eta_bins)
 
     pt_units = "GeV" if "pt_units" not in plot_config else plot_config["pt_units"]
 
     for true_pos_hist, true_hist, bins, xlabel, logx, filename in zip(
-        [true_pos_pt_hist, true_pos_eta_hist],
-        [true_pt_hist, true_eta_hist],
-        [pt_bins, eta_bins],
-        [f"$p_T [{pt_units}]$", r"$\eta$"],
-        [True, False],
-        ["edgewise_efficiency_pt.png", "edgewise_efficiency_eta.png"],
+        [true_pos_pt_hist],  # , true_pos_eta_hist],
+        [true_pt_hist],  # , true_eta_hist],
+        [pt_bins],  # , eta_bins],
+        [f"$p_T [{pt_units}]$"],  # , r"$\eta$"],
+        [True],  # , False],
+        ["edgewise_efficiency_pt.png"],  # , "edgewise_efficiency_eta.png"],
     ):
         hist, err = get_ratio(true_pos_hist, true_hist)
 
@@ -207,18 +207,20 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
         # Save the plot
         atlasify(
             "Internal",
-            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t \bar{t}$ and soft interactions) "
-            + "\n"
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+            r" \bar{t}$ and soft interactions) " + "\n"
             r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
             r"Edge score cut: " + str(config["score_cut"]) + "\n"
-            f"Input graph size: {pred.shape[0]/n_graphs:.2e}, Graph Construction Efficiency: {graph_construction_efficiency:.3f}"
-            + "\n"
-            f"Mean graph size: {mean_graph_size:.2e}, Signal Efficiency: {target_efficiency:.3f}",
+            f"Input graph size: {pred.shape[0]/n_graphs:.2e}, Graph Construction"
+            f" Efficiency: {graph_construction_efficiency:.3f}" + "\n"
+            f"Mean graph size: {mean_graph_size:.2e}, Signal Efficiency:"
+            f" {target_efficiency:.3f}",
         )
 
         fig.savefig(os.path.join(config["stage_dir"], filename))
         print(
-            f'Finish plotting. Find the plot at {os.path.join(config["stage_dir"], filename)}'
+            "Finish plotting. Find the plot at"
+            f' {os.path.join(config["stage_dir"], filename)}'
         )
 
 

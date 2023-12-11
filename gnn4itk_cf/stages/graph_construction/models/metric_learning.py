@@ -54,7 +54,8 @@ class MetricLearning(GraphConstructionStage, LightningModule):
                 [hparams["emb_hidden"]] * hparams["nb_layer"] + [hparams["emb_dim"]],
                 hidden_activation=hparams["activation"],
                 output_activation=None,
-                layer_norm=True,
+                layer_norm=hparams["layer_norm"],
+                batch_norm=hparams["batch_norm"],
             )
         else:
             print("QUANTIZED NETWORK IS BEING USED")
@@ -320,7 +321,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             for param in self.parameters():
                 reg_loss += l1_crit(param, target=torch.zeros_like(param))
 
-            loss += self.hparams["l1_factor"] * reg_loss
+            loss += (
+                self.hparams["l1_factor"] * reg_loss
+            )  # evil hack: divide by 10 to get smaller order of magnitude
         self.log("train_loss", loss, batch_size=1, sync_dist=True)
 
         return loss
@@ -560,6 +563,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             lr_scale = min(
                 1.0, float(self.trainer.current_epoch + 1) / self.hparams["warmup"]
             )
+            # if(self.trainer.current_epoch == 0):    # evil hack: no lr for first epoch
+            #    logging.info(f"First epoch, setting lr to 0")
+            #    lr_scale = 0
             for pg in optimizer.param_groups:
                 pg["lr"] = lr_scale * self.hparams["lr"]
 
