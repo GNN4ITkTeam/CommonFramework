@@ -28,7 +28,6 @@ class TransformerMetricLearning(MetricLearning):
             hidden_activation=hparams["activation"],
             output_activation=hparams["activation"],
             layer_norm=True,
-            track_running_stats=hparams["track_running_stats"],
         )
 
         decoder_concat_multiple = (
@@ -40,7 +39,6 @@ class TransformerMetricLearning(MetricLearning):
             hidden_activation=hparams["activation"],
             output_activation=None,
             layer_norm=True,
-            track_running_stats=hparams["track_running_stats"],
         )
 
         self.setup_transformer_layers(hparams)
@@ -115,7 +113,6 @@ class TransformerMetricLearning(MetricLearning):
                         hidden_activation=hparams["activation"],
                         output_activation=hparams["activation"],
                         layer_norm=True,
-                        track_running_stats=hparams["track_running_stats"],
                     )
                     for _ in range(hparams["steps"])
                 ]
@@ -130,7 +127,6 @@ class TransformerMetricLearning(MetricLearning):
                                 hidden_activation=hparams["activation"],
                                 output_activation=hparams["activation"],
                                 layer_norm=True,
-                                track_running_stats=hparams["track_running_stats"],
                             )
                             for _ in range(hparams["steps"])
                         ]
