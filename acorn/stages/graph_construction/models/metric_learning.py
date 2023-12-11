@@ -48,7 +48,6 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             hidden_activation=hparams["activation"],
             output_activation=None,
             layer_norm=True,
-            track_running_stats=hparams["track_running_stats"],
         )
 
         self.dataset_class = GraphDataset
