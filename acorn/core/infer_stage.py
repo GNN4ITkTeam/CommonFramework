@@ -80,7 +80,7 @@ def lightning_infer(config, stage_module, checkpoint=None):
         )
     )
     if not checkpoint_path:
-        print("No checkpoint found hmm")
+        print("No checkpoint found")
         sys.exit(1)
     print(f"Loading checkpoint: {checkpoint_path}")
 
