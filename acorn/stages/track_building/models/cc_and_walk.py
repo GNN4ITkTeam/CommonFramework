@@ -76,14 +76,14 @@ class CCandWalk(TrackBuildingStage):
         all_trks = dict()
 
         if self.hparams.get("on_true_graph", False):
-            score_name = "y"
+            score_name = "edge_y"
             threshold = 0
         else:
-            score_name = "scores"
+            score_name = "edge_scores"
             threshold = self.hparams["score_cut_cc"]
 
         # Remove cycles by pointing all edges outwards (necessary for topo-sort)
-        R = graph.r**2 + graph.z**2
+        R = graph.hit_r**2 + graph.hit_z**2
         graph = cc_and_walk_utils.remove_cycles(graph)
 
         # remove low-scoring edges

@@ -73,12 +73,12 @@ class Walkthrough(TrackBuildingStage):
 
         for graph in tqdm(dataset):
             # Apply score cut
-            edge_mask = graph.scores > self.hparams["score_cut"]
+            edge_mask = graph.edge_scores > self.hparams["score_cut"]
 
             # Convert to sparse scipy array
             new_graph = graph.clone()
             new_graph.edge_index = new_graph.edge_index[:, edge_mask]
-            new_graph.scores = new_graph.scores[edge_mask]
+            new_graph.edge_scores = new_graph.edge_scores[edge_mask]
 
             # Convert to networkx graph
             G = to_networkx(new_graph, to_undirected=False)
@@ -113,10 +113,10 @@ class Walkthrough(TrackBuildingStage):
             hit_id = track_df.hit_id
             track_id = track_df.track_id
 
-            track_id_tensor = torch.ones(len(graph.x), dtype=torch.long) * -1
+            track_id_tensor = torch.ones(len(graph.hit_x), dtype=torch.long) * -1
             track_id_tensor[hit_id.values] = torch.from_numpy(track_id.values)
 
-            graph.labels = track_id_tensor
+            graph.edge_track_labels = track_id_tensor
 
             # TODO: Graph name file??
             torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))

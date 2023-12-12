@@ -56,7 +56,7 @@ class ConnectedComponents(TrackBuildingStage):
             # Get number of nodes
             if hasattr(graph, "num_nodes"):
                 num_nodes = graph.num_nodes
-            elif hasattr(graph, "x"):
+            elif hasattr(graph, "hit_x"):
                 num_nodes = graph.x.size(0)
             elif hasattr(graph, "x_x"):
                 num_nodes = graph.x_x.size(0)
@@ -72,7 +72,7 @@ class ConnectedComponents(TrackBuildingStage):
             _, candidate_labels = sps.csgraph.connected_components(
                 sparse_edges, directed=False, return_labels=True
             )
-            graph.labels = torch.from_numpy(candidate_labels).long()
+            graph.edge_track_labels = torch.from_numpy(candidate_labels).long()
             graph.config.append(self.hparams)
 
             # TODO: Graph name file??
