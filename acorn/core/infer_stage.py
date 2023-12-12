@@ -45,8 +45,7 @@ def main(config_file, verbose, checkpoint):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.
     """
-
-    infer(config_file, checkpoint)
+    infer(config_file, verbose, checkpoint)
 
 
 def infer(config_file, verbose=None, checkpoint=None):
@@ -67,6 +66,7 @@ def infer(config_file, verbose=None, checkpoint=None):
     stage_module = str_to_class(stage, model)
 
     if issubclass(stage_module, LightningModule):
+        print(checkpoint)
         lightning_infer(config, stage_module, checkpoint)
     else:
         stage_module.infer(config)
@@ -81,7 +81,7 @@ def lightning_infer(config, stage_module, checkpoint=None):
         )
     )
     if not checkpoint_path:
-        print("No checkpoint found")
+        print("No checkpoint found hmm")
         sys.exit(1)
     print(f"Loading checkpoint: {checkpoint_path}")
 
