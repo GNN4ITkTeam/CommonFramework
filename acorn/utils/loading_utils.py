@@ -20,7 +20,12 @@ import logging
 from torch_geometric.data import Data
 from pathlib import Path
 
-from .mapping_utils import get_condition_lambda, map_tensor_handler, remap_from_mask
+from .mapping_utils import (
+    get_condition_lambda,
+    map_tensor_handler,
+    remap_from_mask,
+    get_variable_type,
+)
 
 
 def load_datafiles_in_dir(input_dir, data_name=None, data_num=None):
@@ -114,8 +119,8 @@ def handle_weighting(event, weighting_config):
     """
 
     # Set the default values, which will be overwritten if specified in the config
-    weights = torch.zeros_like(event.y, dtype=torch.float)
-    weights[event.y == 0] = 1.0
+    weights = torch.zeros_like(event.edge_y, dtype=torch.float)
+    weights[event.edge_y == 0] = 1.0
 
     for weight_spec in weighting_config:
         weight_val = weight_spec["weight"]
@@ -140,19 +145,17 @@ def handle_hard_cuts(event, hard_cuts_config):
     ).all(0)
     remap_from_mask(event, graph_mask)
 
-    num_edges = event.edge_index.shape[1]
     for edge_key in event.keys:
         if (
             isinstance(event[edge_key], torch.Tensor)
-            and num_edges in event[edge_key].shape
+            and get_variable_type(edge_key) == "edge-like"
         ):
             event[edge_key] = event[edge_key][..., graph_mask]
 
-    num_track_edges = event.track_edges.shape[1]
     for track_feature in event.keys:
         if (
             isinstance(event[track_feature], torch.Tensor)
-            and num_track_edges in event[track_feature].shape
+            and get_variable_type(edge_key) == "track-like"
         ):
             event[track_feature] = event[track_feature][..., true_track_mask]
 
@@ -177,6 +180,7 @@ def handle_hard_node_cuts(event, hard_cuts_config):
         node_val_mask = map_tensor_handler(
             value_mask,
             output_type="node-like",
+            input_type=get_variable_type(condition_key),
             track_edges=event.track_edges,
             num_nodes=node_like_feature.shape[0],
             num_track_edges=event.track_edges.shape[1],
@@ -222,55 +226,59 @@ def reset_angle(angles):
 def handle_edge_features(event, edge_features):
     src, dst = event.edge_index
 
-    for edge_feature in edge_features:
-        if "dr" in edge_features and not ("dr" in event.keys):
-            event.dr = event.r[dst] - event.r[src]
-        if "dphi" in edge_features and not ("dphi" in event.keys):
-            event.dphi = (
-                reset_angle((event.phi[dst] - event.phi[src]) * torch.pi) / torch.pi
-            )
-        if "dz" in edge_features and not ("dz" in event.keys):
-            event.dz = event.z[dst] - event.z[src]
-        if "deta" in edge_features and not ("deta" in event.keys):
-            event.deta = event.eta[dst] - event.eta[src]
-        if "phislope" in edge_features and not ("phislope" in event.keys):
-            dr = event.r[dst] - event.r[src]
-            dphi = reset_angle((event.phi[dst] - event.phi[src]) * torch.pi) / torch.pi
-            phislope = dphi / dr
-            event.phislope = phislope
-        if "phislope" in edge_features:
-            event.phislope = torch.nan_to_num(
-                event.phislope, nan=0.0, posinf=100, neginf=-100
-            )
-            event.phislope = torch.clamp(event.phislope, -100, 100)
-        if "rphislope" in edge_features and not ("rphislope" in event.keys):
-            r_ = (event.r[dst] + event.r[src]) / 2.0
-            dr = event.r[dst] - event.r[src]
-            dphi = reset_angle((event.phi[dst] - event.phi[src]) * torch.pi) / torch.pi
-            phislope = dphi / dr
-            phislope = torch.nan_to_num(phislope, nan=0.0, posinf=100, neginf=-100)
-            phislope = torch.clamp(phislope, -100, 100)
-            rphislope = torch.multiply(r_, phislope)
-            event.rphislope = rphislope  # features / norm / pre_proc once
-        if "rphislope" in edge_features:
-            event.rphislope = torch.nan_to_num(event.rphislope, nan=0.0)
+    if "edge_dr" in edge_features and not ("edge_dr" in event.keys):
+        event.edge_dr = event.hit_r[dst] - event.hit_r[src]
+    if "edge_dphi" in edge_features and not ("edge_dphi" in event.keys):
+        event.edge_dphi = (
+            reset_angle((event.hit_phi[dst] - event.hit_phi[src]) * torch.pi) / torch.pi
+        )
+    if "edge_dz" in edge_features and not ("edge_dz" in event.keys):
+        event.edge_dz = event.hit_z[dst] - event.hit_z[src]
+    if "edge_deta" in edge_features and not ("edge_deta" in event.keys):
+        event.edge_deta = event.hit_eta[dst] - event.hit_eta[src]
+    if "edge_phislope" in edge_features and not ("edge_phislope" in event.keys):
+        dr = event.hit_r[dst] - event.hit_r[src]
+        dphi = (
+            reset_angle((event.hit_phi[dst] - event.hit_phi[src]) * torch.pi) / torch.pi
+        )
+        phislope = dphi / dr
+        event.edge_phislope = phislope
+    if "edge_phislope" in edge_features:
+        event.edge_phislope = torch.nan_to_num(
+            event.edge_phislope, nan=0.0, posinf=100, neginf=-100
+        )
+        event.edge_phislope = torch.clamp(event.edge_phislope, -100, 100)
+    if "edge_rphislope" in edge_features and not ("edge_rphislope" in event.keys):
+        r_ = (event.hit_r[dst] + event.hit_r[src]) / 2.0
+        dr = event.hit_r[dst] - event.hit_r[src]
+        dphi = (
+            reset_angle((event.hit_phi[dst] - event.hit_phi[src]) * torch.pi) / torch.pi
+        )
+        phislope = dphi / dr
+        phislope = torch.nan_to_num(phislope, nan=0.0, posinf=100, neginf=-100)
+        phislope = torch.clamp(phislope, -100, 100)
+        rphislope = torch.multiply(r_, phislope)
+        event.edge_rphislope = rphislope  # features / norm / pre_proc once
+    if "edge_rphislope" in edge_features:
+        event.edge_rphislope = torch.nan_to_num(event.edge_rphislope, nan=0.0)
 
 
 def get_weight_mask(event, weight_conditions):
-    graph_mask = torch.ones_like(event.y)
+    graph_mask = torch.ones_like(event.edge_y)
 
     for condition_key, condition_val in weight_conditions.items():
         assert (
             condition_key in event.keys
-        ), f"Condition key {condition_key} not found in event keys {event.keys}"
+        ), f"Condition key {condition_key} not found in event keys {event.keys} {event.event_id}"
         condition_lambda = get_condition_lambda(condition_key, condition_val)
         value_mask = condition_lambda(event)
         graph_mask = graph_mask * map_tensor_handler(
             value_mask,
             output_type="edge-like",
+            input_type=get_variable_type(condition_key),
             num_nodes=event.num_nodes,
             edge_index=event.edge_index,
-            truth_map=event.truth_map,
+            truth_map=event.track_to_edge_map,
         )
 
     return graph_mask

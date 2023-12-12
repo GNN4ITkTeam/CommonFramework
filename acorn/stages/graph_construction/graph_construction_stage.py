@@ -223,7 +223,7 @@ class GraphConstructionStage:
             condition_lambda = get_condition_lambda(condition_key, condition_val)
             passing_tracks = passing_tracks * condition_lambda(event).to(self.device)
 
-        event.target_mask = passing_tracks
+        event.track_target_mask = passing_tracks
 
 
 class EventDataset(Dataset):
