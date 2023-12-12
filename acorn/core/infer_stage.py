@@ -66,7 +66,6 @@ def infer(config_file, verbose=None, checkpoint=None):
     stage_module = str_to_class(stage, model)
 
     if issubclass(stage_module, LightningModule):
-        print(checkpoint)
         lightning_infer(config, stage_module, checkpoint)
     else:
         stage_module.infer(config)
