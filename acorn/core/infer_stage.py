@@ -45,8 +45,7 @@ def main(config_file, verbose, checkpoint):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.
     """
-
-    infer(config_file, checkpoint)
+    infer(config_file, verbose, checkpoint)
 
 
 def infer(config_file, verbose=None, checkpoint=None):
