@@ -16,11 +16,11 @@ data_split: [1, 1, 1] # Number of [training, validation, testing] examples
 weighting:
   - weight: 2.
     conditions:
-      edge_y: True
-      track_particle_pt: [1000, .inf]
-      track_particle_nhits: [3, .inf]
-      track_particle_primary: True
-      track_particle_pdgId: [not_in, [11, -11]]
+      y: True
+      pt: [1000, .inf]
+      nhits: [3, .inf]
+      primary: True
+      pdgId: [not_in, [11, -11]]
 
 hard_cuts:
   track_particle_pt: [1000, .inf]

@@ -102,16 +102,16 @@ class GraphConstructionStage:
         """
         Test the data to ensure it is of the right format and loaded correctly.
         """
-        required_features = ["x", "track_edges"]
+        required_features = ["hit_x", "track_edges"]
         optional_features = [
-            "pid",
-            "n_hits",
-            "primary",
-            "pdg_id",
-            "ghost",
-            "shared",
-            "module_id",
-            "region_id",
+            "track_particle_pid",
+            "track_particle_n_hits",
+            "track_particle_primary",
+            "track_particle_pdg_id",
+            # "ghost",
+            # "shared",
+            "hit_module_id",
+            "hit_region_id",
             "hit_id",
         ]
 
@@ -182,7 +182,7 @@ class GraphConstructionStage:
         node_r, node_z, node_regions = [], [], []
 
         for event in tqdm(self.testset):
-            edge_truth.append(event.y)
+            edge_truth.append(event.edge_y)
             edge_regions.append(
                 event.x_region[event.edge_index[0]]
             )  # Assign region depending on first node in edge

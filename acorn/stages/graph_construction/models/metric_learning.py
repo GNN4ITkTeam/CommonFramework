@@ -311,8 +311,8 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             pred_edges = batch.edge_index
 
         if truth is None:
-            assert "y" in batch.keys, "Must provide truth if not in batch"
-            truth = batch.y
+            assert "edge_y" in batch.keys, "Must provide truth if not in batch"
+            truth = batch.edge_y
 
         if weights is None:
             weights = torch.ones_like(truth)
@@ -379,22 +379,25 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         )
 
         # Calculate truth from intersection between Prediction graph and Truth graph
-        batch.edge_index, batch.y, batch.truth_map, true_edges = self.get_truth(
-            batch, batch.edge_index
-        )
+        (
+            batch.edge_index,
+            batch.edge_y,
+            batch.track_to_edge_map,
+            true_edges,
+        ) = self.get_truth(batch, batch.edge_index)
 
         weights = self.get_weights(batch)
 
         d = self.get_distances(embedding, batch.edge_index)
 
-        loss = self.weighted_hinge_loss(batch.y, d, weights)
+        loss = self.weighted_hinge_loss(batch.edge_y, d, weights)
 
         if hasattr(self, "trainer") and self.trainer.state.stage in [
             "train",
             "validate",
         ]:
             self.log_metrics(
-                batch, loss, batch.edge_index, true_edges, batch.y, weights
+                batch, loss, batch.edge_index, true_edges, batch.edge_y, weights
             )
 
         return {
@@ -513,13 +516,13 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         event.edge_index, edge_inverse = event.edge_index.unique(
             return_inverse=True, dim=-1
         )
-        event.y = torch.zeros_like(event.edge_index[0], dtype=event.y.dtype).scatter(
-            0, edge_inverse, event.y
-        )
-        event.truth_map[event.truth_map >= 0] = edge_inverse[
-            event.truth_map[event.truth_map >= 0]
+        event.edge_y = torch.zeros_like(
+            event.edge_index[0], dtype=event.edge_y.dtype
+        ).scatter(0, edge_inverse, event.y)
+        event.track_to_edge_map[event.truth_track_to_edge_mapmap >= 0] = edge_inverse[
+            event.track_to_edge_map[event.track_to_edge_map >= 0]
         ]
-        event.truth_map = event.truth_map[: event.track_edges.shape[1]]
+        event.track_to_edge_map = event.track_to_edge_map[: event.track_edges.shape[1]]
 
         random_flip = torch.randint(2, (event.edge_index.shape[1],), dtype=torch.bool)
         event.edge_index[:, random_flip] = event.edge_index[:, random_flip].flip(0)
@@ -598,8 +601,8 @@ class GraphDataset(Dataset):
         """
 
         if not hasattr(event, "num_nodes"):
-            assert "x" in event.keys, "No node features found in event"
-            event.num_nodes = event.x.shape[0]
+            assert "hit_x" in event.keys, "No node features found in event"
+            event.num_nodes = event.hit_x.shape[0]
 
     def scale_features(self, event):
         """
