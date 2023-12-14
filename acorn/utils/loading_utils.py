@@ -166,7 +166,9 @@ def handle_hard_node_cuts(event, hard_cuts_config):
     Remap the track_edges to the new node list.
     """
     node_like_feature = [
-        event[feature] for feature in event.keys if event.is_node_attr(feature)
+        event[feature]
+        for feature in event.keys
+        if get_variable_type(feature) == "node-like"
     ][0]
     node_mask = torch.ones_like(node_like_feature, dtype=torch.bool)
 

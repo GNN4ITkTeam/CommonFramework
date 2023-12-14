@@ -142,6 +142,7 @@ def get_variable_type(variable_name: str):
     NODE_LIKE = "node-like"
     EDGE_LIKE = "edge-like"
     TRACK_LIKE = "track-like"
+    Other = "other"
 
     if variable_name.startswith("hit_"):
         return NODE_LIKE
@@ -150,7 +151,7 @@ def get_variable_type(variable_name: str):
     elif variable_name.startswith("track_"):
         return TRACK_LIKE
     else:
-        raise ValueError("Unable to infer the variable type.")
+        return Other
 
 
 def map_nodes_to_edges(

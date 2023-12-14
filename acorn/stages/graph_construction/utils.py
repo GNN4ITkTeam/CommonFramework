@@ -13,17 +13,18 @@
 # limitations under the License.
 
 import torch
+from acorn.utils.mapping_utils import get_variable_type
 
 
 def build_signal_edges(event, weighting_config, true_edges):
     signal_mask = torch.zeros_like(true_edges[0], dtype=torch.bool)
     for weight_spec in weighting_config:
-        if not weight_spec["conditions"]["y"] or weight_spec["weight"] <= 0.0:
+        if not weight_spec["conditions"]["edge_y"] or weight_spec["weight"] <= 0.0:
             continue
         # Copy weight_spec but remove the y condition
         yless_weight_spec = weight_spec.copy()
         yless_weight_spec["conditions"] = weight_spec["conditions"].copy()
-        yless_weight_spec["conditions"].pop("y")
+        yless_weight_spec["conditions"].pop("edge_y")
         signal_mask |= get_weight_mask(
             event, true_edges, yless_weight_spec["conditions"]
         )
@@ -79,8 +80,10 @@ def handle_weighting(
         pred_edges = event.edge_index
 
     if truth is None:
-        assert "y" in event.keys, "If truth is not provided, it must be in the event"
-        truth = event.y
+        assert (
+            "edge_y" in event.keys
+        ), "If truth is not provided, it must be in the event"
+        truth = event.edge_y
 
     if true_edges is None:
         assert (
@@ -90,9 +93,9 @@ def handle_weighting(
 
     if truth_map is None:
         assert (
-            "truth_map" in event.keys
-        ), "If truth_map is not provided, it must be in the event"
-        truth_map = event.truth_map
+            "track_to_edge_map" in event.keys
+        ), "If track_to_edge_map is not provided, it must be in the event"
+        truth_map = event.track_to_edge_map
 
     # Set the default value of weights, which is to mask (weight=0), which will be overwritten if specified in the config
     weights = torch.zeros_like(pred_edges[0], dtype=torch.float)
@@ -127,9 +130,12 @@ def handle_hard_cuts(event, hard_cuts_config):
     ).all(0)
     remap_from_mask(event, graph_mask)
 
-    for edge_key in ["edge_index", "y", "weight", "scores"]:
-        if edge_key in event.keys:
-            event[edge_key] = event[edge_key][..., graph_mask]
+    for feature in event.keys:
+        if get_variable_type(feature) == "edge-like":
+            event[feature] = event[feature][..., graph_mask]
+    # for edge_key in ["edge_index", "edge_y", "edge_weight", "edge_scores"]:
+    #     if edge_key in event.keys:
+    #         event[edge_key] = event[edge_key][..., graph_mask]
 
     num_track_edges = event.track_edges.shape[1]
     for track_feature in event.keys:

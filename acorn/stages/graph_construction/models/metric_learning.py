@@ -231,9 +231,12 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         batch.edge_index, embedding = self.get_training_edges(batch)
         self.apply_embedding(batch, embedding, batch.edge_index)
 
-        batch.edge_index, batch.y, batch.truth_map, true_edges = self.get_truth(
-            batch, batch.edge_index
-        )
+        (
+            batch.edge_index,
+            batch.edge_y,
+            batch.track_to_edge_map,
+            true_edges,
+        ) = self.get_truth(batch, batch.edge_index)
         weights = self.get_weights(batch)  # true_edges, truth_map)
 
         loss = self.loss_function(batch, embedding, weights)
@@ -273,11 +276,15 @@ class MetricLearning(GraphConstructionStage, LightningModule):
     def get_truth(self, batch, pred_edges):
         # Calculate truth from intersection between Prediction graph and Truth graph
         if "undirected" in self.hparams and self.hparams["undirected"]:
-            true_edges = torch.cat(
-                [batch.track_edges, batch.track_edges.flip(0)], dim=-1
+            batch.track_edges[
+                :, batch.track_edges[0] > batch.track_edges[1]
+            ] = batch.track_edges[:, batch.track_edges[0] > batch.track_edges[1]].flip(
+                0
             )
-        else:
-            true_edges = batch.track_edges
+            pred_edges[:, pred_edges[0] > pred_edges[1]] = pred_edges[
+                :, pred_edges[0] > pred_edges[1]
+            ].flip(0)
+        true_edges = batch.track_edges
 
         pred_edges, truth, truth_map = graph_intersection(
             pred_edges,
@@ -287,7 +294,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             unique_pred=False,
         )
 
-        return pred_edges, truth, truth_map, true_edges
+        return pred_edges, truth, truth_map, batch.track_edges
 
     def get_weights(self, batch):  # true_edges, truth_map):
         return handle_weighting(
@@ -518,8 +525,8 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         )
         event.edge_y = torch.zeros_like(
             event.edge_index[0], dtype=event.edge_y.dtype
-        ).scatter(0, edge_inverse, event.y)
-        event.track_to_edge_map[event.truth_track_to_edge_mapmap >= 0] = edge_inverse[
+        ).scatter(0, edge_inverse, event.edge_y)
+        event.track_to_edge_map[event.track_to_edge_map >= 0] = edge_inverse[
             event.track_to_edge_map[event.track_to_edge_map >= 0]
         ]
         event.track_to_edge_map = event.track_to_edge_map[: event.track_edges.shape[1]]
