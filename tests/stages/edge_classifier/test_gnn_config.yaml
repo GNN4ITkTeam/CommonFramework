@@ -23,7 +23,7 @@ weighting:
       pdgId: [not_in, [11, -11]]
 
 hard_cuts:
-  track_particle_pt: [1000, .inf]
+  pt: [1000, .inf]
 
 # Model parameters
 edge_cut: 0.5
