@@ -13,7 +13,7 @@ This repository contains the framework used for developing, testing and presenti
 
 Related work can be found here:
 1. https://arxiv.org/abs/2103.06995
-2. https://indico.cern.ch/event/948465/contributions/4323753/https://doi.org/10.1051/epjconf/202125103047
+2. https://www.epj-conferences.org/articles/epjconf/abs/2021/05/epjconf_chep2021_03047/epjconf_chep2021_03047.html
 3. https://cds.cern.ch/record/2815578?ln=en.
 
 **This repository is still under development and may be subject to breaking changes.**
