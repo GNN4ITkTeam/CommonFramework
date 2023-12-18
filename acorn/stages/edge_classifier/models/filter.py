@@ -267,7 +267,6 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
             output, batch, self.hparams.get("loss_balance")
         )
 
-
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
         self.log("train_pos_loss", pos_loss, on_step=False, on_epoch=True, batch_size=1)
         self.log("train_neg_loss", neg_loss, on_step=False, on_epoch=True, batch_size=1)

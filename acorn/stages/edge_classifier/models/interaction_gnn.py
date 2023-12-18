@@ -66,7 +66,9 @@ class InteractionGNN(EdgeClassifierStage):
             None if "output_activation" not in hparams else hparams["output_activation"]
         )
         hparams["track_running_stats"] = (
-            False if "track_running_stats" not in hparams else hparams["track_running_stats"]
+            False
+            if "track_running_stats" not in hparams
+            else hparams["track_running_stats"]
         )
 
         # Setup input network
@@ -273,7 +275,9 @@ class InteractionGNNWithPyG(EdgeClassifierStage):
             None if "output_activation" not in hparams else hparams["output_activation"]
         )
         hparams["track_running_stats"] = (
-            False if "track_running_stats" not in hparams else hparams["track_running_stats"]
+            False
+            if "track_running_stats" not in hparams
+            else hparams["track_running_stats"]
         )
 
         # Setup input network
@@ -409,7 +413,9 @@ class InteractionGNN2(EdgeClassifierStage):
             "edge_output_transform_final_batch_norm", False
         )
         hparams["track_running_stats"] = (
-            False if "track_running_stats" not in hparams else hparams["track_running_stats"]
+            False
+            if "track_running_stats" not in hparams
+            else hparams["track_running_stats"]
         )
 
         # TODO: Add equivalent check and default values for other model parameters ?

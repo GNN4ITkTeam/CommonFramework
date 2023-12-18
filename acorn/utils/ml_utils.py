@@ -46,7 +46,10 @@ def make_mlp(
         if batch_norm:  # hidden_batch_norm
             layers.append(
                 nn.BatchNorm1d(
-                    sizes[i + 1], eps=6e-05, track_running_stats=track_running_stats, affine=True
+                    sizes[i + 1],
+                    eps=6e-05,
+                    track_running_stats=track_running_stats,
+                    affine=True,
                 )  # TODO : Set BatchNorm and LayerNorm parameters in config file ?
             )
         layers.append(hidden_activation())
@@ -60,7 +63,10 @@ def make_mlp(
         if output_batch_norm:
             layers.append(
                 nn.BatchNorm1d(
-                    sizes[-1], eps=6e-05, track_running_stats=track_running_stats, affine=True
+                    sizes[-1],
+                    eps=6e-05,
+                    track_running_stats=track_running_stats,
+                    affine=True,
                 )  # TODO : Set BatchNorm and LayerNorm parameters in config file ?
             )
         layers.append(output_activation())
