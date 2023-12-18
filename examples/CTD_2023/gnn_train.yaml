@@ -73,3 +73,4 @@ patience: 15
 max_epochs: 1000
 debug: false
 num_workers: [8,8,8]
+max_training_graph_size: 2800000
