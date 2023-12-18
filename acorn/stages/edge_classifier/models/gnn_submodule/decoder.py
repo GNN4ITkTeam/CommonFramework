@@ -36,6 +36,7 @@ class HeteroEdgeDecoder(torch.nn.Module):
         output_activation=None,
         layernorm=False,
         batchnorm=False,
+        track_running_stats=False,
         hidden_dropout=0,
         region_ids=[],
         hetero_level=4,
@@ -56,6 +57,7 @@ class HeteroEdgeDecoder(torch.nn.Module):
                 output_activation=None,
                 hidden_activation=hidden_activation,
                 hidden_dropout=hidden_dropout,
+                track_running_stats=track_running_stats,
             )
             for region0, region1 in combinations_with_replacement(self.region_ids, r=2):
                 decoders[(region0["name"], "to", region1["name"])] = decoders[
@@ -71,6 +73,7 @@ class HeteroEdgeDecoder(torch.nn.Module):
                     output_activation=None,
                     hidden_activation=hidden_activation,
                     hidden_dropout=hidden_dropout,
+                    track_running_stats=track_running_stats,
                 )
                 decoders[
                     get_string_edge_type(region0["name"], "to", region1["name"])

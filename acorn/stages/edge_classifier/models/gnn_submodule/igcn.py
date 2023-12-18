@@ -14,6 +14,7 @@ class InteractionConv(MessagePassing):
         output_activation="SiLU",
         layernorm=True,
         batchnorm=False,
+        track_running_stats=False,
         aggr="add",
         *,
         aggr_kwargs={},
@@ -38,6 +39,7 @@ class InteractionConv(MessagePassing):
             batch_norm=batchnorm,
             output_activation=output_activation,
             hidden_activation=hidden_activation,
+            track_running_stats=track_running_stats,
         )
         self.node_network = make_mlp(
             node_net_input_size,
@@ -46,6 +48,7 @@ class InteractionConv(MessagePassing):
             batch_norm=batchnorm,
             output_activation=output_activation,
             hidden_activation=hidden_activation,
+            track_running_stats=track_running_stats,
         )
 
     def message(self, e) -> torch.Tensor:
@@ -93,6 +96,7 @@ class InteractionConv2(InteractionConv):
         output_activation="SiLU",
         layernorm=True,
         batchnorm=False,
+        track_running_stats=False,
         aggr="add",
         *,
         aggr_kwargs={},
@@ -125,6 +129,7 @@ class InteractionConv2(InteractionConv):
             hidden_activation=hidden_activation,
             layer_norm=layernorm,
             batch_norm=batchnorm,
+            track_running_stats=track_running_stats,
         )
 
         self.edge_network = make_mlp(
@@ -134,6 +139,7 @@ class InteractionConv2(InteractionConv):
             hidden_activation=hidden_activation,
             layer_norm=layernorm,
             batch_norm=batchnorm,
+            track_running_stats=track_running_stats,
         )
 
     def aggregate(

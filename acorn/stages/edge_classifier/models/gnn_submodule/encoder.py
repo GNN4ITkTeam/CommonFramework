@@ -37,6 +37,7 @@ class HeteroNodeEncoder(torch.nn.Module):
         output_activation=None,
         layernorm=False,
         batchnorm=False,
+        track_running_stats=False,
         input_dropout=0,
         hidden_dropout=0,
         region_ids=[],
@@ -63,6 +64,7 @@ class HeteroNodeEncoder(torch.nn.Module):
             batch_norm=batchnorm,
             input_dropout=input_dropout,
             hidden_dropout=hidden_dropout,
+            track_running_stats=track_running_stats,
         )
         for region_id in region_ids:
             name = region_id["name"]
@@ -78,6 +80,7 @@ class HeteroNodeEncoder(torch.nn.Module):
                     batch_norm=batchnorm,
                     input_dropout=input_dropout,
                     hidden_dropout=hidden_dropout,
+                    track_running_stats=track_running_stats,
                 )
 
     def forward(self, x_dict: dict):
@@ -118,6 +121,7 @@ class HeteroEdgeEncoder(torch.nn.Module):
         output_activation=None,
         layernorm=False,
         batchnorm=False,
+        track_running_stats=False,
         hidden_dropout=0,
         region_ids=[],
         hetero_level=4,
@@ -139,6 +143,7 @@ class HeteroEdgeEncoder(torch.nn.Module):
                 output_activation=output_activation,
                 hidden_activation=hidden_activation,
                 hidden_dropout=hidden_dropout,
+                track_running_stats=track_running_stats,
             )
             for region0, region1 in combinations_with_replacement(self.region_ids, r=2):
                 encoders[(region0["name"], "to", region1["name"])] = encoders[
@@ -154,6 +159,7 @@ class HeteroEdgeEncoder(torch.nn.Module):
                     output_activation=output_activation,
                     hidden_activation=hidden_activation,
                     hidden_dropout=hidden_dropout,
+                    track_running_stats=track_running_stats,
                 )
                 encoders[
                     get_string_edge_type(region0["name"], "to", region1["name"])

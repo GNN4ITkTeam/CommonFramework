@@ -27,6 +27,7 @@ def make_mlp(
     output_batch_norm=False,
     input_dropout=0,
     hidden_dropout=0,
+    track_running_stats=False,
 ):
     """Construct an MLP with specified fully-connected layers."""
     hidden_activation = getattr(nn, hidden_activation)
@@ -45,7 +46,7 @@ def make_mlp(
         if batch_norm:  # hidden_batch_norm
             layers.append(
                 nn.BatchNorm1d(
-                    sizes[i + 1], eps=6e-05, track_running_stats=False, affine=True
+                    sizes[i + 1], eps=6e-05, track_running_stats=track_running_stats, affine=True
                 )  # TODO : Set BatchNorm and LayerNorm parameters in config file ?
             )
         layers.append(hidden_activation())
@@ -59,7 +60,7 @@ def make_mlp(
         if output_batch_norm:
             layers.append(
                 nn.BatchNorm1d(
-                    sizes[-1], eps=6e-05, track_running_stats=False, affine=True
+                    sizes[-1], eps=6e-05, track_running_stats=track_running_stats, affine=True
                 )  # TODO : Set BatchNorm and LayerNorm parameters in config file ?
             )
         layers.append(output_activation())
