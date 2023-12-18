@@ -52,6 +52,7 @@ class EdgeUpdater(torch.nn.Module):
         output_activation=None,
         layernorm=False,
         batchnorm=False,
+        track_running_stats=False,
         hidden_dropout=0,
         region_ids=[],
         hetero_level=4,
@@ -75,6 +76,7 @@ class EdgeUpdater(torch.nn.Module):
             output_activation=output_activation,
             hidden_activation=hidden_activation,
             hidden_dropout=hidden_dropout,
+            track_running_stats=track_running_stats,
         )
 
     def forward(self, x, edge_index, edge, *args, **kwargs):
@@ -191,6 +193,7 @@ class NodeUpdater(MessagePassing):
             output_activation=hparams["output_activation"],
             hidden_activation=hparams["hidden_activation"],
             hidden_dropout=hparams.get("hidden_dropout", 0),
+            track_running_stats=hparams["track_running_stats"],
         )
 
     def message(self, edge, src_edge):

@@ -108,6 +108,7 @@ class Filter(EdgeClassifierStage, FilterMixin):
             batch_norm=hparams["batchnorm"],
             output_activation=None,
             hidden_activation=hparams["hidden_activation"],
+            track_running_stats=hparams["track_running_stats"],
         )
 
     def forward(self, batch):
@@ -233,6 +234,7 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
             batch_norm=hparams["batchnorm"],
             output_activation=None,
             hidden_activation=hparams["hidden_activation"],
+            track_running_stats=hparams["track_running_stats"],
         )
 
         self.gnn = GCNEncoder(self.hparams["gnn_config"])
