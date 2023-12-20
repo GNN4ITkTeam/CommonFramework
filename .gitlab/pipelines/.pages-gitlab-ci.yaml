@@ -1,0 +1,17 @@
+pages:
+  image: python:3.11.2
+  stage: pages
+  needs: []
+  script:
+    - pip install mkdocs==1.4.2 mkdocs-material==9.0.5 mkdocs-markdownextradata-plugin>=0.2.5 mkdocs-git-revision-date-localized-plugin mkdocstrings==0.22.0
+    - mkdocs build -s -d public
+    - if [[ -f _redirects ]]; then cp _redirects public; fi;
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 hour
+  variables:
+    GIT_DEPTH: 0
+    GIT_STRATEGY: clone
+  only:
+    - mkdocs

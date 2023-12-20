@@ -1,0 +1,25 @@
+.flake8_check_template: &flake8_check_template
+  stage: linting
+  image: python:3.8-slim
+  before_script:
+    - pip install flake8
+  script:
+    - flake8 .
+  needs: []
+  allow_failure: True
+
+.black_check_template: &black_check_template
+  stage: linting
+  image: python:3.8-slim
+  before_script:
+    - pip install black==22.8.0
+  script:
+    - black --check .
+  needs: []
+
+
+flake8:
+  <<: *flake8_check_template
+
+black:
+  <<: *black_check_template

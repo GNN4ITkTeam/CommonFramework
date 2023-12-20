@@ -1,82 +1,70 @@
-# Common Framework for GNN4ITk Project
+<div align="center">
+
+
+<img src="docs/media/acorn_logo_1.png" width="400px">
+
+[![Static Badge](https://img.shields.io/badge/documentation-blue)](https://atlas-gnn-tracking.docs.cern.ch/)  [![pipeline status](https://gitlab.cern.ch/gnn4itkteam/commonframework/badges/dev/pipeline.svg)](https://gitlab.cern.ch/gnn4itkteam/commonframework/-/commits/dev) [![coverage report](https://gitlab.cern.ch/gnn4itkteam/commonframework/badges/dev/coverage.svg)](https://gitlab.cern.ch/gnn4itkteam/commonframework/-/commits/dev)
 
 This repository contains the framework used for developing, testing and presenting the GNN-based ITk track reconstruction project GNN4ITk.
 
+</div>
+
+---
+
 Related work can be found here:
 1. https://arxiv.org/abs/2103.06995
-2. https://indico.cern.ch/event/948465/contributions/4323753/https://doi.org/10.1051/epjconf/202125103047
+2. https://www.epj-conferences.org/articles/epjconf/abs/2021/05/epjconf_chep2021_03047/epjconf_chep2021_03047.html
 3. https://cds.cern.ch/record/2815578?ln=en.
 
 **This repository is still under development and may be subject to breaking changes.**
 
 ## Get Started
 
-To get started, run the setup commands (Install instructions section below), then take a look at the examples in the `examples` directory. Instructions and further details about the framework are available under the subdirectory of interest - `examples`, `gnn4itk_cf/stages` or `gnn4itk_cf/core`.
+To get started, run the setup commands (Install instructions section below), then take a look at the examples in the `examples` directory. Instructions and further details about the framework are available under the subdirectory of interest - `examples`, `acorn/stages` or `acorn/core`.
 
 ## Install
 
 **IMPORTANT! Please use the `dev` branch to run all Examples: it is the latest version and is fully supported!**
 
-To install the GNN4ITK common framework, assuming GPU capability, run
+To install ACORN, assuming GPU capability, run
 
 ```
 git checkout dev
 conda env create -f gpu_environment.yml
-conda activate gnn4itk
+conda activate acorn
 pip install -e .
 ```
 
-otherwise use the `cpu_environment.yml` file. Note however that CPU performance of the networks in this framework is not guaranteed or optimized.
+---
+**IMPORTANT! On December 2, 2023 a major refactoring of the code was merged on `dev`**
 
-## Framework Structure
+If you have previously installed a version of 'acorn' (formerly known as 'gnn4itk_cf' or GNN4ITK CommonFramework) prior to December 2, 2023, it's important to update your setup. Follow the steps below:
 
-The framework is structured as follows:
+```
+git checkout dev
+git pull dev
+conda create --name acorn --clone gnn4itk
+conda activate acorn
+pip uninstall gnn4itk_cf
+pip install -e .
+```
 
-- `examples` - contains examples of how to use the framework. Each example is a self-contained directory that contains a set of configuration files. The examples are described in more detail below.
-- `gnn4itk_cf/core` - contains the core functionality of the framework, including the `train`, `infer`, and `eval` scripts.
-- `gnn4itk_cf/stages` - contains the stages that can be used in the framework. Stages are the building blocks of the framework, and can be combined to create pipelines. Stages are implemented as python classes, and are located in the `gnn4itk_cf/stages` directory. Stages are registered in the `gnn4itk_cf/stages/__init__.py` file, and can be used in the framework by specifying their name in the configuration file used.
+You may temporarily retain the existing 'gnn4itk' conda environment for branches still in development with the previous version. If you have any active development branches from the previous setup, swiftly switch them to the 'dev' branch for updates
 
-## Flow of the Framework
+The new setup introduces the following changes:
 
-<div align="center">
-<figure>
-  <a href="https://ibb.co/b76jbjn"><img src="https://i.ibb.co/pn16h6p/stage-simplified.jpg" alt="stage-simplified" border="0" width=500></a><br /><a target='_blank' href='https://imgbb.com/'>Diagram of a generic stage, with the three commands used to run the stage</a><br />
-</figure>
-</div>
+- Renames the conda environment from `gnn4itk` to `acorn`
+- Updates the command line to use `acorn [train|infer|eval]`
+- Old commands `g4i-train`, `g4i-infer`, and `g4i-eval` remain available for backward compatibility.
 
-## Examples
-
-### First Example: ITk Pipeline with Module Map, GNN and Connected Components
-
-This example is available in the `examples/Example_1` directory. The example is a simple pipeline that takes raw Athena events as input, and produces a set of track candidates as output. The pipeline consists of three steps:
-
-1. **Module Map** - a python implementation of the Module Map algorithm, which produces a set of graphs from the raw events
-2. **GNN** - a graph neural network that scores the edges of the graphs produced by the Module Map
-3. **Connected Components** - a simple algorithm that applies a threshold to the scores of the edges, and produces a set of track candidates from the resulting graph
-
-### Second Example: ITk Pipeline with Metric Learning, GNN and Connected Components
-
-This example is available in the `examples/Example_2` directory. The example is a simple pipeline that takes raw Athena events as input, and produces a set of track candidates as output. The pipeline consists of three steps:
-
-1. **Metric Learning** - a python implementation of the metric learning algorithm, which produces a set of graphs from the raw events
-2. **GNN** - a graph neural network that scores the edges of the graphs produced by the Module Map
-3. **Connected Components** - a simple algorithm that applies a threshold to the scores of the edges, and produces a set of track candidates from the resulting graph
-
-### Third Example: TrackML Pipeline with Metric Learning, Filter, GNN and Connected Components
-
-This example is available in the `examples/Example_3` directory. The example is a simple pipeline that takes raw TrackML events as input, and produces a set of track candidates as output. The pipeline consists of three steps:
-
-1. **Metric Learning** - a python implementation of the metric learning algorithm, which produces a set of graphs from the raw events
-2. (Optional). **Filter** - a simple MLP edge classifier to prune down graphs that are too large for GNN training
-3. **GNN** - a graph neural network that scores the edges of the graphs produced by the Module Map
-4. **Connected Components** - a simple algorithm that applies a threshold to the scores of the edges, and produces a set of track candidates from the resulting graph
+---
 
 
-### Fourth Example: Reproducing the Results of the GNN4ITk V1 CTD Proceedings (ATL-ITK-PROC-2022-006)
+## Framework Structure & Examples
 
-Work in progress!
+Please see the [documentation](https://atlas-gnn-tracking.docs.cern.ch/) for more details, examples and tutorials.
 
-## CITATION
+## Citing this work
 
 If this work is useful for your research, please cite our vCHEP2021 and CTD2022 proceedings:
 
@@ -136,3 +124,16 @@ title = {gnn4itk},
 url = {https://github.com/GNN4ITkTeam/CommonFramework}
 }
 ```
+
+## Developing & Contributing
+
+(Optional)
+
+Pre-commit hooks are available for running linting and code formatting. To set them up, run
+
+```
+pre-commit install
+pre-commit run
+```
+
+(If you are using a conda environment, you may need to run `pip install pre-commit` first)
