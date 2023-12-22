@@ -1,0 +1,71 @@
+# CommonFramework configuration
+stage: node_encoding
+model: GNNMetricLearning
+input_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/ttbar_gnnml_feature_store
+stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/ttbar_gnnml
+project: gnnml_ttbar # Used in logging
+gpus: 4
+nodes: 1
+
+# Dataset parameters
+data_split: [2000, 400, 200] # Number of [training, validation, testing] examples
+
+# Truth and weighting parameters. The syntax is as follows:
+  # Single value: track[key] == value
+  # List of 2 floats: value1 <= track[key] <= value2
+  # List with a string as the first value: First value defines the boolean test, the second value is a list or value. Boolean tests are: (in, not_in, is, is_not, within, not_within)
+  # All other tracks follow the default: If a true edge, weight=0. If a fake edge, weight=1.
+weighting:
+  true_default: 1.
+  fake_default: 1.
+  # conditional_weighting:
+  #   - weight: 1.
+  #     conditions:
+  #       hit_particle_pt: [1000, .inf]
+  #       hit_particle_nhits: [3, .inf]
+  #       hit_particle_primary: True
+  #       hit_particle_pdgId: [not_in, [11, -11]]
+  #       hit_particle_radius: [0., 260.]
+  #       hit_particle_eta: [-4., 4.]
+  #       # track_redundant_split_edges: False
+
+# A list of hard cut conditions. Any hits not passing these conditions will be removed from the training and validation dataset.
+# By definition, noise will not pass any of these cuts, so any hard cuts will remove noise.
+hard_cuts:
+  hit_particle_pt: [1000, .inf]
+
+# Model parameters
+node_features: [hit_r, hit_phi, hit_z, hit_eta, hit_cluster_x_1, hit_cluster_y_1, hit_cluster_z_1, hit_cluster_x_2, hit_cluster_y_2, hit_cluster_z_2]
+node_scales: [1000., 3.14159265359, 1000., 1., 1000., 1000., 1000., 1000., 1000., 1000.]
+# edge_features: [edge_dr, edge_dphi, edge_dz, edge_deta, edge_phislope, edge_rphislope]
+hidden: 128
+emb_dim: 24
+n_encoder_layers: 3
+n_node_0_layers: 3
+n_edge_layers: 3
+n_edge_weight_layers: 3
+n_node_layers: 3
+n_decoder_layers: 3
+hidden_activation: SiLU
+output_activation: Tanh
+layernorm: False
+batchnorm: True
+embedding_norm: True
+n_iters: 4
+n_gnns_per_iter: 8
+recurrent: True
+knn_train: 10
+randomisation: 100000
+knn_loss: 10
+knn_val: 10
+margin: 1
+
+# Training parameters
+warmup: 10
+lr: 0.0002 #0.0008
+factor: 0.8
+patience: 20
+max_epochs: 200
+metric_to_monitor: val_loss
+metric_mode: min
+# num_workers: [0, 0, 0]

@@ -141,7 +141,17 @@ def plot_efficiency_rz(
 
 
 def plot_1d_histogram(
-    hist, bins, err, xlabel, ylabel, ylim, label, canvas=None, logx=False
+    hist,
+    bins,
+    err,
+    xlabel,
+    ylabel,
+    ylim,
+    label,
+    canvas=None,
+    logx=False,
+    color="black",
+    fmt="o",
 ):
     """Plot 1D histogram from direct output of np.histogram
 
@@ -163,7 +173,7 @@ def plot_1d_histogram(
     xerrs = (bins[1:] - bins[:-1]) / 2
 
     fig, ax = plt.subplots(figsize=(8, 6)) if canvas is None else canvas
-    ax.errorbar(xvals, hist, xerr=xerrs, yerr=err, fmt="o", color="black", label=label)
+    ax.errorbar(xvals, hist, xerr=xerrs, yerr=err, fmt=fmt, color=color, label=label)
     ax.set_xlabel(xlabel, ha="right", x=0.95, fontsize=14)
     ax.set_ylabel(ylabel, ha="right", y=0.95, fontsize=14)
     if logx:

@@ -12,16 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .data_reading import *
-from .graph_construction import *
-from .node_encoding import *
-from .edge_classifier import *
-from .track_building import *
+from .models.gnn_metric_learning import GNNMetricLearning
 
 __all__ = [
-    "data_reading",
-    "graph_construction",
-    "edge_classifier",
-    "track_building",
-    "node_encoding",
+    "GNNMetricLearning",
 ]

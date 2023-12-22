@@ -1,0 +1,10 @@
+# CommonFramework configuration
+stage: node_encoding
+model: GNNMetricLearning
+input_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/ttbar_gnnml_feature_store
+stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/ttbar_gnnml
+project: gnnml_ttbar # Used in logging
+gpus: 1
+nodes: 1
+
+data_split: [2000, 400, 200]

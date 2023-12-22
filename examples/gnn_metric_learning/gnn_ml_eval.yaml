@@ -1,0 +1,27 @@
+# CommonFramework configuration
+stage: node_encoding
+model: GNNMetricLearning
+input_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/ttbar_gnnml_feature_store
+stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/ttbar_gnnml
+project: gnnml_ttbar # Used in logging
+gpus: 1
+nodes: 1
+
+data_split: [2000, 400, 200]
+
+# Evaluation parameters
+target_tracks:
+  hit_particle_pt: [1000, .inf]
+  hit_particle_nhits: [3, .inf]
+  hit_particle_primary: True
+  hit_particle_pdgId: [not_in, [11, -11]]
+  hit_particle_radius: [0., 260.]
+  hit_particle_eta: [-4., 4.]
+  # hit_particle_redundant_split_edges: False
+
+# Plotting parameters
+plots:
+  node_knn_eff:
+    efficiency_title: RGAT Edge-wise Efficiency
+    purity_title: RGAT Edge-wise Purity
+    knn: 10

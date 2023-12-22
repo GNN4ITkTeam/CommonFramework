@@ -193,12 +193,10 @@ class EventReader:
         ):
             graph[feature] = torch.from_numpy(hits[feature].values)
 
-        # hit_truths = self.config["feature_sets"]["hit_truths"]
-        # hit_truths = [hit_truth.replace("hit_", "") for hit_truth in hit_truths]
-        # for feature in set(hit_truths).intersection(
-        #     set(hits.columns)
-        # ):
-        #     graph["hit_" + feature] = torch.from_numpy(hits[feature].values)
+        hit_truths = self.config["feature_sets"].get("hit_truths", [])
+        hit_truths = [hit_truth.replace("hit_", "") for hit_truth in hit_truths]
+        for feature in set(hit_truths).intersection(set(hits.columns)):
+            graph["hit_" + feature] = torch.from_numpy(hits[feature].values)
 
         graph.track_edges = torch.from_numpy(tracks)
         track_feature_names = self.config["feature_sets"]["track_features"]
@@ -254,11 +252,13 @@ class EventReader:
             track_feature.replace("track_", "") for track_feature in track_features
         ]
         track_features = set(track_features).intersection(set(particles.columns))
-        particle_features = list(track_features)
-        # hit_truths = self.config["feature_sets"]["hit_truths"]
-        # hit_truths = [hit_truth.replace("hit_", "") for hit_truth in hit_truths]
-        # hit_truths = set(self.config["feature_sets"]["hit_truths"]).intersection(set(particles.columns))
-        # particle_features = list(particle_features | hit_truths)
+        # particle_features = list(track_features)
+        hit_truths = self.config["feature_sets"].get("hit_truths", [])
+        hit_truths = [hit_truth.replace("hit_", "") for hit_truth in hit_truths]
+        hit_truths = set(self.config["feature_sets"]["hit_truths"]).intersection(
+            set(particles.columns)
+        )
+        particle_features = list(track_features | hit_truths)
 
         assert (
             "hit_particle_id" in hits.columns and "particle_id" in particles.columns

@@ -1,0 +1,38 @@
+# CommonFramework configuration
+stage: data_reading
+model: AthenaReader
+input_dir: /global/cfs/cdirs/m3443/data/GNN4ITK/2023_uncorr_RDO_dumped_CSV_reindexed
+stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/ttbar_gnnml_feature_store
+max_workers: 32
+
+# Dataset parameters
+data_split: [0.8, 0.1, 0.1]
+
+module_lookup_path: /global/cfs/projectdirs/m3443/usr/jay/commonframework/examples/particle_gun/list_of_modules_for_MM_23.txt
+
+# Feature Configurations
+feature_sets:
+    hit_features: [hit_id, hit_x, hit_y, hit_z, hit_r, hit_phi, hit_eta, hit_region, hit_module_id,
+                   hit_cluster_x_1, hit_cluster_y_1, hit_cluster_z_1, hit_cluster_x_2, hit_cluster_y_2, hit_cluster_z_2,
+                   hit_count_1, hit_charge_count_1, hit_loc_eta_1, hit_loc_phi_1, hit_localDir0_1, hit_localDir1_1, hit_localDir2_1,
+                   hit_lengthDir0_1, hit_lengthDir1_1, hit_lengthDir2_1, hit_glob_eta_1, hit_glob_phi_1, hit_eta_angle_1, hit_phi_angle_1,
+                   hit_count_2, hit_charge_count_2, hit_loc_eta_2, hit_loc_phi_2, hit_localDir0_2, hit_localDir1_2, hit_localDir2_2,
+                   hit_lengthDir0_2, hit_lengthDir1_2, hit_lengthDir2_2, hit_glob_eta_2, hit_glob_phi_2, hit_eta_angle_2, hit_phi_angle_2]
+    hit_truths: [hit_particle_vx, hit_particle_vy, hit_particle_vz, hit_particle_px, hit_particle_py, hit_particle_pz,
+                 hit_particle_id, hit_particle_pt, hit_particle_eta, hit_particle_nhits, hit_particle_pdgId, hit_particle_primary, hit_particle_radius]
+    track_features: [track_particle_id, track_particle_pt, track_particle_radius, track_particle_primary, track_particle_nhits, track_particle_pdgId, track_particle_eta, track_redundant_split_edges]
+
+region_labels:
+    1: {hardware: PIXEL, barrel_endcap: -2}
+    2: {hardware: STRIP, barrel_endcap: -2}
+    3: {hardware: PIXEL, barrel_endcap: 0}
+    4: {hardware: STRIP, barrel_endcap: 0}
+    5: {hardware: PIXEL, barrel_endcap: 2}
+    6: {hardware: STRIP, barrel_endcap: 2}
+
+column_lookup:
+    coordinates: [cluster_id, hardware, cluster_x, cluster_y, cluster_z]
+    region: [barrel_endcap, layer_disk, eta_module, phi_module, side]
+    norms: [norm_x, norm_y, norm_z]
+    shape_a: [count, charge_count, loc_eta, loc_phi, localDir0, localDir1, localDir2, lengthDir0, lengthDir1, lengthDir2, glob_eta, glob_phi, eta_angle, phi_angle]
+    shape_b: [eta_angle, phi_angle]
