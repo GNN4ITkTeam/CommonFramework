@@ -33,6 +33,7 @@ from torch_geometric.loader import DataLoader
 from torch_geometric.nn import knn_graph
 import torch
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -245,9 +246,7 @@ class NodeEncodingStage(LightningModule):
                 torch.stack(
                     [
                         hit_t,
-                        torch.full(
-                            hit_t.shape, self.hparams["knn_val"], device=self.device
-                        ),
+                        torch.full(hit_t.shape, upper_bound, device=self.device),
                     ]
                 ),
                 dim=0,
@@ -261,7 +260,7 @@ class NodeEncodingStage(LightningModule):
         else:
             return hit_t
 
-    def node_knn_eff(self, plot_config, config):
+    def node_knn_eff_pur_fixed_k(self, plot_config, config):
         """
         Plot the graph construction efficiency vs. pT of the edge.
         """
@@ -513,6 +512,89 @@ class NodeEncodingStage(LightningModule):
                 "Finish plotting. Find the plot at"
                 f' {os.path.join(config["stage_dir"], filename)}'
             )
+
+    def node_knn_eff_pur_vs_k(self, plot_config, config):
+        knn = range(1, 21)
+        tp = [0] * 20
+        t = [0] * 20
+        max_tp = [0] * 20
+        p = [0] * 20
+
+        dataset_name = config["dataset"]
+        dataset = getattr(self, dataset_name)
+
+        for event in tqdm(dataset):
+            event = event.to(self.device)
+            for k in knn:
+                edge_index = knn_graph(
+                    event.hit_embedding, k=k, cosine=False, loop=False
+                )
+                edge_y = self.get_target(event, edge_index) == 1
+                edge_target_mask = self.get_edge_target_mask(
+                    event,
+                    edge_index,
+                    config.get("target_tracks", None),
+                    y=edge_y,
+                )
+                hit_t, max_hit_t = self.get_number_of_true_edges(
+                    event,
+                    target="mask-based",
+                    target_tracks=config.get("target_tracks", None),
+                    upper_bound=k,
+                )
+
+                tp[k - 1] += edge_target_mask.sum().item()
+                t[k - 1] += hit_t.sum().item()
+                max_tp[k - 1] += max_hit_t.sum().item()
+                p[k - 1] += len(event.hit_particle_pt) * k
+
+        knn = np.array(knn)
+        tp = np.array(tp)
+        t = np.array(t)
+        max_tp = np.array(max_tp)
+        p = np.array(p)
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(knn, tp / t, color="red", marker="o", linestyle=":", label="Efficiency")
+        ax.plot(knn, tp / p, color="blue", marker="o", linestyle="-.", label="Purity")
+        ax.plot(
+            knn,
+            max_tp / t,
+            color="black",
+            marker="o",
+            linestyle=":",
+            label="Eff. Upper Bound",
+        )
+        ax.plot(
+            knn,
+            max_tp / p,
+            color="black",
+            marker="o",
+            linestyle="-.",
+            label="Pur. Upper Bound",
+        )
+        ax.set_xlabel("k", ha="right", x=0.95, fontsize=14)
+        ax.set_ylabel("Efficiency (Purity)", ha="right", y=0.95, fontsize=14)
+        # ax.set_ylim(ylim)
+        plt.tight_layout()
+
+        # Save the plot
+        atlasify(
+            atlas="Internal",
+            subtext=(
+                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
+                r" $t \bar{t}$ and soft interactions) "
+            )
+            + "\n"
+            r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
+            "kNN graph",
+        )
+        fig.savefig(os.path.join(config["stage_dir"], "knn_eff_pur_vs_k.png"))
+
+        print(
+            "Finish plotting. Find the plot at"
+            f' {os.path.join(config["stage_dir"], "knn_eff_pur_vs_k.png")}'
+        )
 
     def get_edge_target_mask(self, event, edges, target_tracks=None, y=None):
         if y is None:

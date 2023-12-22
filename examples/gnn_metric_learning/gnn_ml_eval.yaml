@@ -21,7 +21,8 @@ target_tracks:
 
 # Plotting parameters
 plots:
-  node_knn_eff:
+  node_knn_eff_pur_fixed_k:
     efficiency_title: RGAT Edge-wise Efficiency
     purity_title: RGAT Edge-wise Purity
     knn: 10
+  node_knn_eff_pur_vs_k:
