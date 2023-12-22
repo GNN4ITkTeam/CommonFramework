@@ -199,8 +199,7 @@ def handle_hard_node_cuts(event, hard_cuts_config):
     for feature in event.keys:
         if (
             isinstance(event[feature], torch.Tensor)
-            and event[feature].shape
-            and event[feature].shape[0] == num_nodes
+            and get_variable_type(feature) == "node-like"
         ):
             event[feature] = event[feature][node_mask]
 
@@ -210,8 +209,7 @@ def handle_hard_node_cuts(event, hard_cuts_config):
     for feature in event.keys:
         if (
             isinstance(event[feature], torch.Tensor)
-            and event[feature].shape
-            and event[feature].shape[-1] == num_tracks
+            and get_variable_type(feature) == "track-like"
         ):
             event[feature] = event[feature][..., track_mask]
 
