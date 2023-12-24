@@ -34,6 +34,7 @@ from torch_geometric.nn import knn_graph
 import torch
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import cuml
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -260,13 +261,40 @@ class NodeEncodingStage(LightningModule):
         else:
             return hit_t
 
+    def get_edge_target_mask(self, event, edges, target_tracks=None, y=None):
+        if y is None:
+            graph_mask = torch.ones_like(edges[0], dtype=torch.bool)
+        else:
+            graph_mask = y == 1
+
+        if target_tracks:
+            for condition_key, condition_val in target_tracks.items():
+                condition_lambda = get_condition_lambda(condition_key, condition_val)
+                value_mask = condition_lambda(event)
+                graph_mask = graph_mask & value_mask[edges[0]]
+
+        return graph_mask
+
+    def get_node_target_mask(self, event, target_tracks=None):
+        graph_mask = event.hit_particle_id != 0
+
+        if target_tracks:
+            for condition_key, condition_val in target_tracks.items():
+                condition_lambda = get_condition_lambda(condition_key, condition_val)
+                value_mask = condition_lambda(event)
+                graph_mask = graph_mask & value_mask
+
+        return graph_mask
+
     def node_knn_eff_pur_fixed_k(self, plot_config, config):
         """
         Plot the graph construction efficiency vs. pT of the edge.
         """
 
         tp_pt_hist, tp_eta_hist = None, None
+        target_tp_pt_hist, target_tp_eta_hist = None, None
         max_tp_pt_hist, max_tp_eta_hist = None, None
+        max_target_tp_pt_hist, max_target_tp_eta_hist = None, None
         t_pt_hist, t_eta_hist = None, None
         p_pt_hist, p_eta_hist = None, None
 
@@ -275,8 +303,10 @@ class NodeEncodingStage(LightningModule):
         eta_bins = np.linspace(-4, 4)
 
         tp = 0
+        target_tp = 0
         t = 0
         max_tp = 0
+        max_target_tp = 0
         p = 0
 
         dataset_name = config["dataset"]
@@ -297,10 +327,14 @@ class NodeEncodingStage(LightningModule):
             event.hit_target_mask = self.get_node_target_mask(
                 event, config.get("target_tracks", None)
             )
-            event.hit_t, event.max_hit_t = self.get_number_of_true_edges(
+            event.hit_target_t, event.max_hit_target_t = self.get_number_of_true_edges(
                 event,
                 target="mask-based",
                 target_tracks=config.get("target_tracks", None),
+                upper_bound=plot_config["knn"],
+            )
+            event.hit_t, event.max_hit_t = self.get_number_of_true_edges(
+                event,
                 upper_bound=plot_config["knn"],
             )
 
@@ -308,36 +342,54 @@ class NodeEncodingStage(LightningModule):
 
             if tp_pt_hist is None:
                 tp_pt_hist, _ = np.histogram(
+                    event.hit_particle_pt[event.edge_index[1, event.edge_y]].numpy(),
+                    bins=pt_bins,
+                )
+                tp_eta_hist, _ = np.histogram(
+                    event.hit_particle_eta[event.edge_index[1, event.edge_y]].numpy(),
+                    bins=eta_bins,
+                )
+                target_tp_pt_hist, _ = np.histogram(
                     event.hit_particle_pt[
                         event.edge_index[1, event.edge_target_mask]
                     ].numpy(),
                     bins=pt_bins,
                 )
-                tp_eta_hist, _ = np.histogram(
+                target_tp_eta_hist, _ = np.histogram(
                     event.hit_particle_eta[
                         event.edge_index[1, event.edge_target_mask]
                     ].numpy(),
                     bins=eta_bins,
                 )
                 max_tp_pt_hist, _ = np.histogram(
-                    event.hit_particle_pt[event.hit_target_mask].numpy(),
+                    event.hit_particle_pt[event.hit_particle_nhits > 1].numpy(),
                     bins=pt_bins,
                     weights=event.max_hit_t.numpy(),
                 )
                 max_tp_eta_hist, _ = np.histogram(
-                    event.hit_particle_eta[event.hit_target_mask].numpy(),
+                    event.hit_particle_eta[event.hit_particle_nhits > 1].numpy(),
                     bins=eta_bins,
                     weights=event.max_hit_t.numpy(),
+                )
+                max_target_tp_pt_hist, _ = np.histogram(
+                    event.hit_particle_pt[event.hit_target_mask].numpy(),
+                    bins=pt_bins,
+                    weights=event.max_hit_target_t.numpy(),
+                )
+                max_target_tp_eta_hist, _ = np.histogram(
+                    event.hit_particle_eta[event.hit_target_mask].numpy(),
+                    bins=eta_bins,
+                    weights=event.max_hit_target_t.numpy(),
                 )
                 t_pt_hist, _ = np.histogram(
                     event.hit_particle_pt[event.hit_target_mask].numpy(),
                     bins=pt_bins,
-                    weights=event.hit_t.numpy(),
+                    weights=event.hit_target_t.numpy(),
                 )
                 t_eta_hist, _ = np.histogram(
                     event.hit_particle_eta[event.hit_target_mask].numpy(),
                     bins=eta_bins,
-                    weights=event.hit_t.numpy(),
+                    weights=event.hit_target_t.numpy(),
                 )
                 p_pt_hist = (
                     np.histogram(event.hit_particle_pt.numpy(), bins=pt_bins)[0]
@@ -349,36 +401,54 @@ class NodeEncodingStage(LightningModule):
                 )
             else:
                 tp_pt_hist += np.histogram(
+                    event.hit_particle_pt[event.edge_index[1, event.edge_y]].numpy(),
+                    bins=pt_bins,
+                )[0]
+                tp_eta_hist += np.histogram(
+                    event.hit_particle_eta[event.edge_index[1, event.edge_y]].numpy(),
+                    bins=eta_bins,
+                )[0]
+                target_tp_pt_hist += np.histogram(
                     event.hit_particle_pt[
                         event.edge_index[1, event.edge_target_mask]
                     ].numpy(),
                     bins=pt_bins,
                 )[0]
-                tp_eta_hist += np.histogram(
+                target_tp_eta_hist += np.histogram(
                     event.hit_particle_eta[
                         event.edge_index[1, event.edge_target_mask]
                     ].numpy(),
                     bins=eta_bins,
                 )[0]
                 max_tp_pt_hist += np.histogram(
-                    event.hit_particle_pt[event.hit_target_mask].numpy(),
+                    event.hit_particle_pt[event.hit_particle_nhits > 1].numpy(),
                     bins=pt_bins,
                     weights=event.max_hit_t.numpy(),
                 )[0]
                 max_tp_eta_hist += np.histogram(
-                    event.hit_particle_eta[event.hit_target_mask].numpy(),
+                    event.hit_particle_eta[event.hit_particle_nhits > 1].numpy(),
                     bins=eta_bins,
                     weights=event.max_hit_t.numpy(),
+                )[0]
+                max_target_tp_pt_hist += np.histogram(
+                    event.hit_particle_pt[event.hit_target_mask].numpy(),
+                    bins=pt_bins,
+                    weights=event.max_hit_target_t.numpy(),
+                )[0]
+                max_target_tp_eta_hist += np.histogram(
+                    event.hit_particle_eta[event.hit_target_mask].numpy(),
+                    bins=eta_bins,
+                    weights=event.max_hit_target_t.numpy(),
                 )[0]
                 t_pt_hist += np.histogram(
                     event.hit_particle_pt[event.hit_target_mask].numpy(),
                     bins=pt_bins,
-                    weights=event.hit_t.numpy(),
+                    weights=event.hit_target_t.numpy(),
                 )[0]
                 t_eta_hist += np.histogram(
                     event.hit_particle_eta[event.hit_target_mask].numpy(),
                     bins=eta_bins,
-                    weights=event.hit_t.numpy(),
+                    weights=event.hit_target_t.numpy(),
                 )[0]
                 p_pt_hist += (
                     np.histogram(event.hit_particle_pt.numpy(), bins=pt_bins)[0]
@@ -388,22 +458,32 @@ class NodeEncodingStage(LightningModule):
                     np.histogram(event.hit_particle_eta.numpy(), bins=eta_bins)[0]
                     * plot_config["knn"]
                 )
-            tp += event.edge_target_mask.sum().item()
-            t += event.hit_t.sum().item()
+            tp += event.edge_y.sum().item()
+            target_tp += event.edge_target_mask.sum().item()
+            t += event.hit_target_t.sum().item()
             max_tp += event.max_hit_t.sum().item()
+            max_target_tp += event.max_hit_target_t.sum().item()
             p += len(event.hit_particle_pt) * plot_config["knn"]
 
-        for tp_hist, max_tp_hist, t_hist, bins, xlabel, logx, filename in zip(
-            [tp_pt_hist, tp_eta_hist],
-            [max_tp_pt_hist, max_tp_eta_hist],
+        for (
+            target_tp_hist,
+            max_target_tp_hist,
+            t_hist,
+            bins,
+            xlabel,
+            logx,
+            filename,
+        ) in zip(
+            [target_tp_pt_hist, target_tp_eta_hist],
+            [max_target_tp_pt_hist, max_target_tp_eta_hist],
             [t_pt_hist, t_eta_hist],
             [pt_bins, eta_bins],
             ["$p_T [MeV]$", r"$\eta$"],
             [True, False],
             ["edgewise_efficiency_pt.png", "edgewise_efficiency_eta.png"],
         ):
-            hist, err = get_ratio(tp_hist, t_hist)
-            hist_up, _ = get_ratio(max_tp_hist, t_hist)
+            hist, err = get_ratio(target_tp_hist, t_hist)
+            hist_up, _ = get_ratio(max_target_tp_hist, t_hist)
             if "filename_template" in plot_config:
                 filename = config["filename_template"] + "_" + filename
 
@@ -442,9 +522,9 @@ class NodeEncodingStage(LightningModule):
                 + "\n"
                 r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
                 f"kNN graph (k={plot_config['knn']})" + "\n"
-                f"Global efficiency: {tp / t :.4f}"
+                f"Global efficiency: {target_tp / t :.4f}"
                 + "\n"
-                + f"Efficiency upper bound: {max_tp / t :.4f}",
+                + f"Efficiency upper bound: {max_target_tp / t :.4f}",
             )
             fig.savefig(os.path.join(config["stage_dir"], filename))
 
@@ -516,8 +596,10 @@ class NodeEncodingStage(LightningModule):
     def node_knn_eff_pur_vs_k(self, plot_config, config):
         knn = range(1, 21)
         tp = [0] * 20
+        target_tp = [0] * 20
         t = [0] * 20
         max_tp = [0] * 20
+        max_target_tp = [0] * 20
         p = [0] * 20
 
         dataset_name = config["dataset"]
@@ -536,30 +618,45 @@ class NodeEncodingStage(LightningModule):
                     config.get("target_tracks", None),
                     y=edge_y,
                 )
-                hit_t, max_hit_t = self.get_number_of_true_edges(
+                hit_target_t, max_hit_target_t = self.get_number_of_true_edges(
                     event,
                     target="mask-based",
                     target_tracks=config.get("target_tracks", None),
                     upper_bound=k,
                 )
+                hit_t, max_hit_t = self.get_number_of_true_edges(
+                    event,
+                    upper_bound=k,
+                )
 
-                tp[k - 1] += edge_target_mask.sum().item()
-                t[k - 1] += hit_t.sum().item()
+                tp[k - 1] += edge_y.sum().item()
+                target_tp[k - 1] += edge_target_mask.sum().item()
+                t[k - 1] += hit_target_t.sum().item()
                 max_tp[k - 1] += max_hit_t.sum().item()
+                max_target_tp[k - 1] += max_hit_target_t.sum().item()
                 p[k - 1] += len(event.hit_particle_pt) * k
 
         knn = np.array(knn)
         tp = np.array(tp)
+        target_tp = np.array(target_tp)
         t = np.array(t)
         max_tp = np.array(max_tp)
+        max_target_tp = np.array(max_target_tp)
         p = np.array(p)
 
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.plot(knn, tp / t, color="red", marker="o", linestyle=":", label="Efficiency")
+        ax.plot(
+            knn,
+            target_tp / t,
+            color="red",
+            marker="o",
+            linestyle=":",
+            label="Efficiency",
+        )
         ax.plot(knn, tp / p, color="blue", marker="o", linestyle="-.", label="Purity")
         ax.plot(
             knn,
-            max_tp / t,
+            max_target_tp / t,
             color="black",
             marker="o",
             linestyle=":",
@@ -596,30 +693,284 @@ class NodeEncodingStage(LightningModule):
             f' {os.path.join(config["stage_dir"], "knn_eff_pur_vs_k.png")}'
         )
 
-    def get_edge_target_mask(self, event, edges, target_tracks=None, y=None):
-        if y is None:
-            graph_mask = torch.ones_like(edges[0], dtype=torch.bool)
-        else:
-            graph_mask = y == 1
+    def cluster(self, event, eps, min_samples):
+        clusterer = cuml.cluster.DBSCAN(eps=eps, min_samples=min_samples)
+        # clusterer = cuml.cluster.hdbscan.HDBSCAN(min_cluster_size=3, allow_single_cluster=True, cluster_selection_epsilon=0)
+        hit_label = clusterer.fit_predict(event.hit_embedding)
+        event.hit_label = torch.as_tensor(hit_label, device=self.device)
 
-        if target_tracks:
-            for condition_key, condition_val in target_tracks.items():
-                condition_lambda = get_condition_lambda(condition_key, condition_val)
-                value_mask = condition_lambda(event)
-                graph_mask = graph_mask & value_mask[edges[0]]
+    def dbscan_eff_pur(self, plot_config, config):
 
-        return graph_mask
+        dataset_name = config["dataset"]
+        dataset = getattr(self, dataset_name)
 
-    def get_node_target_mask(self, event, target_tracks=None):
-        graph_mask = event.hit_particle_id != 0
+        eps = plot_config["eps"]
 
-        if target_tracks:
-            for condition_key, condition_val in target_tracks.items():
-                condition_lambda = get_condition_lambda(condition_key, condition_val)
-                value_mask = condition_lambda(event)
-                graph_mask = graph_mask & value_mask
+        pt_min, pt_max = 1000, 50000
+        pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
+        eta_bins = np.linspace(-4, 4)
 
-        return graph_mask
+        particles_pt_hist, particles_eta_hist = None, None
+        matched_target_particles_pt_hist, matched_target_particles_eta_hist = None, None
+
+        n_particles = 0
+        n_matched_particles = 0
+        n_matched_tracks = 0
+        n_matched_target_particles = 0
+        n_matched_target_tracks = 0
+        n_tracks = 0
+
+        for event in tqdm(dataset):
+            event = event.to(self.device)
+
+            event.hit_target_mask = self.get_node_target_mask(
+                event, config.get("target_tracks", None)
+            )
+            particles = torch.unique(
+                torch.stack(
+                    [
+                        event.hit_particle_id,
+                        event.hit_particle_pt,
+                        event.hit_particle_eta,
+                    ],
+                    dim=0,
+                )[:, event.hit_target_mask],
+                dim=1,
+            )
+
+            self.cluster(event, eps, 3)
+            uni_labels, inv_idx, count = torch.unique(
+                event.hit_label, return_counts=True, return_inverse=True
+            )
+            event.hit_track_length = count[inv_idx]
+            hit_track_info = torch.stack(
+                [
+                    event.hit_label,
+                    event.hit_particle_id,
+                    event.hit_track_length,
+                    event.hit_particle_pt,
+                    event.hit_particle_eta,
+                ],
+                dim=0,
+            )
+            uni_track_info, inv_idx, n_matched_hits = torch.unique(
+                hit_track_info, dim=1, return_counts=True, return_inverse=True
+            )
+            matched_track_particle_id = uni_track_info[1][
+                (uni_track_info[0] >= 0) & (n_matched_hits / uni_track_info[2] > 0.5)
+            ]
+            hit_target_track_info = hit_track_info[:, event.hit_target_mask]
+            uni_target_track_info, inv_idx, n_matched_target_hits = torch.unique(
+                hit_target_track_info, dim=1, return_counts=True, return_inverse=True
+            )
+            matched_target_tracks = uni_target_track_info[[1, 3, 4]][
+                :,
+                (uni_target_track_info[0] >= 0)
+                & (n_matched_target_hits / uni_target_track_info[2] > 0.5),
+            ]
+            matched_target_particles = torch.unique(matched_target_tracks, dim=1)
+
+            n_particles += len(particles[0])
+            n_matched_particles += len(torch.unique(matched_track_particle_id))
+            n_matched_tracks += len(matched_track_particle_id)
+            n_matched_target_particles += len(matched_target_particles[0])
+            n_matched_target_tracks += len(matched_target_tracks[0])
+            n_tracks += len(uni_labels[uni_labels >= 0])
+
+            if particles_pt_hist is None:
+                particles_pt_hist = np.histogram(
+                    particles[1].cpu().numpy(), bins=pt_bins
+                )[0]
+                particles_eta_hist = np.histogram(
+                    particles[2].cpu().numpy(), bins=eta_bins
+                )[0]
+                matched_target_particles_pt_hist = np.histogram(
+                    matched_target_particles[1].cpu().numpy(), bins=pt_bins
+                )[0]
+                matched_target_particles_eta_hist = np.histogram(
+                    matched_target_particles[2].cpu().numpy(), bins=eta_bins
+                )[0]
+            else:
+                particles_pt_hist += np.histogram(
+                    particles[1].cpu().numpy(), bins=pt_bins
+                )[0]
+                particles_eta_hist += np.histogram(
+                    particles[2].cpu().numpy(), bins=eta_bins
+                )[0]
+                matched_target_particles_pt_hist += np.histogram(
+                    matched_target_particles[1].cpu().numpy(), bins=pt_bins
+                )[0]
+                matched_target_particles_eta_hist += np.histogram(
+                    matched_target_particles[2].cpu().numpy(), bins=eta_bins
+                )[0]
+
+        eff = n_matched_target_particles / n_particles
+        dup = (
+            n_matched_target_tracks - n_matched_target_particles
+        ) / n_matched_target_particles
+        fak = (n_tracks - n_matched_tracks) / n_matched_particles
+
+        for (
+            matched_target_particles_hist,
+            particles_hist,
+            bins,
+            xlabel,
+            logx,
+            filename,
+        ) in zip(
+            [matched_target_particles_pt_hist, matched_target_particles_eta_hist],
+            [particles_pt_hist, particles_eta_hist],
+            [pt_bins, eta_bins],
+            ["$p_T [MeV]$", r"$\eta$"],
+            [True, False],
+            ["track_efficiency_pt.png", "track_efficiency_eta.png"],
+        ):
+            hist, err = get_ratio(matched_target_particles_hist, particles_hist)
+            if "filename_template" in plot_config:
+                filename = config["filename_template"] + "_" + filename
+
+            fig, ax = plot_1d_histogram(
+                hist,
+                bins,
+                err,
+                xlabel,
+                plot_config["title"],
+                plot_config.get("ylim", [0.9, 1.04]),
+                "Efficiency",
+                logx=logx,
+                color="black",
+            )
+
+            # Save the plot
+            atlasify(
+                atlas="Internal",
+                subtext=(
+                    r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
+                    r" $t \bar{t}$ and soft interactions) "
+                )
+                + "\n"
+                r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
+                r"DBSCAN ($\epsilon$" + f"={plot_config['eps']}, min_samples=3)" + "\n"
+                f"Efficiency: {eff :.4f}" + "\n"
+                f"Duplication rate: {dup :.4f}" + "\n"
+                f"Fake rate: {fak :.4f}" + "\n",
+            )
+            fig.savefig(os.path.join(config["stage_dir"], filename))
+
+            print(
+                "Finish plotting. Find the plot at"
+                f' {os.path.join(config["stage_dir"], filename)}'
+            )
+
+    def dbscan_vs_eps(self, plot_config, config):
+
+        dataset_name = config["dataset"]
+        dataset = getattr(self, dataset_name)
+
+        epss = np.linspace(0.05, 1, 20)
+        n_particles = [0] * len(epss)
+        n_matched_particles = [0] * len(epss)
+        n_matched_tracks = [0] * len(epss)
+        n_matched_target_particles = [0] * len(epss)
+        n_matched_target_tracks = [0] * len(epss)
+        n_tracks = [0] * len(epss)
+
+        for event in tqdm(dataset):
+            event = event.to(self.device)
+
+            event.hit_target_mask = self.get_node_target_mask(
+                event, config.get("target_tracks", None)
+            )
+            event_n_particles = len(
+                torch.unique(event.hit_particle_id[event.hit_target_mask])
+            )
+            for i, eps in enumerate(epss):
+                n_particles[i] += event_n_particles
+
+                self.cluster(event, eps, 3)
+                uni_labels, inv_idx, count = torch.unique(
+                    event.hit_label, return_counts=True, return_inverse=True
+                )
+                event.hit_track_length = count[inv_idx]
+                hit_track_info = torch.stack(
+                    [event.hit_label, event.hit_particle_id, event.hit_track_length],
+                    dim=0,
+                )
+                uni_track_info, inv_idx, n_matched_hits = torch.unique(
+                    hit_track_info, dim=1, return_counts=True, return_inverse=True
+                )
+                matched_track_particle_id = uni_track_info[1][
+                    (uni_track_info[0] >= 0)
+                    & (n_matched_hits / uni_track_info[2] > 0.5)
+                ]
+                hit_target_track_info = torch.stack(
+                    [
+                        event.hit_label[event.hit_target_mask],
+                        event.hit_particle_id[event.hit_target_mask],
+                        event.hit_track_length[event.hit_target_mask],
+                    ],
+                    dim=0,
+                )
+                uni_target_track_info, inv_idx, n_matched_target_hits = torch.unique(
+                    hit_target_track_info,
+                    dim=1,
+                    return_counts=True,
+                    return_inverse=True,
+                )
+                matched_target_track_particle_id = uni_target_track_info[1][
+                    (uni_target_track_info[0] >= 0)
+                    & (n_matched_target_hits / uni_target_track_info[2] > 0.5)
+                ]
+
+                n_matched_particles[i] += len(torch.unique(matched_track_particle_id))
+                n_matched_tracks[i] += len(matched_track_particle_id)
+                n_matched_target_particles[i] += len(
+                    torch.unique(matched_target_track_particle_id)
+                )
+                n_matched_target_tracks[i] += len(matched_target_track_particle_id)
+                n_tracks[i] += len(uni_labels[uni_labels >= 0])
+
+        n_particles = np.array(n_particles)
+        n_matched_particles = np.array(n_matched_particles)
+        n_matched_tracks = np.array(n_matched_tracks)
+        n_matched_target_particles = np.array(n_matched_target_particles)
+        n_matched_target_tracks = np.array(n_matched_target_tracks)
+        n_tracks = np.array(n_tracks)
+
+        eff = n_matched_target_particles / n_particles
+        dup = (
+            n_matched_target_tracks - n_matched_target_particles
+        ) / n_matched_target_particles
+        fak = (n_tracks - n_matched_tracks) / n_matched_particles
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(epss, eff, color="black", marker="o", linestyle=":", label="Efficiency")
+        ax.plot(
+            epss, dup, color="red", marker="o", linestyle="-.", label="Duplication rate"
+        )
+        ax.plot(epss, fak, color="blue", marker="o", linestyle="--", label="Fake rate")
+        ax.set_xlabel(r"$\epsilon$", ha="right", x=0.95, fontsize=14)
+        ax.set_ylabel("Efficiency (Rate)", ha="right", y=0.95, fontsize=14)
+        ax.set_ylim([0, 1])
+        plt.tight_layout()
+
+        # Save the plot
+        atlasify(
+            atlas="Internal",
+            subtext=(
+                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
+                r" $t \bar{t}$ and soft interactions) "
+            )
+            + "\n"
+            r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
+            "DBSCAN (min_samples = 3)",
+        )
+        fig.savefig(os.path.join(config["stage_dir"], "traack_eff_dbscan_vs_eps.png"))
+
+        print(
+            "Finish plotting. Find the plot at"
+            f' {os.path.join(config["stage_dir"], "traack_eff_dbscan_vs_eps.png")}'
+        )
 
 
 class GraphDataset(Dataset):

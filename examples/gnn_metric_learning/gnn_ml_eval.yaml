@@ -26,3 +26,7 @@ plots:
     purity_title: RGAT Edge-wise Purity
     knn: 10
   node_knn_eff_pur_vs_k:
+  dbscan_vs_eps:
+  dbscan_eff_pur:
+      title: Track Efficiency
+      eps: 0.15
