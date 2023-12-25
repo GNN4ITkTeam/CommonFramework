@@ -1,0 +1,27 @@
+# CommonFramework configuration
+stage: node_encoding
+model: GNNMetricLearning
+input_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/trackml_gnnml_feature_store
+stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/trackml_gnnml
+project: gnnml_trackml # Used in logging
+gpus: 1
+nodes: 1
+
+data_split: [2000, 400, 200]
+
+# Evaluation parameters
+target_tracks:
+  hit_particle_pt: [1, .inf]
+  hit_particle_nhits: [3, .inf]
+
+# Plotting parameters
+plots:
+  node_knn_eff_pur_vs_k:
+  node_knn_eff_pur_fixed_k:
+    efficiency_title: RGAT Edge-wise Efficiency
+    purity_title: RGAT Edge-wise Purity
+    knn: 10
+  dbscan_vs_eps:
+  dbscan_eff_pur:
+      title: Track Efficiency
+      eps: 0.1

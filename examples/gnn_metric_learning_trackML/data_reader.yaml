@@ -1,0 +1,25 @@
+# CommonFramework configuration
+stage: data_reading
+model: TrackMLReader
+input_dir: /global/cfs/projectdirs/m3443/data/trackml-codalab/train_all
+stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/trackml_gnnml_feature_store
+detector_path: /global/cfs/projectdirs/m3443/data/trackml-codalab/detectors.csv
+max_workers: 32
+
+# Feature Configurations
+feature_sets:
+    hit_features: [hit_id, hit_x, hit_y, hit_z, hit_r, hit_phi, hit_eta, hit_region, hit_module_index,
+                   hit_cell_count, hit_cell_val, hit_leta, hit_lphi, hit_lx, hit_ly, hit_lz, hit_geta, hit_gphi]
+    hit_truths: [hit_particle_vx, hit_particle_vy, hit_particle_vz, hit_particle_px, hit_particle_py, hit_particle_pz,
+                 hit_particle_id, hit_particle_pt, hit_particle_nhits, hit_particle_radius]
+    track_features: [track_particle_id, track_particle_pt, track_particle_radius, track_particle_nhits]
+
+module_columns: [hit_volume_id, hit_layer_id, hit_module_id]
+
+region_labels:
+    1: {hit_volume_id: 7}
+    2: {hit_volume_id: [12, 16]}
+    3: {hit_volume_id: 8}
+    4: {hit_volume_id: [13, 17]}
+    5: {hit_volume_id: 9}
+    6: {hit_volume_id: [14, 18]}
