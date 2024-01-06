@@ -185,7 +185,15 @@ class EdgeClassifierStage(LightningModule):
         """
         Load the prediction sets (which is a list of the three datasets)
         """
-        return [self.train_dataloader(), self.val_dataloader(), self.test_dataloader()]
+        dataloaders = [
+            self.train_dataloader(),
+            self.val_dataloader(),
+            self.test_dataloader(),
+        ]
+        dataloaders = [
+            dataloader for dataloader in dataloaders if dataloader is not None
+        ]
+        return dataloaders
 
     def configure_optimizers(self):
         optimizer, scheduler = get_optimizers(self.parameters(), self.hparams)
@@ -427,7 +435,6 @@ class EdgeClassifierStage(LightningModule):
         2. Add the scored edges to the graph, as `scores` attribute
         3. Append the stage config to the `config` attribute of the graph
         """
-
         dataset = self.predict_dataloader()[dataloader_idx].dataset
         event_id = (
             batch.event_id[0] if isinstance(batch.event_id, list) else batch.event_id
@@ -440,12 +447,14 @@ class EdgeClassifierStage(LightningModule):
             )
         ) and self.hparams.get("skip_existing"):
             return
-        eval_dict = self.shared_evaluation(batch, batch_idx)
-        scores = torch.sigmoid(eval_dict["output"])
-        batch = eval_dict["batch"]
-        self.save_edge_scores(batch, scores, dataset)
+        if batch.edge_index.shape[1] == 0:
+            batch.scores = torch.tensor([], device=self.device)
+        else:
+            eval_dict = self.shared_evaluation(batch, batch_idx)
+            batch = eval_dict["batch"]
+        self.save_edge_scores(batch, dataset)
 
-    def save_edge_scores(self, event, scores, dataset):
+    def save_edge_scores(self, event, dataset):
         event = dataset.unscale_features(event)
 
         event.config.append(self.hparams)
