@@ -131,30 +131,78 @@ class TrackBuildingStage:
         graph_constructor.setup(stage="test")
 
         all_plots = config["plots"]
+        graph_constructor.cache_dfs(config)
+        suffix = f"{config['matching_style']}_{config['matching_fraction']}"
+        graph_constructor.write_high_level_stats(config, suffix)
 
         # TODO: Handle the list of plots properly
         for plot_function, plot_config in all_plots.items():
             if hasattr(graph_constructor, plot_function):
-                getattr(graph_constructor, plot_function)(plot_config, config)
+                getattr(graph_constructor, plot_function)(plot_config, suffix)
             else:
                 print(f"Plot {plot_function} not implemented")
+                
+    def eval_preprocess_event(self, event, config):
+        if not hasattr(event, "bgraph") and hasattr(event, "labels"):
+            event.bgraph = torch.stack([
+                torch.arange(event.labels.shape[0], device = event.labels.device)[event.labels >= 0],
+                torch.as_tensor(event.labels[event.labels >= 0], device = event.labels.device)
+            ])
+        return event
+    
+    def cache_dfs(self, config):
+        self.all_dfs = []
+        for event in tqdm(self.testset):
+            event = self.eval_preprocess_event(event, config)
+            matching_df, truth_df = utils.evaluate_tracking(
+                event, 
+                event.bgraph,
+                min_hits = config["min_track_length"],
+                signal_selection = config["signal_selection"],
+                target_selection = config["target_selection"],
+                matching_fraction = config["matching_fraction"],
+                style=config["matching_style"]
+            )
+            self.all_dfs.append((matching_df, truth_df))
+            
+    def write_high_level_stats(self, config, suffix):
+        all_stats = {}
+        for matching_df, truth_df in tqdm(self.all_dfs):
+            stats = utils.get_statistics(matching_df, truth_df)
+            if all_stats:
+                for name in all_stats:
+                    all_stats[name].append(stats[name])
+            else:
+                for name in stats:
+                    all_stats[name] = [stats[name]]
+        with open(
+            os.path.join(
+                self.hparams["stage_dir"], f"summary_{suffix}.txt"
+            ),
+            "w"
+        ) as f:
+            f.write(
+f"""reconstructed particles: {sum(all_stats['reconstructed_particles'])},
+total particles: {sum(all_stats['total_particles'])},
+tracking efficiency: {sum(all_stats['reconstructed_particles']) / sum(all_stats['total_particles'])},
+reconstructed signal: {sum(all_stats['reconstructed_signal'])},
+total signal: {sum(all_stats['total_signal'])},
+signal efficiency: {sum(all_stats['reconstructed_signal']) / sum(all_stats['total_signal'])},
+num duplicated tracks: {sum(all_stats['num_duplicated_tracks'])},
+num matched particles: {sum(all_stats['num_matched_particles'])},
+duplicate rate: {sum(all_stats['duplicate_rate']) / len(all_stats['duplicate_rate'])},
+num tracks: {sum(all_stats['num_tracks'])},
+num_reconstructed particles: {sum(all_stats['num_reconstructed_particles'])},
+fake rate: {sum(all_stats['fake_rate']) / len(all_stats['duplicate_rate'])}"""
+            )
 
-    def tracking_efficiency_pt(self, plot_config, config):
+    def tracking_efficiency_pt(self, plot_config, suffix):
         """
         Plot the graph construction efficiency vs. pT of the tracks.
         """
         all_stats = {}
         pt_bins = np.logspace(np.log10(plot_config["min_pt"]), np.log10(plot_config["max_pt"]), plot_config["n_bins"])
-        for event in tqdm(self.testset):
-            matching_df, truth_df = utils.evaluate_tracking(
-                event, 
-                event.bgraph,
-                min_hits = config["min_track_length"],
-                signal_selection = config["selection"],
-                target_selection = {},
-                matching_fraction = config["matching_fraction"],
-                style=config["matching_style"]
-            )
+        for matching_df, truth_df in tqdm(self.all_dfs):
             stats = utils.get_statistics(matching_df, truth_df, "pt", pt_bins)
             if all_stats:
                 for name in all_stats:
@@ -169,28 +217,18 @@ class TrackBuildingStage:
             bins = pt_bins,
             xlabel = r"$p_T$ (MeV)",
             caption = plot_config["caption"],
-            selection = "signal",
             save_path = os.path.join(
-                self.hparams["stage_dir"], "eff_vs_pt.png"
+                self.hparams["stage_dir"], f"eff_vs_pt_{suffix}.png"
             ),
         )
         
-    def tracking_efficiency_eta(self, plot_config, config):
+    def tracking_efficiency_eta(self, plot_config, suffix):
         """
         Plot the graph construction efficiency vs. eta of the tracks.
         """
         all_stats = {}
         eta_bins = np.linspace(plot_config["min_eta"], plot_config["max_eta"], plot_config["n_bins"])
-        for event in tqdm(self.testset):
-            matching_df, truth_df = utils.evaluate_tracking(
-                event, 
-                event.bgraph,
-                min_hits = config["min_track_length"],
-                signal_selection = config["selection"],
-                target_selection = {},
-                matching_fraction = config["matching_fraction"],
-                style=config["matching_style"]
-            )
+        for matching_df, truth_df in tqdm(self.all_dfs):
             stats = utils.get_statistics(matching_df, truth_df, "eta", eta_bins)
             if all_stats:
                 for name in all_stats:
@@ -206,7 +244,7 @@ class TrackBuildingStage:
             xlabel = r"Pseudo rapidity $\eta$",
             caption = plot_config["caption"],
             save_path = os.path.join(
-                self.hparams["stage_dir"], "eff_vs_eta.png"
+                self.hparams["stage_dir"], f"eff_vs_eta_{suffix}.png"
             ),
         )
 

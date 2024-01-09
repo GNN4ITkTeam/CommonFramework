@@ -26,6 +26,7 @@ class InteractionGNNBlock(nn.Module):
         hidden_activation: Optional[str] = "GELU",
         output_activation: Optional[str] = None,
         dropout: Optional[float] = 0.,
+        checkpoint: Optional[bool] = True,
     ):
         super().__init__()
             
@@ -61,6 +62,7 @@ class InteractionGNNBlock(nn.Module):
                 hidden_activation = hidden_activation,
                 output_activation = output_activation,
                 dropout = dropout,
+                checkpoint=checkpoint,
             )
             for _ in range(n_iterations)
         ]
@@ -93,6 +95,7 @@ class HierarchicalGNNBlock(nn.Module):
         hidden_activation: Optional[str] = "GELU",
         output_activation: Optional[str] = None,
         dropout: Optional[float] = 0.,
+        checkpoint: Optional[bool] = True,
     ):
         super().__init__()
             
@@ -138,6 +141,7 @@ class HierarchicalGNNBlock(nn.Module):
                 hidden_activation = hidden_activation,
                 output_activation = output_activation,
                 dropout = dropout,
+                checkpoint=checkpoint,
             )
             for _ in range(n_iterations)
         ]
@@ -185,7 +189,7 @@ class Pooling(nn.Module):
         bsparsity: Optional[int] = 5,
         ssparsity: Optional[int] = 10,
         resolution: Optional[float] = 0., 
-        min_size: Optional[int] = 5, 
+        min_size: Optional[int] = 5,
     ):
         super().__init__()
         self.resolution = resolution
@@ -251,7 +255,8 @@ class Pooling(nn.Module):
         likelihood = - torch.log((emb[graph[0]] - emb[graph[1]]).square().sum(-1).clamp(min=1e-12))
             
         # GMM edge cutting
-        self.gmm_model.fit(likelihood.unsqueeze(1).cpu().detach().numpy())
+        samples = torch.randperm(likelihood.shape[0], device = likelihood.device) < 10000
+        self.gmm_model.fit(likelihood[samples, None].cpu().detach().numpy())
         cut = self.determine_cut()
         
         # Moving Average
@@ -276,4 +281,4 @@ class Pooling(nn.Module):
         bgraph, bweights, logits = self.bgraph_construction(emb, semb, original_bgraph)
         sgraph, sweights = self.sgraph_construction(semb, semb)
     
-        return emb, semb, bgraph, bweights, sgraph, sweights, logits
+        return emb, semb, bgraph, bweights, sgraph, sweights, logits, mask

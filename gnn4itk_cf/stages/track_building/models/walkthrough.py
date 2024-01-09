@@ -97,28 +97,15 @@ class Walkthrough(TrackBuildingStage):
             # Run multiprocessing
             with Pool(workers) as p:
                 paths = list(p.map(find_paths_partial, starting_nodes))
-
-            track_df = pd.DataFrame(
-                {
-                    "hit_id": list(chain.from_iterable(paths)),
-                    "track_id": list(
-                        chain.from_iterable([[i] * len(p) for i, p in enumerate(paths)])
-                    ),
-                }
-            )
-
-            # Remove duplicates on hit_id: TODO: In very near future, handle multiple tracks through the same hit!
-            track_df = track_df.drop_duplicates(subset="hit_id")
-
-            hit_id = track_df.hit_id
-            track_id = track_df.track_id
-
-            track_id_tensor = torch.ones(len(graph.x), dtype=torch.long) * -1
-            track_id_tensor[hit_id.values] = torch.from_numpy(track_id.values)
+            
+            paths = [p[0] for p in paths]
+            
+            hit_id = list(chain.from_iterable(paths))
+            track_id = list(chain.from_iterable([[i] * len(p) for i, p in enumerate(paths)]))
 
             graph.bgraph = torch.stack([
-                torch.as_tensor(track_df.hit_id, device = graph.scores.device),
-                torch.as_tensor(track_df.track_id, device = graph.scores.device)
+                torch.tensor(hit_id, device = graph.scores.device),
+                torch.tensor(track_id, device = graph.scores.device)
             ])
 
             # TODO: Graph name file??

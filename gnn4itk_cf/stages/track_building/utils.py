@@ -39,7 +39,7 @@ class PartialData(object):
         event: Data,
         edge_cut: float = 1e-3,
         loose_cut: float = 0.01,
-        tight_cut: float = 0.99,
+        tight_cut: Optional[float] = None,
         min_hits: int = 9,
         random_drop: float = 0.,
         signal_weight: float = 2,
@@ -99,19 +99,20 @@ class PartialData(object):
         to_keep[loose_edges.unique()] = True
         
         # Select good tracks with at least `min_hits` hits
-        tight_edges = event.edge_index[:, (event.scores > self.tight_cut) & edge_mask].numpy()
-        graph = coo_matrix((np.ones(tight_edges.shape[1]), tight_edges), shape = (event.hit_id.shape[0], event.hit_id.shape[0])).tocsr()
-        _, track_id = connected_components(graph, directed=False)
-        _, inverse, nhits = np.unique(track_id, return_counts = True, return_inverse = True)
-        track_id[nhits[inverse] < self.min_hits] = -1
-        
-        # store the good tracks and update tracker
-        track_id = torch.as_tensor(track_id, device = self.device)
-        self.cc_tracks = torch.stack([
-            torch.arange(track_id.shape[0])[track_id >= 0],
-            track_id[track_id >= 0]
-        ]).to(self.device)
-        to_keep[track_id >= 0] = False
+        if self.tight_cut:
+            tight_edges = event.edge_index[:, (event.scores > self.tight_cut) & edge_mask].numpy()
+            graph = coo_matrix((np.ones(tight_edges.shape[1]), tight_edges), shape = (event.hit_id.shape[0], event.hit_id.shape[0])).tocsr()
+            _, track_id = connected_components(graph, directed=False)
+            _, inverse, nhits = np.unique(track_id, return_counts = True, return_inverse = True)
+            track_id[nhits[inverse] < self.min_hits] = -1
+
+            # store the good tracks and update tracker
+            track_id = torch.as_tensor(track_id, device = self.device)
+            self.cc_tracks = torch.stack([
+                torch.arange(track_id.shape[0])[track_id >= 0],
+                track_id[track_id >= 0]
+            ]).to(self.device)
+            to_keep[track_id >= 0] = False
         
         # prepare to mask out the noise hits
         masked_idx = torch.cumsum(to_keep, dim = 0) - 1
@@ -129,11 +130,6 @@ class PartialData(object):
             eta = event.eta[to_keep],
             edge_index = masked_idx[event.edge_index[:, edge_mask]],
             y = event.y[edge_mask],
-            dz = event.dz[edge_mask],
-            dr = event.dr[edge_mask],
-            dphi = event.dphi[edge_mask],
-            deta = event.deta[edge_mask],
-            output = event.output[edge_mask],
             track_edges = masked_idx[event.track_edges[:, track_edge_mask]], 
             eta_particle = event.eta_particle[track_edge_mask], 
             radius = event.radius[track_edge_mask], 
@@ -177,8 +173,8 @@ class PartialData(object):
             unique_truth=True,
         )
         emb_weights = torch.ones(y.shape, device = y.device)
-        emb_weights[y] /= y.sum() * 3 
-        emb_weights[~y] /= (~y).sum() * 2 / 3
+        emb_weights[y] /= y.sum() * 5 
+        emb_weights[~y] /= (~y).sum() * 5 / 4
         hinge = 2 * y.float() - 1
         return edges, hinge, emb_weights
     
@@ -246,15 +242,16 @@ class PartialData(object):
         tracks: torch.Tensor
     ) -> torch.Tensor:
         tracks = tracks.to(self.device)
-        if self.cc_tracks.numel() > 0:
+        if self.tight_cut and self.cc_tracks.numel() > 0:
             tracks = torch.stack([
                 self.partial_event.hit_id[tracks[0]],
                 tracks[1] + self.cc_tracks.max() + 1,
             ], dim = 0)
+            torch.cat([self.cc_tracks, tracks], dim = 1)
         else:
             tracks = tracks.clone()
             tracks[0] = self.partial_event.hit_id[tracks[0]]
-        return torch.cat([self.cc_tracks, tracks], dim = 1)
+        return tracks
 
     @property
     def partial_event(self):
@@ -268,7 +265,8 @@ class PartialData(object):
         self, 
         device: torch.device
     ) -> PartialData:
-        self.cc_tracks = self.cc_tracks.to(device)
+        if self.tight_cut:
+            self.cc_tracks = self.cc_tracks.to(device)
         self.pid_truth_graph = self.pid_truth_graph.to(device)
         self.device = device
         return self
@@ -629,7 +627,7 @@ def plot_eff(
     )
     # Add x and y labels
     ax.set_xlabel(xlabel, fontsize=16)
-    ax.set_ylabel(f"{selection} efficiency", fontsize=16)
+    ax.set_ylabel("Tracking efficiency", fontsize=16)
 
     atlasify(
         "Internal",

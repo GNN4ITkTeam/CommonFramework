@@ -75,7 +75,7 @@ def lightning_infer(config, stage_module):
         print("No checkpoint found")
         sys.exit(1)
     print(f"Loading checkpoint: {checkpoint_path}")
-
+    
     stage_module = stage_module.load_from_checkpoint(checkpoint_path)
     stage_module._hparams = {**stage_module._hparams, **config}
 

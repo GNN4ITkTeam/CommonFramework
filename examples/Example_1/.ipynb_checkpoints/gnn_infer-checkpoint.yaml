@@ -1,0 +1,7 @@
+stage: edge_classifier
+model: InteractionGNN
+input_dir: MY_DATA_DIR/Example_1/module_map/ # Should contain the files used in training and inference
+stage_dir: MY_DATA_DIR/Example_1/gnn/ # A directory to be created that will store logs, artifacts, and output data
+project: CF_Example_1_GNN # Used in logging
+gpus: 1
+nodes: 1

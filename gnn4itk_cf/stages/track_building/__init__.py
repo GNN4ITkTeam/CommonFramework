@@ -14,9 +14,12 @@
 
 from .models.connected_components import ConnectedComponents
 from .models.hgnn import HierarchicalGNN
+from .models.walkthrough import Walkthrough
 from .utils import *
 
 __all__ = [
     "ConnectedComponents",
+    "HierarchicalGNN",
+    "Walkthrough",
     "utils"
 ]

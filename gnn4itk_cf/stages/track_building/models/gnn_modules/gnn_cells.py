@@ -22,13 +22,13 @@ def find_neighbors(embedding1, embedding2, r_max=1.0, k_max=10):
     return idxs.squeeze(0)
 
 
-def checkpointing(func):
+def checkpointing(func, enabled = True):
     def checkpointed_fx(*x):
-        if any(y.requires_grad for y in x):
-            return func(*x)
-        else:
+        if any(y.requires_grad for y in x) and enabled:
             return checkpoint(func, *x)
-    return func
+        else:
+            return func(*x)
+    return checkpointed_fx
 
 class InteractionGNNCell(nn.Module):
     def __init__(
@@ -38,6 +38,7 @@ class InteractionGNNCell(nn.Module):
         hidden_activation: Optional[str] = "GELU",
         output_activation: Optional[str] = None,
         dropout: Optional[float] = 0.,
+        checkpoint: Optional[bool] = True,
     ):
         super().__init__()
 
@@ -63,8 +64,10 @@ class InteractionGNNCell(nn.Module):
         
         self.node_norm = nn.BatchNorm1d(d_model * 2, track_running_stats = False)
         self.edge_norm = nn.BatchNorm1d(d_model * 3, track_running_stats = False)
+        
+        self.node_update = checkpointing(self.node_update, enabled = checkpoint)
+        self.edge_update = checkpointing(self.edge_update, enabled = checkpoint)
     
-    @checkpointing
     def node_update(self, nodes, edges, graph):
         """
         Calculate node update with checkpointing
@@ -76,7 +79,6 @@ class InteractionGNNCell(nn.Module):
         
         return nodes
     
-    @checkpointing
     def edge_update(self, nodes, edges, graph):
         """
         Calculate edge update with checkpointing
@@ -103,6 +105,7 @@ class HierarchicalGNNCell(nn.Module):
         hidden_activation: Optional[str] = "GELU",
         output_activation: Optional[str] = None,
         dropout: Optional[float] = 0.,
+        checkpoint: Optional[bool] = True,
     ):
         super().__init__()  
 
@@ -146,8 +149,12 @@ class HierarchicalGNNCell(nn.Module):
         self.edge_norm = nn.BatchNorm1d(d_model * 3, track_running_stats = False)
         self.snode_norm = nn.BatchNorm1d(d_model * 3, track_running_stats = False)
         self.sedge_norm = nn.BatchNorm1d(d_model * 3, track_running_stats = False)
-    
-    @checkpointing 
+        
+        self.node_update = checkpointing(self.node_update, enabled = checkpoint)
+        self.edge_update = checkpointing(self.edge_update, enabled = checkpoint)
+        self.snode_update = checkpointing(self.snode_update, enabled = checkpoint)
+        self.sedge_update = checkpointing(self.sedge_update, enabled = checkpoint)
+        
     def node_update(self, nodes, edges, snodes, graph, bgraph, bweights):
         """
         Calculate node updates with checkpointing
@@ -159,7 +166,6 @@ class HierarchicalGNNCell(nn.Module):
         nodes = self.node_network(node_inputs) + nodes
         return nodes
     
-    @checkpointing 
     def edge_update(self, nodes, edges, graph):
         """
         Calculate edge updates with checkpointing
@@ -169,7 +175,6 @@ class HierarchicalGNNCell(nn.Module):
         edges = self.edge_network(edge_inputs) + edges
         return edges
     
-    @checkpointing 
     def snode_update(self, nodes, snodes, sedges, bgraph, bweights, sgraph, sweights):
         """
         Calculate supernode updates with checkpointing
@@ -180,8 +185,7 @@ class HierarchicalGNNCell(nn.Module):
         snodes_input = self.snode_norm(snodes_input)
         snodes = self.snode_network(snodes_input) + snodes
         return snodes
-    
-    @checkpointing
+
     def sedge_update(self, snodes, sedges, sgraph, sweights):
         """
         Calculate superedge updates with checkpointing
