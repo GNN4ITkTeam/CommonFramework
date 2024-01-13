@@ -4,7 +4,8 @@ model: InteractionGNN
 input_dir: MY_DATA_DIR/Example_3/filter/ # Should contain the files used in training and inference
 stage_dir: MY_DATA_DIR/Example_3/gnn/ # A directory to be created that will store logs, artifacts, and output data
 project: CF_Example_3_GNN # Used in logging
-gpus: 1
+accelerator: gpu
+devices: 1
 nodes: 1
 
 # Dataset parameters

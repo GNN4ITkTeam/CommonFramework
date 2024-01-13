@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Dict
 import torch
 import pandas as pd
 import numpy as np
@@ -20,6 +21,7 @@ from atlasify import atlasify
 import matplotlib.pyplot as plt
 
 from acorn.utils import get_ratio
+from acorn.utils.version_utils import get_pyg_data_keys
 
 # ------------- MATCHING UTILS ----------------
 
@@ -212,27 +214,33 @@ default_eta_configs = {
 }
 
 
-def plot_eff(particles, var, varconf, save_path="track_reconstruction_eff_vs_XXX.png"):
+def plot_eff(
+    particles, var: str, varconf: Dict, save_path="track_reconstruction_eff_vs_XXX.png"
+):
     if var not in ["pt", "eta"]:
-        raise ValueError(f"Unsupported variable {var}, should be either pt or eta.")
+        raise ValueError(f"Unsupported variable {var}, should be either `pt` or `eta`.")
 
     if var == "pt":
         x = particles.pt.values
         if "x_bins" in varconf:
             x_bins = varconf["x_bins"]
-        else:
+        elif "x_lim" in varconf:
             x_bins = np.logspace(
                 np.log10(varconf["x_lim"][0]), np.log10(varconf["x_lim"][1]), 10
             )
+        else:
+            x_bins = 20
     elif var == "eta":
         x = particles.eta_particle.values
         if "x_bins" in varconf:
             x_bins = varconf["x_bins"]
-        else:
+        elif "x_lim" in varconf:
             x_bins = np.arange(varconf["x_lim"][0], varconf["x_lim"][1], step=0.4)
+        else:
+            x_bins = default_eta_bins
 
     if "x_scale" in varconf:
-        x = x * varconf["x_scale"]
+        x = x * float(varconf["x_scale"])
 
     true_x = x[particles["is_reconstructable"]]
     reco_x = x[particles["is_reconstructable"] & particles["is_reconstructed"]]
@@ -258,7 +266,7 @@ def plot_eff(particles, var, varconf, save_path="track_reconstruction_eff_vs_XXX
         label="Track efficiency",
     )
     # Add x and y labels
-    ax.set_xlabel(varconf["x_label"], fontsize=16)
+    ax.set_xlabel(varconf.get("x_label", "x_label is None"), fontsize=16)
     ax.set_ylabel("Track Efficiency", fontsize=16)
     if "y_lim" in varconf:
         ax.set_ylim(ymin=varconf["y_lim"][0], ymax=varconf["y_lim"][1])
@@ -279,7 +287,9 @@ def plot_eff(particles, var, varconf, save_path="track_reconstruction_eff_vs_XXX
 
 
 def rearrange_by_distance(event, edge_index):
-    assert "r" in event.keys and "z" in event.keys, "event must contain r and z"
+    assert "r" in get_pyg_data_keys(event) and "z" in get_pyg_data_keys(
+        event
+    ), "event must contain r and z"
     distance = event.r**2 + event.z**2
 
     # flip edges that are pointing inward

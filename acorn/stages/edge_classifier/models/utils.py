@@ -19,6 +19,7 @@ import torch
 
 from tqdm import tqdm
 from torch_geometric.data import Dataset
+from acorn.utils.version_utils import get_pyg_data_keys
 
 # ---------------------------- Dataset Processing -------------------------
 
@@ -68,7 +69,8 @@ def process_data(events, pt_background_cut, pt_signal_cut, noise, triplets, inpu
     if pt_background_cut > 0 or not noise:
         for i, event in tqdm(enumerate(events)):
             if triplets:  # Keep all event data for posterity!
-                event = convert_triplet_graph(event)
+                # event = convert_triplet_graph(event)
+                raise NotImplementedError
 
             else:
                 event = background_cut_event(event, pt_background_cut, pt_signal_cut)
@@ -82,7 +84,7 @@ def process_data(events, pt_background_cut, pt_signal_cut, noise, triplets, inpu
             torch.isin(event.edge_index, event.signal_true_edges).all(0) & event.y_pid
         )
 
-        if (input_cut is not None) and "scores" in event.keys:
+        if (input_cut is not None) and "scores" in get_pyg_data_keys(event):
             score_mask = event.scores > input_cut
             for edge_attr in ["edge_index", "y", "y_pid", "pid_signal", "scores"]:
                 event[edge_attr] = event[edge_attr][..., score_mask]
@@ -164,19 +166,20 @@ class LargeDataset(Dataset):
 
         # if ("delta_eta" in self.hparams.keys()) and ((self.subdir == "train") or (self.subdir == "val" and self.hparams["n_graph_iters"] == 0)):
         if "delta_eta" in self.hparams.keys():
-            eta_mask = hard_eta_edge_slice(self.hparams["delta_eta"], event)
+            # eta_mask = hard_eta_edge_slice(self.hparams["delta_eta"], event)
+            eta_mask = None
             for edge_attr in ["edge_index", "y", "y_pid", "pid_signal", "scores"]:
-                if edge_attr in event.keys:
+                if edge_attr in get_pyg_data_keys(event):
                     event[edge_attr] = event[edge_attr][..., eta_mask]
 
         if (
             ("input_cut" in self.hparams.keys())
             and (self.hparams["input_cut"] is not None)
-            and "scores" in event.keys
+            and "scores" in get_pyg_data_keys(event)
         ):
             score_mask = event.scores > self.hparams["input_cut"]
             for edge_attr in ["edge_index", "y", "y_pid", "pid_signal", "scores"]:
-                if edge_attr in event.keys:
+                if edge_attr in get_pyg_data_keys(event):
                     event[edge_attr] = event[edge_attr][..., eta_mask]
 
         return event

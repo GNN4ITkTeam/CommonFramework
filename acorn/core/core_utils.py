@@ -140,9 +140,8 @@ def get_trainer(config, default_root_dir):
         else ""
     )
     filename = "best-" + filename_suffix + "-{" + metric_to_monitor + ":5f}-{epoch}"
-    gpus = config.get("gpus", 0)
-    accelerator = "gpu" if gpus else None
-    devices = gpus or None
+    accelerator = config.get("accelerator")
+    devices = config.get("devices")
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.path.join(config["stage_dir"], "artifacts"),
