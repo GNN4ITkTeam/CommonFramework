@@ -16,6 +16,7 @@ from acorn.utils.plotting_utils import (
     plot_efficiency_rz,
     plot_score_histogram,
 )
+from acorn.utils.version_utils import get_pyg_data_keys
 
 
 def graph_construction_efficiency(lightning_module, plot_config, config):
@@ -157,7 +158,7 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
         target_eta.append(event.eta[event.track_edges[0, event.target_mask]])
 
         # get all edges passing edge cut
-        if "scores" in event.keys:
+        if "scores" in get_pyg_data_keys(event):
             pred.append((event.scores >= config["score_cut"]).cpu())
         else:
             pred.append(event.y.cpu())
@@ -294,7 +295,7 @@ def graph_roc_curve(lightning_module, plot_config, config):
     for event in tqdm(dataset):
         event = event.to(lightning_module.device)
         # Need to apply score cut and remap the truth_map
-        if "weights" in event.keys:
+        if "weights" in get_pyg_data_keys(event):
             target_y = event.weights.bool() & event.y.bool()
             mask = event.weights > 0
         else:

@@ -3,7 +3,8 @@ model: InteractionGNN2
 input_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map/ # Should contain the files used in training and inference
 stage_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/ # A directory to be created that will store logs, artifacts, and output data
 project: CTD_2023 # Used in logging
-gpus: 1
+accelerator: gpu
+devices: 1
 nodes: 1
 
 # Dataset parameters

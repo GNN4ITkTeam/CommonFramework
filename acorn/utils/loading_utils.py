@@ -21,6 +21,7 @@ from torch_geometric.data import Data
 from pathlib import Path
 
 from .mapping_utils import get_condition_lambda, map_tensor_handler, remap_from_mask
+from .version_utils import get_pyg_data_keys
 
 
 def load_datafiles_in_dir(input_dir, data_name=None, data_num=None):
@@ -66,7 +67,7 @@ def run_data_tests(datasets: List, required_features, optional_features):
         for feature in required_features:
             assert feature in sample_event or f"x_{feature}" in sample_event, (
                 f"Feature [{feature}] not found in data, this is REQUIRED. Features"
-                f" found: {sample_event.keys}"
+                f" found: {get_pyg_data_keys(sample_event)}"
             )
 
         missing_optional_features = [
@@ -78,7 +79,9 @@ def run_data_tests(datasets: List, required_features, optional_features):
             warnings.warn(f"OPTIONAL feature [{feature}] not found in data")
 
         # Check that the number of nodes is compatible with the edge indexing
-        if "edge_index" in sample_event.keys and "x" in sample_event.keys:
+        if "edge_index" in get_pyg_data_keys(sample_event) and "x" in get_pyg_data_keys(
+            sample_event
+        ):
             assert (
                 sample_event.x.shape[0] >= sample_event.edge_index.max().item() + 1
             ), (
@@ -128,9 +131,9 @@ def handle_hard_cuts(event, hard_cuts_config):
     true_track_mask = torch.ones_like(event.truth_map, dtype=torch.bool)
 
     for condition_key, condition_val in hard_cuts_config.items():
-        assert (
-            condition_key in event.keys
-        ), f"Condition key {condition_key} not found in event keys {event.keys}"
+        assert condition_key in get_pyg_data_keys(
+            event
+        ), f"Condition key {condition_key} not found in event keys {get_pyg_data_keys(event)}"
         condition_lambda = get_condition_lambda(condition_key, condition_val)
         value_mask = condition_lambda(event)
         true_track_mask = true_track_mask * value_mask
@@ -141,7 +144,7 @@ def handle_hard_cuts(event, hard_cuts_config):
     remap_from_mask(event, graph_mask)
 
     num_edges = event.edge_index.shape[1]
-    for edge_key in event.keys:
+    for edge_key in get_pyg_data_keys(event):
         if (
             isinstance(event[edge_key], torch.Tensor)
             and num_edges in event[edge_key].shape
@@ -149,7 +152,7 @@ def handle_hard_cuts(event, hard_cuts_config):
             event[edge_key] = event[edge_key][..., graph_mask]
 
     num_track_edges = event.track_edges.shape[1]
-    for track_feature in event.keys:
+    for track_feature in get_pyg_data_keys(event):
         if (
             isinstance(event[track_feature], torch.Tensor)
             and num_track_edges in event[track_feature].shape
@@ -163,15 +166,17 @@ def handle_hard_node_cuts(event, hard_cuts_config):
     Remap the track_edges to the new node list.
     """
     node_like_feature = [
-        event[feature] for feature in event.keys if event.is_node_attr(feature)
+        event[feature]
+        for feature in get_pyg_data_keys(event)
+        if event.is_node_attr(feature)
     ][0]
     node_mask = torch.ones_like(node_like_feature, dtype=torch.bool)
 
     # TODO: Refactor this to simply trim the true tracks and check which nodes are in the true tracks
     for condition_key, condition_val in hard_cuts_config.items():
-        assert (
-            condition_key in event.keys
-        ), f"Condition key {condition_key} not found in event keys {event.keys}"
+        assert condition_key in get_pyg_data_keys(
+            event
+        ), f"Condition key {condition_key} not found in event keys {get_pyg_data_keys(event)}"
         condition_lambda = get_condition_lambda(condition_key, condition_val)
         value_mask = condition_lambda(event)
         node_val_mask = map_tensor_handler(
@@ -190,7 +195,7 @@ def handle_hard_node_cuts(event, hard_cuts_config):
 
     # TODO: Refactor the below to use the remap_from_mask function
     num_nodes = event.num_nodes
-    for feature in event.keys:
+    for feature in get_pyg_data_keys(event):
         if (
             isinstance(event[feature], torch.Tensor)
             and event[feature].shape
@@ -201,7 +206,7 @@ def handle_hard_node_cuts(event, hard_cuts_config):
     num_tracks = event.track_edges.shape[1]
     track_mask = node_mask[event.track_edges].all(0)
     node_lookup = torch.cumsum(node_mask, dim=0) - 1
-    for feature in event.keys:
+    for feature in get_pyg_data_keys(event):
         if (
             isinstance(event[feature], torch.Tensor)
             and event[feature].shape
@@ -223,17 +228,17 @@ def handle_edge_features(event, edge_features):
     src, dst = event.edge_index
 
     for edge_feature in edge_features:
-        if "dr" in edge_features and not ("dr" in event.keys):
+        if "dr" in edge_features and not ("dr" in get_pyg_data_keys(event)):
             event.dr = event.r[dst] - event.r[src]
-        if "dphi" in edge_features and not ("dphi" in event.keys):
+        if "dphi" in edge_features and not ("dphi" in get_pyg_data_keys(event)):
             event.dphi = (
                 reset_angle((event.phi[dst] - event.phi[src]) * torch.pi) / torch.pi
             )
-        if "dz" in edge_features and not ("dz" in event.keys):
+        if "dz" in edge_features and not ("dz" in get_pyg_data_keys(event)):
             event.dz = event.z[dst] - event.z[src]
-        if "deta" in edge_features and not ("deta" in event.keys):
+        if "deta" in edge_features and not ("deta" in get_pyg_data_keys(event)):
             event.deta = event.eta[dst] - event.eta[src]
-        if "phislope" in edge_features and not ("phislope" in event.keys):
+        if "phislope" in edge_features and not ("phislope" in get_pyg_data_keys(event)):
             dr = event.r[dst] - event.r[src]
             dphi = reset_angle((event.phi[dst] - event.phi[src]) * torch.pi) / torch.pi
             phislope = dphi / dr
@@ -243,7 +248,9 @@ def handle_edge_features(event, edge_features):
                 event.phislope, nan=0.0, posinf=100, neginf=-100
             )
             event.phislope = torch.clamp(event.phislope, -100, 100)
-        if "rphislope" in edge_features and not ("rphislope" in event.keys):
+        if "rphislope" in edge_features and not (
+            "rphislope" in get_pyg_data_keys(event)
+        ):
             r_ = (event.r[dst] + event.r[src]) / 2.0
             dr = event.r[dst] - event.r[src]
             dphi = reset_angle((event.phi[dst] - event.phi[src]) * torch.pi) / torch.pi
@@ -260,9 +267,9 @@ def get_weight_mask(event, weight_conditions):
     graph_mask = torch.ones_like(event.y)
 
     for condition_key, condition_val in weight_conditions.items():
-        assert (
-            condition_key in event.keys
-        ), f"Condition key {condition_key} not found in event keys {event.keys}"
+        assert condition_key in get_pyg_data_keys(
+            event
+        ), f"Condition key {condition_key} not found in event keys {get_pyg_data_keys(event)}"
         condition_lambda = get_condition_lambda(condition_key, condition_val)
         value_mask = condition_lambda(event)
         graph_mask = graph_mask * map_tensor_handler(

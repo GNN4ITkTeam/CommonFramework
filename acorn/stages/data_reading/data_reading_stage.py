@@ -106,9 +106,7 @@ class EventReader:
         os.makedirs(output_dir, exist_ok=True)
 
         # Build CSV files, optionally with multiprocessing
-        max_workers = (
-            self.config["max_workers"] if "max_workers" in self.config else None
-        )
+        max_workers = self.config["max_workers"] if "max_workers" in self.config else 1
         if max_workers != 1:
             process_map(
                 partial(self._build_single_csv, output_dir=output_dir),

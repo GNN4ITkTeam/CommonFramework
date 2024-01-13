@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import torch
+from acorn.utils.version_utils import get_pyg_data_keys
 
 
 def build_signal_edges(event, weighting_config, true_edges):
@@ -34,9 +35,9 @@ def get_weight_mask(event, edges, weight_conditions, true_edges=None, truth_map=
     graph_mask = torch.ones_like(edges[0], dtype=torch.bool)
 
     for condition_key, condition_val in weight_conditions.items():
-        assert (
-            condition_key in event.keys
-        ), f"Condition key {condition_key} not found in event keys {event.keys}"
+        assert condition_key in get_pyg_data_keys(
+            event
+        ), f"Condition key {condition_key} not found in event keys {get_pyg_data_keys(event)}"
         condition_lambda = get_condition_lambda(condition_key, condition_val)
         value_mask = condition_lambda(event)
         graph_mask &= map_value_to_edges(
@@ -73,24 +74,26 @@ def handle_weighting(
     """
 
     if pred_edges is None:
-        assert (
-            "edge_index" in event.keys
+        assert "edge_index" in get_pyg_data_keys(
+            event
         ), "If pred_edges is not provided, it must be in the event"
         pred_edges = event.edge_index
 
     if truth is None:
-        assert "y" in event.keys, "If truth is not provided, it must be in the event"
+        assert "y" in get_pyg_data_keys(
+            event
+        ), "If truth is not provided, it must be in the event"
         truth = event.y
 
     if true_edges is None:
-        assert (
-            "track_edges" in event.keys
+        assert "track_edges" in get_pyg_data_keys(
+            event
         ), "If true_edges is not provided, it must be in the event"
         true_edges = event.track_edges
 
     if truth_map is None:
-        assert (
-            "truth_map" in event.keys
+        assert "truth_map" in get_pyg_data_keys(
+            event
         ), "If truth_map is not provided, it must be in the event"
         truth_map = event.truth_map
 
@@ -115,9 +118,9 @@ def handle_hard_cuts(event, hard_cuts_config):
     true_track_mask = torch.ones_like(event.truth_map, dtype=torch.bool)
 
     for condition_key, condition_val in hard_cuts_config.items():
-        assert (
-            condition_key in event.keys
-        ), f"Condition key {condition_key} not found in event keys {event.keys}"
+        assert condition_key in get_pyg_data_keys(
+            event
+        ), f"Condition key {condition_key} not found in event keys {get_pyg_data_keys(event)}"
         condition_lambda = get_condition_lambda(condition_key, condition_val)
         value_mask = condition_lambda(event)
         true_track_mask = true_track_mask * value_mask
@@ -128,11 +131,11 @@ def handle_hard_cuts(event, hard_cuts_config):
     remap_from_mask(event, graph_mask)
 
     for edge_key in ["edge_index", "y", "weight", "scores"]:
-        if edge_key in event.keys:
+        if edge_key in get_pyg_data_keys(event):
             event[edge_key] = event[edge_key][..., graph_mask]
 
     num_track_edges = event.track_edges.shape[1]
-    for track_feature in event.keys:
+    for track_feature in get_pyg_data_keys(event):
         if isinstance(event[track_feature], torch.Tensor) and (
             event[track_feature].shape[-1] == num_track_edges
         ):
