@@ -340,19 +340,15 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             ``torch.tensor`` The weighted hinge loss mean as a tensor
         """
 
-        # Take the sqrt of d to get the linear distance
-        d = torch.sqrt(d + 1e-12)
-
-        # Handle negative weights
         negative_mask = ((truth == 0) & (weights != 0)) | (weights < 0)
 
         # Handle negative loss, but don't reduce vector
         negative_loss = torch.nn.functional.hinge_embedding_loss(
             d[negative_mask],
             torch.ones_like(d[negative_mask]) * -1,
-            margin=self.hparams["margin"],
+            margin=self.hparams["margin"] ** 2,
             reduction="none",
-        ).pow(2)
+        )
 
         # Now reduce the vector with non-zero weights
         negative_loss = torch.mean(negative_loss * weights[negative_mask].abs())
@@ -363,9 +359,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         positive_loss = torch.nn.functional.hinge_embedding_loss(
             d[positive_mask],
             torch.ones_like(d[positive_mask]),
-            margin=self.hparams["margin"],
+            margin=self.hparams["margin"] ** 2,
             reduction="none",
-        ).pow(2)
+        )
 
         # Now reduce the vector with non-zero weights
         positive_loss = torch.mean(positive_loss * weights[positive_mask].abs())
