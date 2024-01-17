@@ -103,7 +103,6 @@ class PyModuleMap(GraphConstructionStage):
         logging.info(f"Building graphs for {data_name}")
 
         for graph, _, truth in tqdm(dataset):
-
             if graph is None:
                 continue
             if os.path.exists(os.path.join(output_dir, f"event{graph.event_id}.pyg")):
