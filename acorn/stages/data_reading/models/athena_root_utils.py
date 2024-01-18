@@ -111,6 +111,8 @@ def uproot2pandaDF(branches: dict):
 
     for k, val in branches.items():
         # sanity check
+        if len(val) == 0:
+            return None
         if len(val) > 1:
             warnings.warn("WARNING val has length larger than 1:", len(val))
 
@@ -135,6 +137,8 @@ def read_particles(branches: dict):
     return a panda dataframe containing each particles
     """
     particles = uproot2pandaDF(branches)
+    if particles is None:
+        return None
 
     # Prepare barcodes for later processing
     particles = particles.astype({"barcode": str, "subevent": str})

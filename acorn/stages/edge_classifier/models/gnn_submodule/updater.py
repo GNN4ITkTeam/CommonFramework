@@ -3,7 +3,12 @@ import torch
 from torch.utils.checkpoint import checkpoint
 from torch_scatter import scatter_add, scatter_mean, scatter_max
 from torch_geometric.nn import aggr, HeteroConv, MessagePassing
-from torch_geometric.nn.conv.hgt_conv import group
+import torch_geometric
+
+if torch_geometric.__version__ < "2.4.0":
+    from torch_geometric.nn.conv.hgt_conv import group
+else:
+    from torch_geometric.nn.conv.hetero_conv import group
 
 from acorn.utils import make_mlp
 
