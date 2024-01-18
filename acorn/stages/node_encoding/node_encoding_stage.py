@@ -46,6 +46,7 @@ from acorn.utils import (
 )
 
 from atlasify import atlasify
+import atlasify as atl
 import os
 import numpy as np
 from acorn.utils.plotting_utils import (
@@ -161,6 +162,9 @@ class NodeEncodingStage(LightningModule):
         graph_constructor.setup(stage="test")
 
         all_plots = config["plots"]
+
+        if config.get("trackML_label"):
+            atl.ATLAS = "TrackML Dataset"
 
         # TODO: Handle the list of plots properly
         for plot_function, plot_config in all_plots.items():
@@ -298,7 +302,20 @@ class NodeEncodingStage(LightningModule):
         t_pt_hist, t_eta_hist = None, None
         p_pt_hist, p_eta_hist = None, None
 
-        pt_min, pt_max = 1000, 50000
+        base_subtext = (
+            (
+                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
+                r" $t \bar{t}$ and soft interactions) " + "\n"
+                r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
+            )
+            if not config.get("trackML_label")
+            else r"$p_T > 1$GeV" + "\n"
+        )
+
+        if config.get("pT_unit", "MeV") == "MeV":
+            pt_min, pt_max = 1000, 50000
+        else:
+            pt_min, pt_max = 1, 50
         pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
         eta_bins = np.linspace(-4, 4)
 
@@ -345,30 +362,15 @@ class NodeEncodingStage(LightningModule):
                     event.hit_particle_pt[event.edge_index[1, event.edge_y]].numpy(),
                     bins=pt_bins,
                 )
-                tp_eta_hist, _ = np.histogram(
-                    event.hit_particle_eta[event.edge_index[1, event.edge_y]].numpy(),
-                    bins=eta_bins,
-                )
                 target_tp_pt_hist, _ = np.histogram(
                     event.hit_particle_pt[
                         event.edge_index[1, event.edge_target_mask]
                     ].numpy(),
                     bins=pt_bins,
                 )
-                target_tp_eta_hist, _ = np.histogram(
-                    event.hit_particle_eta[
-                        event.edge_index[1, event.edge_target_mask]
-                    ].numpy(),
-                    bins=eta_bins,
-                )
                 max_tp_pt_hist, _ = np.histogram(
                     event.hit_particle_pt[event.hit_particle_nhits > 1].numpy(),
                     bins=pt_bins,
-                    weights=event.max_hit_t.numpy(),
-                )
-                max_tp_eta_hist, _ = np.histogram(
-                    event.hit_particle_eta[event.hit_particle_nhits > 1].numpy(),
-                    bins=eta_bins,
                     weights=event.max_hit_t.numpy(),
                 )
                 max_target_tp_pt_hist, _ = np.histogram(
@@ -376,37 +378,51 @@ class NodeEncodingStage(LightningModule):
                     bins=pt_bins,
                     weights=event.max_hit_target_t.numpy(),
                 )
-                max_target_tp_eta_hist, _ = np.histogram(
-                    event.hit_particle_eta[event.hit_target_mask].numpy(),
-                    bins=eta_bins,
-                    weights=event.max_hit_target_t.numpy(),
-                )
                 t_pt_hist, _ = np.histogram(
                     event.hit_particle_pt[event.hit_target_mask].numpy(),
                     bins=pt_bins,
-                    weights=event.hit_target_t.numpy(),
-                )
-                t_eta_hist, _ = np.histogram(
-                    event.hit_particle_eta[event.hit_target_mask].numpy(),
-                    bins=eta_bins,
                     weights=event.hit_target_t.numpy(),
                 )
                 p_pt_hist = (
                     np.histogram(event.hit_particle_pt.numpy(), bins=pt_bins)[0]
                     * plot_config["knn"]
                 )
-                p_eta_hist = (
-                    np.histogram(event.hit_particle_eta.numpy(), bins=eta_bins)[0]
-                    * plot_config["knn"]
-                )
+                if config.get("plot_eta", True):
+                    tp_eta_hist, _ = np.histogram(
+                        event.hit_particle_eta[
+                            event.edge_index[1, event.edge_y]
+                        ].numpy(),
+                        bins=eta_bins,
+                    )
+                    target_tp_eta_hist, _ = np.histogram(
+                        event.hit_particle_eta[
+                            event.edge_index[1, event.edge_target_mask]
+                        ].numpy(),
+                        bins=eta_bins,
+                    )
+                    max_tp_eta_hist, _ = np.histogram(
+                        event.hit_particle_eta[event.hit_particle_nhits > 1].numpy(),
+                        bins=eta_bins,
+                        weights=event.max_hit_t.numpy(),
+                    )
+                    max_target_tp_eta_hist, _ = np.histogram(
+                        event.hit_particle_eta[event.hit_target_mask].numpy(),
+                        bins=eta_bins,
+                        weights=event.max_hit_target_t.numpy(),
+                    )
+                    t_eta_hist, _ = np.histogram(
+                        event.hit_particle_eta[event.hit_target_mask].numpy(),
+                        bins=eta_bins,
+                        weights=event.hit_target_t.numpy(),
+                    )
+                    p_eta_hist = (
+                        np.histogram(event.hit_particle_eta.numpy(), bins=eta_bins)[0]
+                        * plot_config["knn"]
+                    )
             else:
                 tp_pt_hist += np.histogram(
                     event.hit_particle_pt[event.edge_index[1, event.edge_y]].numpy(),
                     bins=pt_bins,
-                )[0]
-                tp_eta_hist += np.histogram(
-                    event.hit_particle_eta[event.edge_index[1, event.edge_y]].numpy(),
-                    bins=eta_bins,
                 )[0]
                 target_tp_pt_hist += np.histogram(
                     event.hit_particle_pt[
@@ -414,20 +430,9 @@ class NodeEncodingStage(LightningModule):
                     ].numpy(),
                     bins=pt_bins,
                 )[0]
-                target_tp_eta_hist += np.histogram(
-                    event.hit_particle_eta[
-                        event.edge_index[1, event.edge_target_mask]
-                    ].numpy(),
-                    bins=eta_bins,
-                )[0]
                 max_tp_pt_hist += np.histogram(
                     event.hit_particle_pt[event.hit_particle_nhits > 1].numpy(),
                     bins=pt_bins,
-                    weights=event.max_hit_t.numpy(),
-                )[0]
-                max_tp_eta_hist += np.histogram(
-                    event.hit_particle_eta[event.hit_particle_nhits > 1].numpy(),
-                    bins=eta_bins,
                     weights=event.max_hit_t.numpy(),
                 )[0]
                 max_target_tp_pt_hist += np.histogram(
@@ -435,29 +440,47 @@ class NodeEncodingStage(LightningModule):
                     bins=pt_bins,
                     weights=event.max_hit_target_t.numpy(),
                 )[0]
-                max_target_tp_eta_hist += np.histogram(
-                    event.hit_particle_eta[event.hit_target_mask].numpy(),
-                    bins=eta_bins,
-                    weights=event.max_hit_target_t.numpy(),
-                )[0]
                 t_pt_hist += np.histogram(
                     event.hit_particle_pt[event.hit_target_mask].numpy(),
                     bins=pt_bins,
-                    weights=event.hit_target_t.numpy(),
-                )[0]
-                t_eta_hist += np.histogram(
-                    event.hit_particle_eta[event.hit_target_mask].numpy(),
-                    bins=eta_bins,
                     weights=event.hit_target_t.numpy(),
                 )[0]
                 p_pt_hist += (
                     np.histogram(event.hit_particle_pt.numpy(), bins=pt_bins)[0]
                     * plot_config["knn"]
                 )
-                p_eta_hist += (
-                    np.histogram(event.hit_particle_eta.numpy(), bins=eta_bins)[0]
-                    * plot_config["knn"]
-                )
+                if config.get("plot_eta", True):
+                    tp_eta_hist += np.histogram(
+                        event.hit_particle_eta[
+                            event.edge_index[1, event.edge_y]
+                        ].numpy(),
+                        bins=eta_bins,
+                    )[0]
+                    target_tp_eta_hist += np.histogram(
+                        event.hit_particle_eta[
+                            event.edge_index[1, event.edge_target_mask]
+                        ].numpy(),
+                        bins=eta_bins,
+                    )[0]
+                    max_tp_eta_hist += np.histogram(
+                        event.hit_particle_eta[event.hit_particle_nhits > 1].numpy(),
+                        bins=eta_bins,
+                        weights=event.max_hit_t.numpy(),
+                    )[0]
+                    max_target_tp_eta_hist += np.histogram(
+                        event.hit_particle_eta[event.hit_target_mask].numpy(),
+                        bins=eta_bins,
+                        weights=event.max_hit_target_t.numpy(),
+                    )[0]
+                    t_eta_hist += np.histogram(
+                        event.hit_particle_eta[event.hit_target_mask].numpy(),
+                        bins=eta_bins,
+                        weights=event.hit_target_t.numpy(),
+                    )[0]
+                    p_eta_hist += (
+                        np.histogram(event.hit_particle_eta.numpy(), bins=eta_bins)[0]
+                        * plot_config["knn"]
+                    )
             tp += event.edge_y.sum().item()
             target_tp += event.edge_target_mask.sum().item()
             t += event.hit_target_t.sum().item()
@@ -478,10 +501,12 @@ class NodeEncodingStage(LightningModule):
             [max_target_tp_pt_hist, max_target_tp_eta_hist],
             [t_pt_hist, t_eta_hist],
             [pt_bins, eta_bins],
-            ["$p_T [MeV]$", r"$\eta$"],
+            [f"$p_T$ [{config.get('pT_unit', 'MeV')}]", r"$\eta$"],
             [True, False],
             ["edgewise_efficiency_pt.png", "edgewise_efficiency_eta.png"],
         ):
+            if target_tp_hist is None:
+                continue
             hist, err = get_ratio(target_tp_hist, t_hist)
             hist_up, _ = get_ratio(max_target_tp_hist, t_hist)
             if "filename_template" in plot_config:
@@ -514,14 +539,8 @@ class NodeEncodingStage(LightningModule):
 
             # Save the plot
             atlasify(
-                atlas="Internal",
-                subtext=(
-                    r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
-                    r" $t \bar{t}$ and soft interactions) "
-                )
-                + "\n"
-                r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
-                f"kNN graph (k={plot_config['knn']})" + "\n"
+                atlas=True if config.get("trackML_label") else "Internal",
+                subtext=base_subtext + f"kNN graph (k={plot_config['knn']})" + "\n"
                 f"Global efficiency: {target_tp / t :.4f}"
                 + "\n"
                 + f"Efficiency upper bound: {max_target_tp / t :.4f}",
@@ -538,10 +557,12 @@ class NodeEncodingStage(LightningModule):
             [max_tp_pt_hist, max_tp_eta_hist],
             [p_pt_hist, p_eta_hist],
             [pt_bins, eta_bins],
-            ["$p_T [MeV]$", r"$\eta$"],
+            [f"$p_T$ [{config.get('pT_unit', 'MeV')}]", r"$\eta$"],
             [True, False],
             ["edgewise_purity_pt.png", "edgewise_purity_eta.png"],
         ):
+            if tp_hist is None:
+                continue
             hist, err = get_ratio(tp_hist, p_hist)
             hist_up, _ = get_ratio(max_tp_hist, p_hist)
             if "filename_template" in plot_config:
@@ -574,17 +595,11 @@ class NodeEncodingStage(LightningModule):
 
             # Save the plot
             atlasify(
-                atlas="Internal",
-                subtext=(
-                    r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
-                    r" $t \bar{t}$ and soft interactions) "
-                )
+                atlas=True if config.get("trackML_label") else "Internal",
+                subtext=base_subtext + f"kNN graph (k={plot_config['knn']})" + "\n"
+                f"Global efficiency: {target_tp / t :.4f}"
                 + "\n"
-                r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
-                f"kNN graph (k={plot_config['knn']})" + "\n"
-                f"Global purity: {tp / p :.4f}"
-                + "\n"
-                + f"Purity upper bound: {max_tp / p :.4f}",
+                + f"Efficiency upper bound: {max_target_tp / t :.4f}",
             )
             fig.savefig(os.path.join(config["stage_dir"], filename))
 
@@ -601,6 +616,16 @@ class NodeEncodingStage(LightningModule):
         max_tp = [0] * 20
         max_target_tp = [0] * 20
         p = [0] * 20
+
+        base_subtext = (
+            (
+                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
+                r" $t \bar{t}$ and soft interactions) " + "\n"
+                r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
+            )
+            if not config.get("trackML_label")
+            else r"$p_T > 1$GeV" + "\n"
+        )
 
         dataset_name = config["dataset"]
         dataset = getattr(self, dataset_name)
@@ -677,14 +702,8 @@ class NodeEncodingStage(LightningModule):
 
         # Save the plot
         atlasify(
-            atlas="Internal",
-            subtext=(
-                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
-                r" $t \bar{t}$ and soft interactions) "
-            )
-            + "\n"
-            r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
-            "kNN graph",
+            atlas=True if config.get("trackML_label") else "Internal",
+            subtext=base_subtext + "kNN graph",
         )
         fig.savefig(os.path.join(config["stage_dir"], "knn_eff_pur_vs_k.png"))
 
@@ -706,9 +725,22 @@ class NodeEncodingStage(LightningModule):
 
         eps = plot_config["eps"]
 
-        pt_min, pt_max = 1000, 50000
+        if config.get("pT_unit", "MeV") == "MeV":
+            pt_min, pt_max = 1000, 50000
+        else:
+            pt_min, pt_max = 1, 50
         pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
         eta_bins = np.linspace(-4, 4)
+
+        base_subtext = (
+            (
+                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
+                r" $t \bar{t}$ and soft interactions) " + "\n"
+                r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
+            )
+            if not config.get("trackML_label")
+            else r"$p_T > 1$GeV" + "\n"
+        )
 
         particles_pt_hist, particles_eta_hist = None, None
         matched_target_particles_pt_hist, matched_target_particles_eta_hist = None, None
@@ -731,8 +763,10 @@ class NodeEncodingStage(LightningModule):
                     [
                         event.hit_particle_id,
                         event.hit_particle_pt,
-                        event.hit_particle_eta,
-                    ],
+                    ]
+                    + (
+                        [event.hit_particle_eta] if config.get("plot_eta", True) else []
+                    ),
                     dim=0,
                 )[:, event.hit_target_mask],
                 dim=1,
@@ -749,8 +783,8 @@ class NodeEncodingStage(LightningModule):
                     event.hit_particle_id,
                     event.hit_track_length,
                     event.hit_particle_pt,
-                    event.hit_particle_eta,
-                ],
+                ]
+                + ([event.hit_particle_eta] if config.get("plot_eta", True) else []),
                 dim=0,
             )
             uni_track_info, inv_idx, n_matched_hits = torch.unique(
@@ -763,7 +797,9 @@ class NodeEncodingStage(LightningModule):
             uni_target_track_info, inv_idx, n_matched_target_hits = torch.unique(
                 hit_target_track_info, dim=1, return_counts=True, return_inverse=True
             )
-            matched_target_tracks = uni_target_track_info[[1, 3, 4]][
+            matched_target_tracks = uni_target_track_info[
+                [1, 3] + ([4] if config.get("plot_eta", True) else [])
+            ][
                 :,
                 (uni_target_track_info[0] >= 0)
                 & (n_matched_target_hits / uni_target_track_info[2] > 0.5),
@@ -781,28 +817,30 @@ class NodeEncodingStage(LightningModule):
                 particles_pt_hist = np.histogram(
                     particles[1].cpu().numpy(), bins=pt_bins
                 )[0]
-                particles_eta_hist = np.histogram(
-                    particles[2].cpu().numpy(), bins=eta_bins
-                )[0]
                 matched_target_particles_pt_hist = np.histogram(
                     matched_target_particles[1].cpu().numpy(), bins=pt_bins
                 )[0]
-                matched_target_particles_eta_hist = np.histogram(
-                    matched_target_particles[2].cpu().numpy(), bins=eta_bins
-                )[0]
+                if config.get("plot_eta", True):
+                    particles_eta_hist = np.histogram(
+                        particles[2].cpu().numpy(), bins=eta_bins
+                    )[0]
+                    matched_target_particles_eta_hist = np.histogram(
+                        matched_target_particles[2].cpu().numpy(), bins=eta_bins
+                    )[0]
             else:
                 particles_pt_hist += np.histogram(
                     particles[1].cpu().numpy(), bins=pt_bins
                 )[0]
-                particles_eta_hist += np.histogram(
-                    particles[2].cpu().numpy(), bins=eta_bins
-                )[0]
                 matched_target_particles_pt_hist += np.histogram(
                     matched_target_particles[1].cpu().numpy(), bins=pt_bins
                 )[0]
-                matched_target_particles_eta_hist += np.histogram(
-                    matched_target_particles[2].cpu().numpy(), bins=eta_bins
-                )[0]
+                if config.get("plot_eta", True):
+                    particles_eta_hist += np.histogram(
+                        particles[2].cpu().numpy(), bins=eta_bins
+                    )[0]
+                    matched_target_particles_eta_hist += np.histogram(
+                        matched_target_particles[2].cpu().numpy(), bins=eta_bins
+                    )[0]
 
         eff = n_matched_target_particles / n_particles
         dup = (
@@ -821,10 +859,12 @@ class NodeEncodingStage(LightningModule):
             [matched_target_particles_pt_hist, matched_target_particles_eta_hist],
             [particles_pt_hist, particles_eta_hist],
             [pt_bins, eta_bins],
-            ["$p_T [MeV]$", r"$\eta$"],
+            [f"$p_T$ [{config.get('pT_unit', 'MeV')}]", r"$\eta$"],
             [True, False],
             ["track_efficiency_pt.png", "track_efficiency_eta.png"],
         ):
+            if matched_target_particles_hist is None:
+                continue
             hist, err = get_ratio(matched_target_particles_hist, particles_hist)
             if "filename_template" in plot_config:
                 filename = config["filename_template"] + "_" + filename
@@ -835,7 +875,7 @@ class NodeEncodingStage(LightningModule):
                 err,
                 xlabel,
                 plot_config["title"],
-                plot_config.get("ylim", [0.9, 1.04]),
+                plot_config.get("ylim", [0.8, 1.04]),
                 "Efficiency",
                 logx=logx,
                 color="black",
@@ -843,14 +883,11 @@ class NodeEncodingStage(LightningModule):
 
             # Save the plot
             atlasify(
-                atlas="Internal",
-                subtext=(
-                    r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
-                    r" $t \bar{t}$ and soft interactions) "
-                )
+                atlas=True if config.get("trackML_label") else "Internal",
+                subtext=base_subtext
+                + r"DBSCAN ($\epsilon$"
+                + f"={plot_config['eps']}, min_samples=3)"
                 + "\n"
-                r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
-                r"DBSCAN ($\epsilon$" + f"={plot_config['eps']}, min_samples=3)" + "\n"
                 f"Efficiency: {eff :.4f}" + "\n"
                 f"Duplication rate: {dup :.4f}" + "\n"
                 f"Fake rate: {fak :.4f}" + "\n",
@@ -866,6 +903,16 @@ class NodeEncodingStage(LightningModule):
 
         dataset_name = config["dataset"]
         dataset = getattr(self, dataset_name)
+
+        base_subtext = (
+            (
+                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
+                r" $t \bar{t}$ and soft interactions) " + "\n"
+                r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
+            )
+            if not config.get("trackML_label")
+            else r"$p_T > 1$GeV" + "\n"
+        )
 
         epss = np.linspace(0.05, 1, 20)
         n_particles = [0] * len(epss)
@@ -956,14 +1003,8 @@ class NodeEncodingStage(LightningModule):
 
         # Save the plot
         atlasify(
-            atlas="Internal",
-            subtext=(
-                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
-                r" $t \bar{t}$ and soft interactions) "
-            )
-            + "\n"
-            r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
-            "DBSCAN (min_samples = 3)",
+            atlas=True if config.get("trackML_label") else "Internal",
+            subtext=base_subtext + "DBSCAN (min_samples = 3)",
         )
         fig.savefig(os.path.join(config["stage_dir"], "traack_eff_dbscan_vs_eps.png"))
 

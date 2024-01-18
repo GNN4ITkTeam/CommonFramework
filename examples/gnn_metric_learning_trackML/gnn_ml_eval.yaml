@@ -14,6 +14,10 @@ target_tracks:
   hit_particle_pt: [1, .inf]
   hit_particle_nhits: [3, .inf]
 
+trackML_label: True
+pT_unit: GeV
+plot_eta: False
+
 # Plotting parameters
 plots:
   node_knn_eff_pur_vs_k:
