@@ -1,0 +1,38 @@
+# CommonFramework configuration
+stage: track_building
+model: CCandWalk
+input_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/
+stage_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track/ # directory of the reco tracks
+
+# Dataset parameters
+data_split: [10, 10, 10] # Number of [training, validation, testing] examples
+
+target_tracks:
+  pt: [1000, .inf]
+  n_true_hits: [3, .inf]
+  primary: True
+  pdgId: [not_in, [11, -11]]
+  radius: [0., 260.]
+  eta_particle: [-4., 4.]
+
+plots:
+  tracking_efficiency:
+    title: Track Reconstruction Efficiency
+    variables : 
+      pt :
+        x_label: '$p_T [GeV]$'
+        x_scale: 0.001
+        x_lim: [1,20]
+        y_lim: [0,1.3]
+      eta:
+        x_label: '$\eta$'
+        x_lim: [-4,4]
+        y_lim: [0,1.3]
+
+matching_fraction: 0.5
+matching_style: ATLAS
+min_track_length: 5
+
+
+
+

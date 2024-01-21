@@ -17,3 +17,5 @@
 *env*
 *dist*
 run/
+*local*
+**.ipynb_checkpoints**

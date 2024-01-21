@@ -32,42 +32,42 @@ where `train` is used to train a model, `infer` is used to apply the model to da
 
 **1.** First, we build our input data from the raw Athena events:
 ```bash
-g4i-infer data_reader.yaml
+acorn infer data_reader.yaml
 ```
 
 **2.** Then, we build graphs using the python implementation of the Module Map:
 ```bash
-g4i-infer module_map_infer.yaml
+acorn infer module_map_infer.yaml
 ```
 
 **2a.** (Optional) We can examine the performance of the Module Map, by printing some efficiency plots:
 ```bash
-g4i-eval module_map_eval.yaml
+acorn eval module_map_eval.yaml
 ```
 
 **3.** Then, we train the GNN (here we will train on a toy version of the data that only includes pT>1GeV particles - this is configured with the `hard_cuts` option in the `gnn_train.yaml` file):
 ```bash
-g4i-train gnn_train.yaml
+acorn train gnn_train.yaml
 ```
 
 **4.** Once the GNN is trained (should take around half an hour), we apply the GNN in inference to produce a dataset of scored graphs:
 ```bash
-g4i-infer gnn_infer.yaml
+acorn infer gnn_infer.yaml
 ```
 
 **4a.** (Optional) Evaluate the GNN performance:
 ```bash
-g4i-eval gnn_eval.yaml
+acorn eval gnn_eval.yaml
 ```
 
 **5.** Finally, we produce track candidates from the scored graphs:
 ```bash
-g4i-infer track_building_infer.yaml
+acorn infer track_building_infer.yaml
 ```
 
 **6.** And plot the performance
 ```bash
-g4i-eval track_building_eval.yaml
+acorn eval track_building_eval.yaml
 ```
 
 ## Understanding the Example

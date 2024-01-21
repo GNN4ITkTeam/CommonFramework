@@ -1,6 +1,6 @@
 import sys
 
-sys.path.append("../")
+sys.path.append("../../acorn")
 
 import yaml
 import pytest
@@ -10,7 +10,7 @@ def test_model_load():
     """
     Test the model to ensure it is of the right format and loaded correctly. It uses the configuration given in test_gnn_config.yaml.
     """
-    from gnn4itk_cf.stages.edge_classifier import InteractionGNN
+    from acorn.stages.edge_classifier import InteractionGNN
 
     # load test_gnn_config.yaml
     with open("stages/edge_classifier/test_gnn_config.yaml", "r") as f:
@@ -30,7 +30,7 @@ def test_data_load():
     3. Test a data load without enough events
     4. Missing directory
     """
-    from gnn4itk_cf.stages.edge_classifier import InteractionGNN
+    from acorn.stages.edge_classifier import InteractionGNN
 
     # load test_gnn_config.yaml
     with open("stages/edge_classifier/test_gnn_config.yaml", "r") as f:

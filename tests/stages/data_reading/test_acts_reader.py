@@ -1,13 +1,13 @@
 import sys
 
-sys.path.append("../gnn4itk_cf")
+sys.path.append("../../acorn")
 
 import pytest
 from pathlib import Path
 
 import pandas as pd
 
-from gnn4itk_cf.stages.data_reading.models.acts_reader import ActsReader
+from acorn.stages.data_reading.models.acts_reader import ActsReader
 
 common_config = {
     "simhit_stem": "hits",

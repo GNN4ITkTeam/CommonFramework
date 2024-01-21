@@ -21,10 +21,10 @@ mkdir -p logs
 eval "$(conda shell.bash hook)"
 
 module load python
-source activate gnn4itk
+source activate acorn
 
 export SLURM_CPU_BIND="cores"
 echo -e "\nStarting training\n"
 
-# Single GPU training
-srun -u g4i-train $@
+# Multiple GPU training
+srun -u acorn train $@
