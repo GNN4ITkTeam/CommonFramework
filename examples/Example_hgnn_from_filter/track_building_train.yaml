@@ -11,7 +11,7 @@ nodes: 1
 data_split: [4000, 100, 1000] # Number of [training, validation, testing] examples[7800, 1000, 1000]
 data_config:
     edge_cut: 0.5
-    loose_cut: 0.5
+    loose_cut: 0.9
     tight_cut: null
     min_hits: 9
     random_drop: 0.

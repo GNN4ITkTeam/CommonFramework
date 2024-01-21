@@ -2,8 +2,8 @@
 
 #SBATCH -A m3443 -q regular
 #SBATCH -C gpu
-#SBATCH -t 4:00:00
-#SBATCH -n 4
+#SBATCH -t 6:00:00
+#SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-task=1
 #SBATCH -c 32
@@ -20,7 +20,8 @@
 mkdir -p logs
 eval "$(conda shell.bash hook)"
 
-conda activate gnn4itk
+module load python
+source activate gnn4itk
 
 export SLURM_CPU_BIND="cores"
 echo -e "\nStarting training\n"
