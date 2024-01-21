@@ -18,14 +18,13 @@ import torch
 import math
 import torch.nn.functional as F
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# torch.set_float32_matmul_precision('medium')
-
 # Local imports
 from ..ml_track_building_stage import MLTrackBuildingStage
 from acorn.stages.track_building.utils import evaluate_tracking, get_statistics
 from acorn.stages.track_building.models.gnn_modules.hgnn_models import Pooling, InteractionGNNBlock, HierarchicalGNNBlock
 from acorn.stages.track_building.models.gnn_modules.gnn_cells import find_neighbors
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class HierarchicalGNN(MLTrackBuildingStage):
     def __init__(self, hparams):

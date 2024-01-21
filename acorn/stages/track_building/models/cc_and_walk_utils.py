@@ -307,24 +307,18 @@ def add_track_labels(graph, all_trks):
     track_id = track_df.track_id
     reco_method = track_df.reco_method
 
-    # In the case that the dataframe hits are out of order with the input graph hits
-    hit_id_df = pd.DataFrame({"hit_id": graph.hit_id})
-    hit_id_df = hit_id_df.merge(track_df, on="hit_id", how="left")
-    hit_id_df.fillna(-1, inplace=True)
-    track_id_tensor = torch.from_numpy(hit_id_df.track_id.values).long()
-
     graph.bgraph = torch.stack([
-        torch.arange(track_id_tensor.shape[0], device = graph.x.device)[track_id_tensor >= 0],
-        torch.as_tensor(track_id_tensor[track_id_tensor >= 0], device = graph.x.device)
+        torch.as_tensor(hit_id, device = graph.x.device),
+        torch.as_tensor(track_id, device = graph.x.device)
     ])
     graph.reco_method = reco_method
 
 
-def pairwise(l):
+def pairwise(lst):
     """
     Return successive overlapping pairs taken from the input list
     (not available in itertools of python 3.9)
     """
-    l1 = l[:-1]
-    l2 = l[1:]
+    l1 = lst[:-1]
+    l2 = lst[1:]
     return list(zip(l1, l2))

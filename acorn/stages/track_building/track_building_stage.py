@@ -139,7 +139,7 @@ class TrackBuildingStage:
         all_plots = config["plots"]
         graph_constructor.cache_dfs(config)
         suffix = f"{config['matching_style']}_{config['matching_fraction']}"
-        os.makedirs(self.hparams["stage_dir"], exist_ok=True)
+        os.makedirs(graph_constructor.hparams["stage_dir"], exist_ok=True)
         graph_constructor.write_high_level_stats(config, suffix)
         
         # TODO: Handle the list of plots properly

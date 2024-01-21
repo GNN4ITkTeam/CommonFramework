@@ -13,12 +13,11 @@
 # limitations under the License.
 
 # 3rd party imports
+import warnings
 import torch
 from pytorch_lightning import LightningModule
 from torch_geometric.data import Dataset
 from torch.utils.data import DataLoader
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Local imports
 from .track_building_stage import TrackBuildingStage
@@ -27,6 +26,8 @@ from acorn.utils import (
     load_datafiles_in_dir,
     get_optimizers,
 )
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class MLTrackBuildingStage(TrackBuildingStage, LightningModule):
     def __init__(self, hparams):

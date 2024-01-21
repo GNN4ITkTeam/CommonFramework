@@ -20,13 +20,13 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from functools import partial
 
-from . import cc_and_walk_utils
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 # Local imports
+from . import cc_and_walk_utils
 from ..track_building_stage import TrackBuildingStage
 from .. import utils
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class CCandWalk(TrackBuildingStage):
@@ -83,7 +83,6 @@ class CCandWalk(TrackBuildingStage):
             threshold = self.hparams["score_cut_cc"]
 
         # Remove cycles by pointing all edges outwards (necessary for topo-sort)
-        R = graph.r**2 + graph.z**2
         graph = cc_and_walk_utils.remove_cycles(graph)
 
         # remove low-scoring edges
