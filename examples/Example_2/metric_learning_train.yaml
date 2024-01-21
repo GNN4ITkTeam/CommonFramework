@@ -18,7 +18,7 @@ data_split: [80, 10, 10] # Number of [training, validation, testing] examples
   # All other tracks follow the default: If a true edge, weight=0. If a fake edge, weight=1.
 weighting:
   - weight: 1.
-    conditions: 
+    conditions:
       y: False
   - weight: 0.
     conditions:

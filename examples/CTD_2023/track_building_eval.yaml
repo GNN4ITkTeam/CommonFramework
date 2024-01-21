@@ -18,7 +18,7 @@ target_tracks:
 plots:
   tracking_efficiency:
     title: Track Reconstruction Efficiency
-    variables : 
+    variables :
       pt :
         x_label: '$p_T [GeV]$'
         x_scale: 0.001

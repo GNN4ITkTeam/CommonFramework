@@ -2,7 +2,7 @@
 stage: data_reading
 model: AthenaRootReader
 input_dir: <PUT HERE THE FOLDER STORING THE DUMP ROOT FILES>
-input_sets: 
+input_sets:
     train: train_set_ttbar_uncorr.txt
     valid: valid_set_ttbar_uncorr.txt
     test: test_set_ttbar_uncorr.txt
@@ -14,7 +14,7 @@ max_workers: 1
 # Feature Configurations
 feature_sets:
     hit_features: [hit_id, x, y, z, r, phi, eta, region, module_id,
-                cluster_x_1, cluster_y_1, cluster_z_1, cluster_x_2, cluster_y_2, cluster_z_2, 
+                cluster_x_1, cluster_y_1, cluster_z_1, cluster_x_2, cluster_y_2, cluster_z_2,
                 norm_x_1, norm_y_1, norm_x_2, norm_y_2, norm_z_1, eta_angle_1, phi_angle_1, eta_angle_2, phi_angle_2, norm_z_2]
     track_features: [particle_id, pt, radius, primary, nhits, pdgId]
 

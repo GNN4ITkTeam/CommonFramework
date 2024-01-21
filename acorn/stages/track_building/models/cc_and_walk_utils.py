@@ -307,10 +307,12 @@ def add_track_labels(graph, all_trks):
     track_id = track_df.track_id
     reco_method = track_df.reco_method
 
-    graph.bgraph = torch.stack([
-        torch.as_tensor(hit_id, device = graph.x.device),
-        torch.as_tensor(track_id, device = graph.x.device)
-    ])
+    graph.bgraph = torch.stack(
+        [
+            torch.as_tensor(hit_id, device=graph.x.device),
+            torch.as_tensor(track_id, device=graph.x.device),
+        ]
+    )
     graph.reco_method = reco_method
 
 

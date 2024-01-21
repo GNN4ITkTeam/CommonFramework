@@ -23,5 +23,5 @@ __all__ = [
     "HierarchicalGNN",
     "CCandWalk",
     "WeaklyConnectedComponentsAllSimplePath",
-    "utils"
+    "utils",
 ]

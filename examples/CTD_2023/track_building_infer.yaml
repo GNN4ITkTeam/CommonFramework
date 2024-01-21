@@ -9,7 +9,7 @@ data_split: [10, 10, 10] # Number of [training, validation, testing] examples
 
 # Connected Components and Walkthrough thresholds
 score_cut_cc: 0.01
-score_cut_walk: 
+score_cut_walk:
   min: 0.1
   add: 0.6
 

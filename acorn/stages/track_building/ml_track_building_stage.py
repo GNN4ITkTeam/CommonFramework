@@ -29,15 +29,16 @@ from acorn.utils import (
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 class MLTrackBuildingStage(TrackBuildingStage, LightningModule):
     def __init__(self, hparams):
         TrackBuildingStage.__init__(self, hparams, get_logger=False)
         LightningModule.__init__(self)
         """
         Initialise the PyModuleMap - a python implementation of the Triplet Module Map.
-        """        
+        """
         self.dataset_class = PartialGraphDataset
-        
+
     def setup(self, stage="fit"):
         """
         The setup logic of the stage.
@@ -50,7 +51,7 @@ class MLTrackBuildingStage(TrackBuildingStage, LightningModule):
             self.load_data(stage, self.hparams["input_dir"])
         elif stage == "test":
             self.load_data(stage, self.hparams["stage_dir"])
-        
+
     def train_dataloader(self):
         """
         Load the training set.
@@ -59,7 +60,11 @@ class MLTrackBuildingStage(TrackBuildingStage, LightningModule):
             return None
         num_workers = self.hparams.get("num_workers", [1, 1, 1])[0]
         return DataLoader(
-            self.trainset, batch_size=1, num_workers=num_workers, shuffle=True, collate_fn = lambda lst: lst[0]
+            self.trainset,
+            batch_size=1,
+            num_workers=num_workers,
+            shuffle=True,
+            collate_fn=lambda lst: lst[0],
         )
 
     def val_dataloader(self):
@@ -69,7 +74,12 @@ class MLTrackBuildingStage(TrackBuildingStage, LightningModule):
         if self.valset is None:
             return None
         num_workers = self.hparams.get("num_workers", [1, 1, 1])[1]
-        return DataLoader(self.valset, batch_size=1, num_workers=num_workers, collate_fn = lambda lst: lst[0])
+        return DataLoader(
+            self.valset,
+            batch_size=1,
+            num_workers=num_workers,
+            collate_fn=lambda lst: lst[0],
+        )
 
     def test_dataloader(self):
         """
@@ -78,21 +88,27 @@ class MLTrackBuildingStage(TrackBuildingStage, LightningModule):
         if self.testset is None:
             return None
         num_workers = self.hparams.get("num_workers", [1, 1, 1])[2]
-        return DataLoader(self.testset, batch_size=1, num_workers=num_workers, collate_fn = lambda lst: lst[0], shuffle=False)
+        return DataLoader(
+            self.testset,
+            batch_size=1,
+            num_workers=num_workers,
+            collate_fn=lambda lst: lst[0],
+            shuffle=False,
+        )
 
     def predict_dataloader(self):
         """
         Load the prediction sets (which is a list of the three datasets)
         """
         return [self.train_dataloader(), self.val_dataloader(), self.test_dataloader()]
-    
+
     def transfer_batch_to_device(self, batch, device, dataloader_idx):
         if isinstance(batch, PartialData):
             batch.to(device)
         else:
             batch = super().transfer_batch_to_device(batch, device, dataloader_idx)
         return batch
-    
+
     def configure_optimizers(self):
         optimizer, scheduler = get_optimizers(self.parameters(), self.hparams)
         return optimizer, scheduler
@@ -131,7 +147,8 @@ class MLTrackBuildingStage(TrackBuildingStage, LightningModule):
             if invalid_gradient:
                 print([param.grad for param in self.parameters()])
             self.hparams["debug"] = False
-            
+
+
 class PartialGraphDataset(Dataset):
     """
     The custom default HGNN dataset to load graphs off the disk
@@ -168,4 +185,3 @@ class PartialGraphDataset(Dataset):
         event_path = self.input_paths[idx]
         event = torch.load(event_path, map_location=torch.device("cpu"))
         return PartialData(event, **self.hparams["data_config"])
-

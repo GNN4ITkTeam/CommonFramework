@@ -1,13 +1,11 @@
 # CommonFramework configuration
 stage: track_building
-model: Walkthrough
-input_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/igcn_14999421_epoch66_redo_track_candidates_0.5/ # Should contain the files used in training and inference
-stage_dir: /global/cfs/cdirs/m3443/usr/ryanliu/HGNN/walkthrough_infer/ # A directory to be created that will store logs, artifacts, and output data
-project: HGNN_edgedrop # Used in logging
+model: HierarchicalGNN
+input_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/gfilter_13810901_epoch360_redo/ # Should contain the files used in training and inference
+stage_dir: /global/cfs/cdirs/m3443/usr/ryanliu/HGNN_from_filter/HGNN_from_filter/ # A directory to be created that will store logs, artifacts, and output data
 
-# evaluation parameters
-score_cut: 0.5
-data_split: [0, 0, 1000]
+# Dataset parameters
+data_split: [100, 100, 100] # Number of [training, validation, testing] examples
 
 plots:
     tracking_efficiency_pt:
@@ -23,15 +21,12 @@ plots:
         max_eta: 4
         caption: '$p_T > 1GeV$, $|\eta| < 4$, $nhits \geq 7$, primary, non-electron'
 
-matching_fraction: 1
-matching_style: two-way
+matching_fraction: 0.5
+matching_style: ATLAS
 min_track_length: 5
-signal_selection:
+selection:
     pt: [range, [1000, null]]
     eta: [range, [-4, 4]]
     primary: [isin, [1]]
     nhits: [range, [7, null]]
     pdgId: [notin, [11, -11]]
-target_selection:
-    pt: [range, [500, null]]
-    nhits: [range, [3, null]]

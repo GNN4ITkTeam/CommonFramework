@@ -17,7 +17,7 @@ undirected: False
 score_cut: 0.5
 #input_cut: 0.2
 
-target_tracks: 
+target_tracks:
   pt: [1000, .inf]
   nhits: [3, .inf]
   primary: True
@@ -31,7 +31,7 @@ plots:
 
   gnn_efficiency_rz:
     title: GNN edge-wise Efficiency vs (r,z)
-  
+
   gnn_purity_rz:
     title: GNN edge-wise Purity vs (r,z)
     vmin: 0.4

@@ -5,7 +5,7 @@ input_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/igcn_14999421_epoch66_re
 stage_dir: /global/cfs/cdirs/m3443/usr/ryanliu/HGNN/HGNN/ # A directory to be created that will store logs, artifacts, and output data
 
 # Dataset parameters
-data_split: [100, 100, 100] # Number of [training, validation, testing] examples
 project: Example_hgnn # Used in logging
-gpus: 1
+accelerator: gpu
+devices: 1
 nodes: 1

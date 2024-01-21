@@ -1,9 +1,0 @@
-# CommonFramework configuration
-stage: track_building
-model: Walkthrough
-input_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/igcn_14999421_epoch66_redo_track_candidates_0.5/ # Should contain the files used in training and inference
-stage_dir: /global/cfs/cdirs/m3443/usr/ryanliu/HGNN/walkthrough_infer/ # A directory to be created that will store logs, artifacts, and output data
-
-# evaluation parameters
-score_cut: 0.5
-data_split: [1, 1, 1000]
