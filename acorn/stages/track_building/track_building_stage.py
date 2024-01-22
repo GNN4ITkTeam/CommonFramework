@@ -167,6 +167,13 @@ class TrackBuildingStage:
         self.all_dfs = []
         for event in tqdm(self.testset):
             event = self.eval_preprocess_event(event, config)
+            event_id = (
+                event.event_id[0]
+                if isinstance(event.event_id, list)
+                else event.event_id
+            )
+            tracks_df = utils.from_bgraph_to_df(event)
+            self.write_tracks(tracks_df, event_id)
             matching_df, truth_df = utils.evaluate_tracking(
                 event,
                 event.bgraph,
@@ -204,6 +211,27 @@ duplicate rate: {sum(all_stats['duplicate_rate']) / len(all_stats['duplicate_rat
 num tracks: {sum(all_stats['num_tracks'])},
 num_reconstructed particles: {sum(all_stats['num_reconstructed_particles'])},
 fake rate: {sum(all_stats['fake_rate']) / len(all_stats['duplicate_rate'])}"""
+            )
+
+    def write_tracks(self, tracks_df, event_id):
+        tracks = tracks_df.groupby("track_id")["hit_id"].apply(list)
+        os.makedirs(
+            os.path.join(self.hparams["stage_dir"], "testset_tracks"),
+            exist_ok=True,
+        )
+        with open(
+            os.path.join(
+                self.hparams["stage_dir"],
+                "testset_tracks",
+                f"event{event_id}.txt",
+            ),
+            "w",
+        ) as f:
+            f.write(
+                "\n".join(
+                    str(t).replace(",", "").replace("[", "").replace("]", "")
+                    for t in tracks.values
+                )
             )
 
     def tracking_efficiency_pt(self, plot_config, suffix):

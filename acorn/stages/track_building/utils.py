@@ -679,6 +679,12 @@ def get_statistics(
     }
 
 
+def from_bgraph_to_df(graph):
+    return pd.DataFrame(
+        {"hit_id": graph.bgraph[0].cpu(), "track_id": graph.bgraph[1].cpu()}
+    )
+
+
 # ------------- PLOTTING UTILS ----------------
 
 

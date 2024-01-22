@@ -23,7 +23,6 @@ from functools import partial
 # Local imports
 from . import cc_and_walk_utils
 from ..track_building_stage import TrackBuildingStage
-from .. import utils
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -104,32 +103,4 @@ class CCandWalk(TrackBuildingStage):
 
         # Add tracks labels to the graph
         cc_and_walk_utils.add_track_labels(graph, all_trks)
-
-        # Make a dataframe from pyg graph
-        d = utils.load_reconstruction_df(graph)
-        # Keep only hit_id associtated to a tracks (label >= 0, not -1)
-        d = d[d.track_id >= 0]
-        # Make a dataframe of list of hits (one row = one list of hits, ie one track)
-        tracks = d.groupby("track_id")["hit_id"].apply(list)
-        os.makedirs(
-            os.path.join(
-                self.hparams["stage_dir"], os.path.basename(output_dir) + "_tracks"
-            ),
-            exist_ok=True,
-        )
-        with open(
-            os.path.join(
-                self.hparams["stage_dir"],
-                os.path.basename(output_dir) + "_tracks",
-                f"event{graph.event_id[0]}.txt",
-            ),
-            "w",
-        ) as f:
-            f.write(
-                "\n".join(
-                    str(t).replace(",", "").replace("[", "").replace("]", "")
-                    for t in tracks.values
-                )
-            )
-
         torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))

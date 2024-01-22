@@ -5,8 +5,6 @@ input_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/gfilter_13810901_epoch36
 stage_dir: /global/cfs/cdirs/m3443/usr/ryanliu/HGNN_from_filter/HGNN_from_filter/ # A directory to be created that will store logs, artifacts, and output data
 
 # Dataset parameters
-data_split: [100, 100, 100] # Number of [training, validation, testing] examples
-
 plots:
     tracking_efficiency_pt:
         title: Example 1 Track Reconstruction Efficiency

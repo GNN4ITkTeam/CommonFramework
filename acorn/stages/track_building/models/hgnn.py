@@ -267,9 +267,7 @@ class HierarchicalGNN(MLTrackBuildingStage):
             os.path.join(self.hparams["stage_dir"], dataset.data_name), exist_ok=True
         )
         output_dir = os.path.join(
-            self.hparams["stage_dir"],
-            dataset.data_name,
-            f"event{event_id}.pyg",
+            self.hparams["stage_dir"], dataset.data_name, f"event{event_id}.pyg"
         )
         self.build_track(batch, output_dir)
 
@@ -285,7 +283,6 @@ class HierarchicalGNN(MLTrackBuildingStage):
         batch.full_event.boutput = logits
         batch.full_event.bscores = scores
 
-        # TODO: Graph name file??
         torch.save(batch.full_event, output_dir)
 
     def eval_preprocess_event(self, event, config):
