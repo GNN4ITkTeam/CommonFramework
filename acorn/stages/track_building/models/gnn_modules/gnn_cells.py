@@ -3,7 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint
 from torch_scatter import scatter_add
-from frnn import frnn
+
+try:
+    from frnn import frnn
+except ImportError:
+    frnn = None
 from torch_geometric.utils import to_scipy_sparse_matrix, from_scipy_sparse_matrix
 from typing import Optional
 
@@ -13,7 +17,8 @@ from acorn.utils.ml_utils import make_mlp
 def find_neighbors(embedding1, embedding2, r_max=1.0, k_max=10):
     embedding1 = embedding1.detach()[None]
     embedding2 = embedding2.detach()[None]
-
+    if frnn is None:
+        raise ImportError("FRNN is required by HGNN!")
     _, idxs, _, _ = frnn.frnn_grid_points(
         points1=embedding1,
         points2=embedding2,
