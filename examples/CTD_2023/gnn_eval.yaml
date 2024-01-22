@@ -1,0 +1,37 @@
+stage: edge_classifier
+model: InteractionGNN2
+input_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map/ # Should contain the files used in training and inference
+stage_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/ # A directory to be created that will store logs, artifacts, and output data
+project: CTD_2023 # Used in logging
+accelerator: gpu
+devices: 1
+nodes: 1
+
+# Dataset parameters
+data_split: [0, 0, 1000] # Number of [training, validation, testing] examples
+
+dataset_class: GraphDataset
+undirected: False
+
+# Evaluation parameters
+score_cut: 0.5
+#input_cut: 0.2
+
+target_tracks: 
+  pt: [1000, .inf]
+  nhits: [3, .inf]
+  primary: True
+  pdgId: [not_in, [11, -11]]
+  radius: [0., 260.]
+  eta_particle: [-4., 4.]
+  redundant_split_edges: False
+
+# Plotting parameters
+plots:
+
+  gnn_efficiency_rz:
+    title: GNN edge-wise Efficiency vs (r,z)
+  
+  gnn_purity_rz:
+    title: GNN edge-wise Purity vs (r,z)
+    vmin: 0.4
