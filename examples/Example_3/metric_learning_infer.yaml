@@ -4,8 +4,7 @@ model: MetricLearning
 input_dir: MY_DATA_DIR/Example_3/feature_store/ # Should contain the files used in training and inference
 stage_dir: MY_DATA_DIR/Example_3/metric_learning/ # A directory to be created that will store logs, artifacts, and output data
 project: CF_Example_3_MetricLearning # Used in logging
-accelerator: gpu
-devices: 1
+gpus: 1
 nodes: 1
 
 # Dataset parameters

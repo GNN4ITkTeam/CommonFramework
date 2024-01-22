@@ -9,12 +9,7 @@ data_split: [80, 10, 10] # Number of [training, validation, testing] examples
 
 plots:
   tracking_efficiency:
-    variables:
-      pt:
-        title: Example 1 Track Reconstruction Efficiency
-        pt_units: MeV
-        x_lim: [0, 10000]
-        x_label: pT [MeV]
+    title: Example 3 Track Reconstruction Efficiency
 
 matching_fraction: 0.5
 matching_style: ATLAS

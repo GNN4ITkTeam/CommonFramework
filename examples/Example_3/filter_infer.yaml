@@ -3,6 +3,5 @@ model: Filter
 input_dir: MY_DATA_DIR/Example_3/metric_learning/ # Should contain the files used in training and inference
 stage_dir: MY_DATA_DIR/Example_3/filter/ # A directory to be created that will store logs, artifacts, and output data
 project: CF_Example_3_Filter # Used in logging
-accelerator: gpu
-devices: 1
+gpus: 1
 nodes: 1

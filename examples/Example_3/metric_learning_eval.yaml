@@ -9,12 +9,12 @@ project: CF_Example_3_MetricLearning # Used in logging
 data_split: [80, 10, 10] # Number of [training, validation, testing] examples
 
 # Evaluation parameters
-target_tracks:
+target_tracks: 
   pt: [1., .inf]
   nhits: [3., .inf]
 
 # Plotting parameters
 plots:
-  graph_construction_efficiency:
+  graph_construction_efficiency: 
     title: "Metric Learning Edge-wise Efficiency"
     pt_units: GeV
