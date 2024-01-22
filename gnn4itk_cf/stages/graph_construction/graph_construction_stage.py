@@ -167,6 +167,7 @@ class GraphConstructionStage:
         graph_constructor.setup(stage="test")
 
         all_plots = config["plots"]
+        print("evaluating")
 
         # TODO: Handle the list of plots properly
         for plot_function, plot_config in all_plots.items():

@@ -15,6 +15,8 @@
 import os
 import copy
 
+# from turtle import forward
+
 # 3rd party imports
 from ..graph_construction_stage import GraphConstructionStage
 import torch.nn.functional as F
@@ -34,6 +36,7 @@ from gnn4itk_cf.utils import (
     handle_weighting,
     quantize_features,
     make_quantized_mlp,
+    #    forward_qonnx,
 )
 
 
@@ -59,6 +62,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             )
         else:
             print("QUANTIZED NETWORK IS BEING USED")
+            print("updating this file!")
 
             self.network = make_quantized_mlp(
                 input_size=in_channels,
@@ -106,6 +110,8 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
     def forward(self, x):
         x_out = self.network(x)
+        print("forward pass used")
+        # x_out = forward_qonnx(x)
         if self.hparams["norm"]:
             return F.normalize(x_out)
         else:
@@ -387,6 +393,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
     def apply_embedding(self, batch, embedding_inplace=None, training_edges=None):
         # Apply embedding to input data
+        print("apply embedding used")
         input_data = self.get_input_data(batch)
         if embedding_inplace is None or training_edges is None:
             return self(input_data)
@@ -457,8 +464,8 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         return negative_loss + positive_loss
 
     def shared_evaluation(self, batch, knn_radius, knn_num):
+        print("shared evaluation used")
         embedding = self.apply_embedding(batch)
-
         # Build whole KNN graph
         batch.edge_index = build_edges(
             query=embedding,

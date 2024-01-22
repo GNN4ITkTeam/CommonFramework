@@ -9,8 +9,8 @@ nodes: 1
 num_workers: [0, 0, 0]
 
 # Dataset parameters
-data_split: [80, 10, 10] # Number of [training, validation, testing] examples
+data_split: [1, 1, 1] # Number of [training, validation, testing] examples
 
 # Model inference parameters
-r_infer: 0.1
+r_infer: 0.079 # 0.079 for our super model!
 knn_infer: 500

@@ -5,7 +5,7 @@ input_dir: /mnt/data0/dittmeier/data/gnn4itk/feature_store/ # Should contain the
 stage_dir: /mnt/data0/dittmeier/data/gnn4itk/CF_reference_weighting/ # A directory to be created that will store logs, artifacts, and output data
 
 # Dataset parameters
-data_split: [80, 10, 10] # Number of [training, validation, testing] examples
+data_split: [1, 1, 1] # Number of [training, validation, testing] examples
 
 # Evaluation parameters
 target_tracks:
@@ -21,3 +21,5 @@ plots:
   graph_construction_efficiency:
     title: Metric Learning Edge-wise Efficiency
     pt_units: MeV
+
+# radius for our super model should be 0.079, needs to be hacked in the code

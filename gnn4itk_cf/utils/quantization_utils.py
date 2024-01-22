@@ -1,5 +1,8 @@
 import os
 import numpy as np
+
+# from sympy import Q
+# from zmq import device
 import torch
 from scipy.integrate import simps
 
@@ -16,6 +19,29 @@ from gnn4itk_cf.stages.graph_construction.models.utils import (
     build_edges,
 )
 from gnn4itk_cf.stages.graph_construction.utils import build_signal_edges
+
+from qonnx.core.modelwrapper import ModelWrapper
+from qonnx.core.onnx_exec import execute_onnx
+
+
+def forward_qonnx(input):  # input is a torch tensor, dim (hits, 3)
+    qonnx_model_path = "/mnt/data0/dittmeier/data/pruning_1041_clean.onnx"
+    print("forward_qonnx called")
+    model = ModelWrapper(qonnx_model_path)
+    golden_output = np.zeros(shape=(input.size(dim=0), 12), dtype=np.float32)
+    i = 0
+    input_cpu = input.cpu()
+    print(f"forward_qonnx: {input.size(dim=0)} hits to process")
+    for x in input_cpu:
+        serialized_input = x.numpy().astype(dtype=np.float32).reshape((1, 3))
+        exec_context = {"global_in": serialized_input}
+        golden_output[i] = execute_onnx(model, exec_context)["global_out"]
+        i += 1
+        if i % 1000 == 0:
+            print(f"forward_qonnx: {i} hits processed")
+    t_output = torch.from_numpy(golden_output).to(device=input.device)
+    print(t_output)
+    return t_output
 
 
 def quantize_features(features, pre_point: int = 0, post_point: int = 0):

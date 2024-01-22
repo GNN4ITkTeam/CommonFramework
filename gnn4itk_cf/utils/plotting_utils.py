@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-import math
+from typing import List
 import numpy as np
 import matplotlib.pyplot as plt
+
+import scipy
 
 import torch
 
@@ -67,13 +68,33 @@ import torch
 #     ax2.xaxis.set_minor_locator(AutoMinorLocator())
 
 
-def get_ratio(x_vals, y_vals):
-    res = [x / y if y != 0 else 0.0 for x, y in zip(x_vals, y_vals)]
-    err = [
-        x / y * math.sqrt((x + y) / (x * y)) if y != 0 and x != 0 else 0.0
-        for x, y in zip(x_vals, y_vals)
-    ]
-    return res, err
+def clopper_pearson(passed: float, total: float, level: float = 0.68):
+    """
+    Estimate the confidence interval for a sampled binomial random variable with Clopper-Pearson.
+    `passed` = number of successes; `total` = number trials; `level` = the confidence level.
+    The function returns a `(low, high)` pair of numbers indicating the lower and upper error bars.
+    """
+    alpha = (1 - level) / 2
+    lo = scipy.stats.beta.ppf(alpha, passed, total - passed + 1) if passed > 0 else 0.0
+    hi = (
+        scipy.stats.beta.ppf(1 - alpha, passed + 1, total - passed)
+        if passed < total
+        else 1.0
+    )
+    average = passed / total
+    return (average - lo, hi - average)
+
+
+def get_ratio(passed: List[int], total: List[int]):
+    if len(passed) != len(total):
+        raise ValueError(
+            "Length of passed and total must be the same"
+            f"({len(passed)} != {len(total)})"
+        )
+
+    res = np.array([x / y if y != 0 else 0.0 for x, y in zip(passed, total)])
+    error = np.array([clopper_pearson(x, y) for x, y in zip(passed, total)]).T
+    return res, error
 
 
 # def pairwise(iterable):
