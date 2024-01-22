@@ -34,7 +34,6 @@ from acorn.utils.version_utils import get_pyg_data_keys
 
 # ------------- HGNN UTILS ----------------
 
-
 class PartialData(object):
     """
     A data object that removes isolated hits and select the good tracks
