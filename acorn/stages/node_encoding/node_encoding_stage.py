@@ -24,6 +24,7 @@ TODO: Update structure with the latest Gravnet base class
 """
 
 import sys
+import time
 
 sys.path.append("../")
 
@@ -1011,6 +1012,63 @@ class NodeEncodingStage(LightningModule):
         print(
             "Finish plotting. Find the plot at"
             f' {os.path.join(config["stage_dir"], "traack_eff_dbscan_vs_eps.png")}'
+        )
+
+    def plot_inference_time(self, plot_config, config):
+
+        eps = plot_config["eps"]
+
+        dataset_name = config["dataset"]
+        dataset = getattr(self, dataset_name)
+
+        base_subtext = (
+            (
+                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
+                r" $t \bar{t}$ and soft interactions) " + "\n"
+                r"$p_T > 1$GeV, $|\eta| < 4$" + "\n"
+            )
+            if not config.get("trackML_label")
+            else r"$p_T > 1$GeV" + "\n"
+        )
+
+        ns = []
+        ts = []
+        knn_ts = []
+        dbscan_ts = []
+        for event in tqdm(dataset):
+            event = event.to(self.device)
+
+            n_spacepoints = len(event.hit_r)
+            t = event.inference_time
+            knn_t = event.knn_time
+            ns.append(n_spacepoints)
+            ts.append(t)
+            knn_ts.append(knn_t)
+
+            start = time.time()
+            self.cluster(event, eps, 3)
+            end = time.time()
+            dbscan_ts.append(start - end)
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(ns, ts, "o", label="Total")
+        ax.plot(ns, knn_ts, "o", label="KNN")
+        ax.plot(ns, dbscan_ts, "o", label="DBScan")
+        ax.set_xlabel("Number of spacepoints", ha="right", x=0.95, fontsize=14)
+        ax.set_ylabel("Inference time per event [s]", ha="right", y=0.95, fontsize=14)
+        ax.set_ylim([0, 1])
+        plt.tight_layout()
+
+        # Save the plot
+        atlasify(
+            atlas=True if config.get("trackML_label") else "Internal",
+            subtext=base_subtext,
+        )
+        fig.savefig(os.path.join(config["stage_dir"], "inference_time.png"))
+
+        print(
+            "Finish plotting. Find the plot at"
+            f' {os.path.join(config["stage_dir"], "inference_time.png")}'
         )
 
 

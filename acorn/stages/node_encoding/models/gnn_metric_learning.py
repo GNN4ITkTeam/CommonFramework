@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import time
 
 # 3rd party imports
 import torch.nn.functional as F
@@ -23,7 +24,7 @@ from torch_geometric.utils import softmax
 from torch_scatter import scatter_add
 import torch.nn as nn
 
-# from torch.utils.checkpoint import checkpoint
+from torch.utils.checkpoint import checkpoint
 
 # Local imports
 from ..node_encoding_stage import NodeEncodingStage
@@ -137,62 +138,86 @@ class GNNMetricLearning(NodeEncodingStage):
             x = F.normalize(x)
         return knn_graph(x, k=self.hparams["knn_train"], cosine=False, loop=False)
 
-    def edge_block(self, x, start, end):
-        return
-
     def forward(self, batch, **kwargs):
         x = torch.stack(
             [batch[feature] for feature in self.hparams["node_features"]], dim=-1
         ).float()
 
-        v = self.node_encoder(x)
-        x = self.node_network_0(v)
+        if self.hparams.get("checkpoint", False):
+            v = checkpoint(self.node_encoder, x, use_reentrant=False)
+            x = checkpoint(self.node_network_0, v, use_reentrant=False)
+        else:
+            v = self.node_encoder(x)
+            x = self.node_network_0(v)
+
+        batch.knn_time = 0
 
         # Loop over iterations of edge and node networks
         for i in range(self.hparams["n_iters"]):
             # KNN
-            start, end = self.get_knn_edges(x, 0 if self.hparams["recurrent"] else i)
-            x = v
-
-            for j in range(self.hparams["n_gnns_per_iter"]):
-
-                # Edge
-                e = torch.cat(
-                    [x[start], x[end]] if j == 0 else [x[start], x[end], e], dim=-1
+            knn_start = time.time()
+            if self.hparams.get("checkpoint", False):
+                start, end = checkpoint(
+                    self.get_knn_edges,
+                    x,
+                    0 if self.hparams["recurrent"] else i,
+                    use_reentrant=False,
                 )
-                w = self.edge_weight_networks[
-                    (
-                        0
-                        if self.hparams["recurrent"]
-                        else (i * self.hparams["n_gnns_per_iter"])
-                    )
-                    + j
-                ](e)
-                w = softmax(w, end)
-                e = self.edge_networks[
-                    (
-                        0
-                        if self.hparams["recurrent"]
-                        else (i * self.hparams["n_gnns_per_iter"])
-                    )
-                    + j
-                ](e)
+            else:
+                start, end = self.get_knn_edges(
+                    x, 0 if self.hparams["recurrent"] else i
+                )
+            knn_end = time.time()
+            # print("kNN time: ", knn_end - knn_start)
+            batch.knn_time += knn_end - knn_start
+            x = v
+            # gat_start = time.time()
+            if self.hparams.get("checkpoint", False):
+                x = checkpoint(self.gat, x, start, end, i, use_reentrant=False)
+            else:
+                x = self.gat(x, start, end, i)
+            # gat_end = time.time()
+            # print("gat time: ", gat_end - gat_start)
 
-                # Node
-                agg = scatter_add(e * w, end, dim=0, dim_size=x.shape[0])
-                x = torch.cat([x, agg], dim=1)
-                x = self.node_networks[
-                    (
-                        0
-                        if self.hparams["recurrent"]
-                        else (i * self.hparams["n_gnns_per_iter"])
-                    )
-                    + j
-                ](x)
-
-        x = self.node_decoders[-1](x)
+        if self.hparams.get("checkpoint", False):
+            x = checkpoint(self.node_decoders[-1], x, use_reentrant=False)
+        else:
+            x = self.node_decoders[-1](x)
         if self.hparams["embedding_norm"]:
             return F.normalize(x)
+        else:
+            x
+
+    def gat(self, x, start, end, i):
+        e = None
+        for j in range(self.hparams["n_gnns_per_iter"]):
+            x, e = self.message_passing(e, x, start, end, i, j)
+        return x
+
+    def message_passing(self, e, x, start, end, i, j):
+
+        e = torch.cat([x[start], x[end]] if j == 0 else [x[start], x[end], e], dim=-1)
+
+        w = self.edge_weight_networks[
+            (0 if self.hparams["recurrent"] else (i * self.hparams["n_gnns_per_iter"]))
+            + j
+        ](e)
+        w = softmax(w, end)
+        e = self.edge_networks[
+            (0 if self.hparams["recurrent"] else (i * self.hparams["n_gnns_per_iter"]))
+            + j
+        ](e)
+
+        # Node
+        w = scatter_add(e * w, end, dim=0, dim_size=x.shape[0])
+        # w = scatter_mean(e, end, dim=0, dim_size=x.shape[0])
+        x = torch.cat([x, w], dim=1)
+        x = self.node_networks[
+            (0 if self.hparams["recurrent"] else (i * self.hparams["n_gnns_per_iter"]))
+            + j
+        ](x)
+
+        return x, e
 
     def configure_optimizers(self):
         optimizer, scheduler = get_optimizers(self.parameters(), self.hparams)
@@ -389,6 +414,8 @@ class GNNMetricLearning(NodeEncodingStage):
         if len(batch) == 0:
             return
 
+        start = time.time()
+
         data_name = ["trainset", "valset", "testset"][dataloader_idx]
         dataset = getattr(self, data_name)
 
@@ -406,6 +433,9 @@ class GNNMetricLearning(NodeEncodingStage):
         batch.hit_embedding = embedding
 
         dataset.unscale_features(batch)
+
+        end = time.time()
+        batch.inference_time = end - start
 
         self.save_graph(batch, data_name)
 

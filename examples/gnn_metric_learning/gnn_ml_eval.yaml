@@ -3,7 +3,6 @@ stage: node_encoding
 model: GNNMetricLearning
 input_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/ttbar_gnnml_feature_store
 stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/ttbar_gnnml
-project: gnnml_ttbar # Used in logging
 gpus: 1
 nodes: 1
 
@@ -28,5 +27,7 @@ plots:
   node_knn_eff_pur_vs_k:
   dbscan_vs_eps:
   dbscan_eff_pur:
-      title: Track Efficiency
-      eps: 0.15
+    title: Track Efficiency
+    eps: 0.15
+  plot_inference_time:
+    eps: 0.15

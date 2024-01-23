@@ -27,5 +27,7 @@ plots:
     knn: 10
   dbscan_vs_eps:
   dbscan_eff_pur:
-      title: Track Efficiency
-      eps: 0.1
+    title: Track Efficiency
+    eps: 0.1
+  plot_inference_time:
+    eps: 0.1
