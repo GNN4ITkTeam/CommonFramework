@@ -17,9 +17,10 @@ import os
 import torch
 import math
 import torch.nn.functional as F
+import pandas as pd
 
 # Local imports
-from ..ml_track_building_stage import MLTrackBuildingStage
+from .hgnn_utils import MLTrackBuildingStage
 from acorn.stages.track_building.utils import evaluate_tracking, get_statistics
 from acorn.stages.track_building.models.gnn_modules.hgnn_models import (
     Pooling,
@@ -289,4 +290,30 @@ class HierarchicalGNN(MLTrackBuildingStage):
         event.full_event.bgraph = event.full_event.bgraph[
             :, event.full_event.bscores > config.get("score_cut", 0)
         ]
+
+        tracks = pd.DataFrame({
+            "hid_id": event.full_event.bgraph.cpu()[0],
+            "track_id": event.full_event.bgraph.cpu()[1]
+        }).groupby("track_id")["hit_id"].apply(list)
+        
+        os.makedirs(
+            os.path.join(self.hparams["stage_dir"], "testset_tracks"),
+            exist_ok=True,
+        )
+        with open(
+            os.path.join(
+                self.hparams["stage_dir"],
+                "testset_tracks",
+                f"event{event.full_event.event_id[0]}.txt",
+            ),
+            "w",
+        ) as f:
+            f.write(
+                "\n".join(
+                    str(t).replace(",", "").replace("[", "").replace("]", "")
+                    for t in tracks.values
+                )
+            )
+
         return event.full_event
+        

@@ -20,13 +20,15 @@ import scipy.sparse as sps
 from tqdm import tqdm
 import networkx as nx
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 # Local imports
 from ..track_building_stage import TrackBuildingStage
 from torch_geometric.utils import to_scipy_sparse_matrix
 from torch_geometric.utils import remove_isolated_nodes, to_networkx, degree
 from torch_geometric.data import Data
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from .. import utils
 
 
 class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
@@ -54,7 +56,7 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
         for graph in tqdm(dataset):
             # TODO check isolated nodes
 
-            track_ids = -torch.ones(graph.hit_id.shape).long()
+            graph.labels = -torch.ones(graph.hit_id.shape).long()
 
             graph_cc = Data(x=graph.hit_id, edge_index=graph.edge_index)
             # Apply score cut
@@ -85,7 +87,7 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
             )
             # print("Found ", n_cc, "Weakly Connected Components")
 
-            track_ids[mask_x] = torch.from_numpy(candidate_labels).long()
+            graph.labels[mask_x] = torch.from_numpy(candidate_labels).long()
 
             #####################################################
             graph_residual = Data(x=graph.hit_id, edge_index=graph.edge_index)
@@ -113,7 +115,7 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
             ]
 
             labels = {node_idx: -1 for node_idx in graph_residual_nx.nodes}
-            label = torch.max(track_ids) + 1
+            label = torch.max(graph.labels) + 1
             for source in sources:
                 paths = nx.all_simple_paths(
                     graph_residual_nx, source=source, target=targets, cutoff=25
@@ -124,16 +126,36 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
                         labels.update({node_idx: label for node_idx in path})
                         label += 1
 
-            track_ids[mask_x] = torch.tensor(list(labels.values()))
-
-            graph.bgraph = torch.stack(
-                [
-                    torch.arange(track_ids.shape[0], device=graph.x.device)[
-                        track_ids >= 0
-                    ],
-                    torch.as_tensor(track_ids, device=graph.x.device)[track_ids >= 0],
-                ]
-            )
+            graph.labels[mask_x] = torch.tensor(list(labels.values()))
 
             graph.config.append(self.hparams)
-            torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
+
+            # TODO: Graph name file??
+            # torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
+
+            # Make a dataframe from pyg graph
+            d = utils.load_reconstruction_df(graph)
+            # Keep only hit_id associtated to a tracks (label >= 0, not -1)
+            d = d[d.track_id >= 0]
+            # Make a dataframe of list of hits (one row = one list of hits, ie one track)
+            tracks = d.groupby("track_id")["hit_id"].apply(list)
+            os.makedirs(
+                os.path.join(
+                    self.hparams["stage_dir"], os.path.basename(output_dir) + "_tracks"
+                ),
+                exist_ok=True,
+            )
+            with open(
+                os.path.join(
+                    self.hparams["stage_dir"],
+                    os.path.basename(output_dir) + "_tracks",
+                    f"event{graph.event_id[0]}.txt",
+                ),
+                "w",
+            ) as f:
+                f.write(
+                    "\n".join(
+                        str(t).replace(",", "").replace("[", "").replace("]", "")
+                        for t in tracks.values
+                    )
+                )
