@@ -126,7 +126,7 @@ def get_optimizers(parameters, hparams):
                 "scheduler": torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
                     optimizer[0],
                     T_0=hparams["patience"],
-                    T_mult=hparams["T_mult"],
+                    T_mult=2,
                     eta_min=1e-8,
                     last_epoch=-1,
                 ),
