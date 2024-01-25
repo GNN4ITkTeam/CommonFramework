@@ -1027,3 +1027,5 @@ def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
         fig.savefig(save_dir)
         print(f"Finish plotting. Find the plot at {save_dir}")
         plt.close()
+
+        print('Hello World')
