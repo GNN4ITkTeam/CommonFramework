@@ -1,0 +1,26 @@
+# CommonFramework configuration
+stage: graph_construction
+model: PyModuleMap
+input_dir: /scratch/bbhj/jareddb2/GNN4ITk/commonframework_data_output/uncorrelated2023/feature_store_CTD2023/
+stage_dir: /scratch/bbhj/jareddb2/GNN4ITk/commonframework_data_output/uncorrelated2023/module_map_old/
+num_workers: [1,1,1]
+
+# Dataset parameters
+data_split: [0, 0, 10] # Number of [training, validation, testing] examples
+dataset: testset
+
+# Evaluation parameters
+target_tracks: 
+  pt: [1000., .inf]
+  nhits: [3., .inf]
+  primary: True
+  radius: [0., 260.]
+  pdgId: [not_in, [11, -11]]
+  eta_particle: [-4., 4.]
+  redundant_split_edges: False
+
+# Plotting parameters
+plots:
+  graph_construction_efficiency: 
+    title: Module Map Edge-wise Efficiency
+    pt_units: MeV

@@ -1,0 +1,69 @@
+stage: edge_classifier
+model: InteractionGNN2
+input_dir: /scratch/bbhj/jareddb2/GNN4ITk/commonframework_data_output/uncorrelated2023/module_map/
+stage_dir: /scratch/bbhj/jareddb2/GNN4ITk/commonframework_data_output/uncorrelated2023/gnn_noCut_1000events_h64_IGNN2_t2/
+project: ttbar_uncorrelated_2023_full_GNN
+gpus: 1
+nodes: 1
+num_workers: [8,8,8]
+
+# Dataset parameters
+data_split: [800, 100, 100] # Number of [training, validation, testing] examples
+
+# All other tracks follow the default: If a true edge, weight=0. If a fake edge, weight=1.
+weighting:
+  - weight: 1.0
+    conditions: 
+      y: False
+  - weight: 0.
+    conditions:
+      y: True
+  - weight: 1.
+    conditions:
+      y: True
+      pt: [1000, .inf]
+      nhits: [3, .inf]
+      primary: True
+      pdgId: [not_in, [11, -11]]
+      radius: [0., 260.]
+      eta_particle: [-4., 4.]
+      redundant_split_edges: False
+
+# A list of hard cut conditions. Any hits not passing these conditions will be removed from the training and validation dataset.
+# By definition, noise will not pass any of these cuts, so any hard cuts will remove noise.
+hard_cuts: null
+
+# Model parameters
+edge_cut: 0.5
+node_features: [r, phi, z, eta, cluster_x_1, cluster_y_1, cluster_z_1, cluster_x_2, cluster_y_2, cluster_z_2]
+node_scales: [1000., 3.14159265359, 1000., 1., 1000., 1000., 1000., 1000., 1000., 1000.]
+edge_features: [dr, dphi, dz, deta, phislope, rphislope]
+hidden: 64
+n_graph_iters: 8
+n_node_encoder_layers: 3
+n_edge_encoder_layers: 3
+n_node_net_layers: 3
+n_edge_net_layers: 3
+n_node_decoder_layers: 3
+n_edge_decoder_layers: 3
+layernorm: False
+batchnorm: True
+bn_track_running_stats: False
+hidden_activation: ReLU
+output_activation: ReLU
+edge_output_transform_final_activation: null
+concat: True
+node_net_recurrent: False
+edge_net_recurrent: False
+in_out_diff_agg: True
+checkpointing: True
+
+# Training parameters
+warmup: 5
+lr: 0.0005
+min_lr: 0.000005
+factor: 0.9
+patience: 15
+max_epochs: 60
+debug: false
+loss_balancing: true

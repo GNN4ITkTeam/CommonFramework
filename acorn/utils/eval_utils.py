@@ -717,3 +717,313 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
         fig.savefig(save_dir)
         print(f"Finish plotting. Find the plot at {save_dir}")
         plt.close()
+
+
+def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
+    """
+    Plot the graph construction efficiency vs. pT of the edge.
+    """
+    print("Plotting efficiency against pT and eta")
+    print("Plotting efficiency and purity against r/z")
+    true_positive, target_pt, target_eta, pred, graph_truth = [], [], [], [], []
+    target_rz = {"z": torch.empty(0), "r": torch.empty(0)}
+    all_target_rz = target_rz.copy()
+    true_positive_rz = target_rz.copy()
+    target_true_positive_rz = target_rz.copy()
+    pred_rz = target_rz.copy()
+    masked_pred_rz = target_rz.copy()
+    input_graph_size, graph_size, n_graphs = (0, 0, 0)
+
+    print(f"Using score cut: {config.get('score_cut')}")
+    if "target_tracks" in config:
+        print(f"Track selection criteria: \n{yaml.dump(config.get('target_tracks'))}")
+    else:
+        print("No track selection criteria found, accepting all tracks.")
+
+    dataset_name = config["dataset"]
+    dataset = getattr(lightning_module, dataset_name)
+
+    for event in tqdm(dataset):
+        event = event.to(lightning_module.device)
+        phi_region = float(event.phi_region_id[0])
+        eta_region = float(event.eta_region_id[0])
+
+        # Need to apply score cut and remap the truth_map
+        if "score_cut" in config:
+            lightning_module.apply_score_cut(event, config["score_cut"])
+        if "target_tracks" in config:
+            lightning_module.apply_target_conditions(event, config["target_tracks"])
+        else:
+            event.target_mask = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
+
+        event = event.to(lightning_module.device)
+
+        # get all target true positives
+        true_positive.append((event.truth_map[event.target_mask] > -1).cpu())
+
+        # get all target pt. Length = number of target true. This includes ALL truth edges in the event,
+        # even those not included in the input graph. We MUST filter them out to isolate the inefficiency from model.
+        # Otherwise, we are plotting cumilative edge efficiency.
+        target_pt.append(event.pt[event.target_mask].cpu())
+        target_eta.append(event.eta[event.track_edges[0, event.target_mask]])
+
+        # get all edges passing edge cut
+        if "scores" in event.keys:
+            pred.append((event.scores >= config["score_cut"]).cpu())
+        else:
+            pred.append(event.y.cpu())
+        # get a boolean array answer the question is this target edge in input graph
+        graph_truth.append((event.graph_truth_map[event.target_mask] > -1))
+
+        # scale r and z
+        event.r /= 1000
+        event.z /= 1000
+
+        # flip edges that point inward if not undirected, since if undirected is True, lightning_module.apply_score_cut takes care of this
+        event.edge_index = rearrange_by_distance(event, event.edge_index)
+        event.track_edges = rearrange_by_distance(event, event.track_edges)
+        event = event.cpu()
+
+        # indices of all target edges present in the input graph
+        target_edges = event.track_edges[
+            :, event.target_mask & (event.graph_truth_map > -1)
+        ]
+
+        # indices of all target edges (may or may not be present in the input graph)
+        all_target_edges = event.track_edges[:, event.target_mask]
+
+        # get target z r
+        for key, item in target_rz.items():
+            target_rz[key] = torch.cat([item, event[key][target_edges[0]]], dim=0)
+        for key, item in all_target_rz.items():
+            all_target_rz[key] = torch.cat(
+                [item, event[key][all_target_edges[0]]], dim=0
+            )
+
+        # indices of all true positive target edges
+        target_true_positive_edges_rz = event.track_edges[
+            :, event.target_mask & (event.truth_map > -1)
+        ]
+
+        # true positive edge indices, used as numerator of total purity
+        true_positive_edges_rz = event.track_edges[:, (event.truth_map > -1)]
+
+        # all positive edges, used as denominator of total and target purity
+        positive_edges_rz = event.edge_index[:, event.pred]
+
+        # masked positive edge indices, including true positive target edges and all false positive edges
+        fake_positive_edges_rz = event.edge_index[:, event.pred & (event.y == 0)]
+        masked_positive_edges_rz = torch.cat(
+            [target_true_positive_edges_rz, fake_positive_edges_rz], dim=1
+        )
+
+        for key in ["r", "z"]:
+            true_positive_rz[key] = torch.cat(
+                [true_positive_rz[key], event[key][target_true_positive_edges_rz[0]]],
+                dim=0,
+            )
+            target_true_positive_rz[key] = torch.cat(
+                [
+                    target_true_positive_rz[key].float(),
+                    event[key][target_true_positive_edges_rz[0]].float(),
+                ],
+                dim=0,
+            )
+            pred_rz[key] = torch.cat(
+                [pred_rz[key].float(), event[key][positive_edges_rz[0]].float()], dim=0
+            )
+            masked_pred_rz[key] = torch.cat(
+                [
+                    masked_pred_rz[key].float(),
+                    event[key][masked_positive_edges_rz[0]].float(),
+                ],
+                dim=0,
+            )
+
+    # concat all target pt and eta
+    target_pt = torch.cat(target_pt).cpu().numpy()
+    target_eta = torch.cat(target_eta).cpu().numpy()
+
+    # get all true positive
+    true_positive = torch.cat(true_positive).cpu().numpy()
+
+    # get all positive
+    graph_truth = torch.cat(graph_truth).cpu().numpy()
+
+    # count number of graphs to calculate mean efficiency
+    n_graphs = len(pred)
+
+    # get all predictions
+    pred = torch.cat(pred).cpu().numpy()
+
+    # get mean graph size
+    mean_graph_size = pred.sum() / n_graphs
+
+    # get mean target efficiency
+    target_efficiency = true_positive.sum() / len(target_pt[graph_truth])
+    target_purity = true_positive[graph_truth].sum() / pred.sum()
+    cumulative_efficiency = true_positive.sum() / len(target_pt)
+    # get graph construction efficiency
+    graph_construction_efficiency = graph_truth.mean()
+
+    # Get the edgewise efficiency
+    # Build a histogram of true pTs, and a histogram of true-positive pTs
+    pt_min, pt_max = 1, 50
+    if "pt_units" in plot_config and plot_config["pt_units"] == "MeV":
+        pt_min, pt_max = pt_min * 1000, pt_max * 1000
+    pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
+    eta_bins = np.linspace(-4, 4)
+
+    true_pt_hist, true_pt_bins = np.histogram(target_pt[graph_truth], bins=pt_bins)
+    true_pos_pt_hist, _ = np.histogram(target_pt[true_positive], bins=pt_bins)
+
+    true_eta_hist, true_eta_bins = np.histogram(target_eta[graph_truth], bins=eta_bins)
+    true_pos_eta_hist, _ = np.histogram(target_eta[true_positive], bins=eta_bins)
+
+    pt_units = "GeV" if "pt_units" not in plot_config else plot_config["pt_units"]
+
+    filename = plot_config.get("filename", "gnn_edgewise_efficiency")
+
+    for true_pos_hist, true_hist, bins, xlabel, logx, filename in zip(
+        [true_pos_pt_hist, true_pos_eta_hist],
+        [true_pt_hist, true_eta_hist],
+        [true_pt_bins, true_eta_bins],
+        [f"$p_T [{pt_units}]$", r"$\eta$"],
+        [True, False],
+        [f"{filename}_pt", f"{filename}_eta"],
+    ):
+        # Divide the two histograms to get the edgewise efficiency
+        hist, err = get_ratio(true_pos_hist, true_hist)
+
+        fig, ax = plot_1d_histogram(
+            hist,
+            bins,
+            err,
+            xlabel,
+            plot_config["title"],
+            "Efficiency",
+            plot_config.get("ylim", [0.8, 1.06]),
+            logx=logx,
+        )
+
+        # Save the plot
+        atlasify(
+            "Internal",
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+            r" \bar{t}$ and soft interactions) " + "\n"
+            r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
+            r"Edge score cut: " + str(config["score_cut"]) + "\n"
+            f"Input graph size: {pred.shape[0]/n_graphs:.2e}, Graph Construction"
+            f" Efficiency: {graph_construction_efficiency:.4f}" + "\n"
+            f"Mean graph size: {mean_graph_size:.2e}, Signal Efficiency:"
+            f" {target_efficiency:.4f}"
+            + "\n"
+            + f"Cumulative Signal Efficiency: {cumulative_efficiency:.4f}",
+        )
+
+        fig.savefig(os.path.join(config["stage_dir"], filename + ".png"))
+        print(
+            "Finish plotting. Find the plot at"
+            f' {os.path.join(config["stage_dir"], filename)}'
+        )
+
+    fig, ax = plot_efficiency_rz(
+        target_rz["z"],
+        target_rz["r"],
+        true_positive_rz["z"],
+        true_positive_rz["r"],
+        plot_config,
+    )
+    # Save the plot
+    atlasify(
+        "Internal",
+        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+        r" \bar{t}$ and soft interactions) "
+        r"\n$p_T > 1$ GeV, $ | \eta | < 4$ "
+        "\nGraph Construction Efficiency:"
+        f" {graph_construction_efficiency:.4f}, Input graph size: {pred.shape[0]/n_graphs: .2e} \n"
+        r"Edge score cut: "
+        + str(config["score_cut"])
+        + f", Mean graph size: {mean_graph_size:.2e} \n"
+        "Signal Efficiency:"
+        f" {true_positive_rz['z'].shape[0] / target_rz['z'].shape[0] :.4f} \n"
+        f"Cumulative signal efficiency: {true_positive_rz['z'].shape[0] / all_target_rz['z'].shape[0]: .4f}",
+    )
+    plt.tight_layout()
+    save_dir = os.path.join(
+        config["stage_dir"],
+        f"{plot_config.get('filename', 'gnn_edgewise_efficiency_rz')}.png",
+    )
+    fig.savefig(save_dir)
+    print(f"Finish plotting. Find the plot at {save_dir}")
+    plt.close()
+
+    fig, ax = plot_efficiency_rz(
+        all_target_rz["z"],
+        all_target_rz["r"],
+        true_positive_rz["z"],
+        true_positive_rz["r"],
+        plot_config,
+    )
+    # Save the plot
+    atlasify(
+        "Internal",
+        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+        r" \bar{t}$ and soft interactions) "
+        r"\n$p_T > 1$ GeV, $ | \eta | < 4$ "
+        "\nGraph Construction Efficiency:"
+        f" {graph_construction_efficiency:.4f}, Input graph size: {pred.shape[0]/n_graphs: .2e} \n"
+        r"Edge score cut: "
+        + str(config["score_cut"])
+        + f", Mean graph size: {mean_graph_size:.2e} \n"
+        "Signal Efficiency:"
+        f" {true_positive_rz['z'].shape[0] / target_rz['z'].shape[0] :.4f} \n"
+        f"Cumulative signal efficiency: {true_positive_rz['z'].shape[0] / all_target_rz['z'].shape[0]: .4f}",
+    )
+    plt.tight_layout()
+    save_dir = os.path.join(
+        config["stage_dir"],
+        f"cumulative_{plot_config.get('filename', 'gnn_edgewise_efficiency_rz')}.png",
+    )
+    fig.savefig(save_dir)
+    print(f"Finish plotting. Find the plot at {save_dir}")
+    plt.close()
+
+    purity_definition_label = {
+        "target_purity": "Target Purity",
+        "masked_purity": "Masked Purity",
+        "total_purity": "Total Purity",
+    }
+    for numerator, denominator, suffix in zip(
+        [true_positive_rz, target_true_positive_rz, target_true_positive_rz],
+        [pred_rz, pred_rz, masked_pred_rz],
+        ["total_purity", "target_purity", "masked_purity"],
+    ):
+        fig, ax = plot_efficiency_rz(
+            denominator["z"].cpu(),
+            denominator["r"].cpu(),
+            numerator["z"].cpu(),
+            numerator["r"].cpu(),
+            plot_config,
+        )
+        # Save the plot
+        atlasify(
+            "Internal",
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+            r" \bar{t}$ and soft interactions) " + "\n"
+            r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
+            r"Edge score cut: "
+            + str(config["score_cut"])
+            + "\n"
+            + purity_definition_label[suffix]
+            + ": "
+            + f"{numerator['z'].size(0) / denominator['z'].size(0) : .5f}",
+        )
+        plt.tight_layout()
+        save_dir = os.path.join(
+            config["stage_dir"],
+            f"{plot_config.get('filename', 'gnn_edgewise')}_{suffix}_rz.png",
+        )
+        fig.savefig(save_dir)
+        print(f"Finish plotting. Find the plot at {save_dir}")
+        plt.close()

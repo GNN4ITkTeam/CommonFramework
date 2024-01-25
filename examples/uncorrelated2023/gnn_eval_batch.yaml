@@ -1,0 +1,37 @@
+stage: edge_classifier
+model: InteractionGNN2
+input_dir: /scratch/bbhj/jareddb2/GNN4ITk/commonframework_data_output/uncorrelated2023/module_map_CTD2023/
+stage_dir: /scratch/bbhj/jareddb2/GNN4ITk/commonframework_data_output/uncorrelated2023/gnn_1GeVpT_batchnorm_v4_CTD2023/
+project: uncorrelated2023
+gpus: 1
+nodes: 1
+
+# Dataset parameters
+data_split: [0, 0, 10]
+dataset: testset
+
+# Evaluation parameters
+n_phi_regions: 1
+n_eta_regions: 1
+overlap_value: 0.0
+score_cut: 0.5
+target_tracks: 
+  pt: [1000., .inf]
+  nhits: [3., .inf]
+  primary: True
+  pdgId: [not_in, [11, -11]]
+  radius: [0., 260.]
+  eta_particle: [-4., 4.]
+  redundant_split_edges: False
+
+# Plotting parameters
+plots:
+  graph_scoring_efficiency: 
+    title: Interaction GNN Edge-wise Efficiency
+    pt_units: MeV
+  gnn_efficiency_rz:
+    title: Interaction GNN Edge-wise Efficiency
+  gnn_purity_rz:
+    title: Interaction GNN Edge-wise Purity
+  #graph_roc_curve:
+  #  title: Interaction GNN ROC curve

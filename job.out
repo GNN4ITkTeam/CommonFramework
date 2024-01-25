@@ -1,0 +1,14 @@
+python interpreter:  /u/jareddb2/.conda/envs/acorn/bin/python
+torch:  2.1.0+cu121
+torch cuda:  True
+torch cuda device count:  1
+torch cuda device name:  NVIDIA A100-SXM4-40GB
+torch cuda device capability:  (8, 0)
+torch distributed     : True
+pytorch_lightning:  2.1.3
+pyg:  2.4.0
+frnn not found
+cugraph:  23.12.00
+cudf:  23.12.01
+torch_scatter:  2.1.2
+Test scatter_max in cuda.

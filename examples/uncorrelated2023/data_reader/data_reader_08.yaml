@@ -1,0 +1,28 @@
+# CommonFramework configuration
+stage: data_reading
+model: AthenaRootReader
+input_dir: /scratch/bbhj/GNN4ITk/Samples/uncorrelated2023/ATLASITk/GNN4Itk_v2__mc15_14TeV.600012.PhPy8EG_A14_ttbar_hdamp258p75_nonallhad.recon.RDO.e8185_s3770_s3773_r14431
+input_sets: 
+    train: /scratch/bbhj/jareddb2/GNN4ITk/uncorrelated2023_splits/trainset/red_train_set_ttbar_uncorr08.txt
+    valid: /scratch/bbhj/jareddb2/GNN4ITk/uncorrelated2023_splits/validset/red_valid_set_ttbar_uncorr08.txt
+    test: /scratch/bbhj/jareddb2/GNN4ITk/uncorrelated2023_splits/testset/red_test_set_ttbar_uncorr08.txt
+stage_dir: /scratch/bbhj/jareddb2/GNN4ITk/commonframework_data_output/uncorrelated2023/feature_store_08/
+module_lookup_path: /scratch/bbhj/GNN4ITk/Maps/CommonFramework/ATLASITk/list_of_modules_for_MM_23.txt
+max_workers: 1
+
+# Feature Configurations
+feature_sets:
+    hit_features: [hit_id, x, y, z, r, phi, eta, region, module_id,
+                cluster_x_1, cluster_y_1, cluster_z_1, cluster_x_2, cluster_y_2, cluster_z_2, 
+                norm_x_1, norm_y_1, norm_x_2, norm_y_2, norm_z_1, eta_angle_1, phi_angle_1, eta_angle_2, phi_angle_2, norm_z_2]
+    track_features: [particle_id, pt, radius, primary, nhits, pdgId, eta_particle, redundant_split_edges]
+
+region_labels:
+    1: {hardware: PIXEL, barrel_endcap: -2}
+    2: {hardware: STRIP, barrel_endcap: -2}
+    3: {hardware: PIXEL, barrel_endcap: 0}
+    4: {hardware: STRIP, barrel_endcap: 0}
+    5: {hardware: PIXEL, barrel_endcap: 2}
+    6: {hardware: STRIP, barrel_endcap: 2}
+
+log_level: INFO

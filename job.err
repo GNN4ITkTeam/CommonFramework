@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/u/jareddb2/GNN4ITk/acorn/check_acorn.py", line 89, in <module>
+    check()
+  File "/u/jareddb2/GNN4ITk/acorn/check_acorn.py", line 80, in check
+    out, argmax = scatter_max(src, index, dim=-1)
+  File "/u/jareddb2/.conda/envs/acorn/lib/python3.10/site-packages/torch_scatter/scatter.py", line 72, in scatter_max
+    return torch.ops.torch_scatter.scatter_max(src, index, dim, out, dim_size)
+  File "/u/jareddb2/.conda/envs/acorn/lib/python3.10/site-packages/torch/_ops.py", line 692, in __call__
+    return self._op(*args, **kwargs or {})
+RuntimeError: Not compiled with CUDA support
