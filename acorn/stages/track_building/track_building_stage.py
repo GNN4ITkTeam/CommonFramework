@@ -186,21 +186,21 @@ class TrackBuildingStage:
             else:
                 for name in stats:
                     all_stats[name] = [stats[name]]
-        with open(
-            os.path.join(self.hparams["stage_dir"], "summary.txt"), "w"
-        ) as f:
+        with open(os.path.join(self.hparams["stage_dir"], "summary.txt"), "w") as f:
             f.write(
                 make_result_summary(
-                    sum(all_stats['reconstructed_signal']),
-                    sum(all_stats['total_signal']),
-                    sum(all_stats['num_matched_particles']),
-                    sum(all_stats['num_tracks']),
-                    sum(all_stats['num_duplicated_tracks']),
-                    sum(all_stats['reconstructed_signal']) / sum(all_stats['total_signal']),
-                    sum(all_stats['fake_rate']) / len(all_stats['duplicate_rate']),
-                    sum(all_stats['duplicate_rate']) / len(all_stats['duplicate_rate'])
+                    sum(all_stats["reconstructed_signal"]),
+                    sum(all_stats["total_signal"]),
+                    sum(all_stats["num_matched_particles"]),
+                    sum(all_stats["num_tracks"]),
+                    sum(all_stats["num_duplicated_tracks"]),
+                    sum(all_stats["reconstructed_signal"])
+                    / sum(all_stats["total_signal"]),
+                    sum(all_stats["fake_rate"]) / len(all_stats["duplicate_rate"]),
+                    sum(all_stats["duplicate_rate"]) / len(all_stats["duplicate_rate"]),
                 )
             )
+
     def tracking_efficiency(self, plot_config):
         for var, varconf in plot_config["variables"].items():
             if var == "pt":
@@ -240,7 +240,7 @@ class TrackBuildingStage:
             save_path=os.path.join(
                 self.hparams["stage_dir"],
                 f"track_reconstruction_eff_vs_pt_{self.hparams['matching_style']}.png",
-            )
+            ),
         )
 
     def tracking_efficiency_eta(self, varconf):
@@ -248,18 +248,20 @@ class TrackBuildingStage:
         Plot the graph construction efficiency vs. eta of the tracks.
         """
         all_stats = {}
-        
+
         if "x_bins" in varconf:
             eta_bins = varconf["x_bins"]
         elif "x_lim" in varconf:
             eta_bins = np.arange(varconf["x_lim"][0], varconf["x_lim"][1], step=0.4)
         else:
             raise ValueError("One of x_bins or x_lim must be specified")
-        
+
         eta_bins /= varconf.get("x_scale", 1)
 
         for matching_df, truth_df in tqdm(self.all_dfs):
-            stats = utils.get_statistics(matching_df, truth_df, "eta_particle", eta_bins)
+            stats = utils.get_statistics(
+                matching_df, truth_df, "eta_particle", eta_bins
+            )
             if all_stats:
                 for name in all_stats:
                     all_stats[name].append(stats[name])
@@ -275,7 +277,7 @@ class TrackBuildingStage:
             save_path=os.path.join(
                 self.hparams["stage_dir"],
                 f"track_reconstruction_eff_vs_eta_{self.hparams['matching_style']}.png",
-            )
+            ),
         )
 
     def apply_target_conditions(self, event, target_tracks):

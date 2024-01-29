@@ -289,12 +289,18 @@ class HierarchicalGNN(MLTrackBuildingStage):
         event.full_event.bgraph = event.full_event.bgraph[
             :, event.full_event.bscores > config.get("score_cut", 0)
         ]
-        
-        tracks = pd.DataFrame({
-            "hit_id": event.full_event.bgraph.cpu()[0],
-            "track_id": event.full_event.bgraph.cpu()[1]
-        }).groupby("track_id")["hit_id"].apply(list)
-        
+
+        tracks = (
+            pd.DataFrame(
+                {
+                    "hit_id": event.full_event.bgraph.cpu()[0],
+                    "track_id": event.full_event.bgraph.cpu()[1],
+                }
+            )
+            .groupby("track_id")["hit_id"]
+            .apply(list)
+        )
+
         os.makedirs(
             os.path.join(self.hparams["stage_dir"], "testset_tracks"),
             exist_ok=True,
@@ -315,4 +321,3 @@ class HierarchicalGNN(MLTrackBuildingStage):
             )
 
         return event.full_event
-        

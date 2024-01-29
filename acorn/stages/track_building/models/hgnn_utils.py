@@ -197,7 +197,9 @@ class PartialGraphDataset(Dataset):
         event = torch.load(event_path, map_location=torch.device("cpu"))
         return PartialData(event, **self.hparams["data_config"])
 
+
 # ------------- HGNN UTILS ----------------
+
 
 class PartialData(object):
     """

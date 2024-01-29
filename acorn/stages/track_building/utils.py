@@ -94,7 +94,9 @@ def build_truth_bgraph(
     truth_info["is_signal"] = torch.ones(num_particles, dtype=bool)
     for condition_key, (condition_val) in signal_selection.items():
         assert condition_key in event
-        truth_info["is_signal"] &= get_condition_lambda(condition_key, condition_val)(truth_info)
+        truth_info["is_signal"] &= get_condition_lambda(condition_key, condition_val)(
+            truth_info
+        )
 
     return truth_bgraph, truth_info
 
@@ -373,15 +375,17 @@ def from_bgraph_to_df(graph):
         {"hit_id": graph.bgraph[0].cpu(), "track_id": graph.bgraph[1].cpu()}
     )
 
+
 # ------------- PLOTTING UTILS ----------------
+
 
 def plot_eff(
     all_stats: Dict[str, pd.Series],
     bins: np.ndarray,
     varconf: str,
-    save_path="track_reconstruction_eff_vs_XXX.png"
+    save_path="track_reconstruction_eff_vs_XXX.png",
 ):
-    
+
     denominator = "total_signal"
     numerator = "reconstructed_signal"
 
