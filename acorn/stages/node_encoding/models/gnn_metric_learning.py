@@ -23,6 +23,8 @@ from torch_geometric.nn import knn_graph
 from torch_geometric.utils import softmax
 from torch_scatter import scatter_add
 import torch.nn as nn
+from cuml.neighbors import NearestNeighbors
+import cupy
 
 from torch.utils.checkpoint import checkpoint
 
@@ -47,7 +49,7 @@ class GNNMetricLearning(NodeEncodingStage):
 
         self.node_encoder = make_mlp(
             in_channels,
-            [hparams["hidden"]] * hparams["n_encoder_layers"],
+            [hparams["node_hidden"]] * hparams["n_encoder_layers"],
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
             hidden_activation=hparams["hidden_activation"],
@@ -58,9 +60,10 @@ class GNNMetricLearning(NodeEncodingStage):
         self.edge_networks = nn.ModuleList(
             [
                 make_mlp(
-                    hparams["hidden"]
-                    * (2 if i % hparams["n_gnns_per_iter"] == 0 else 3),
-                    [hparams["hidden"]] * hparams["n_edge_layers"],
+                    (hparams["node_hidden"] * 2)
+                    if i % hparams["n_gnns_per_iter"] == 0
+                    else (hparams["node_hidden"] * 2 + hparams["edge_hidden"]),
+                    [hparams["edge_hidden"]] * hparams["n_edge_layers"],
                     layer_norm=hparams["layernorm"],
                     batch_norm=hparams["batchnorm"],
                     hidden_activation=hparams["hidden_activation"],
@@ -76,9 +79,11 @@ class GNNMetricLearning(NodeEncodingStage):
         self.edge_weight_networks = nn.ModuleList(
             [
                 make_mlp(
-                    hparams["hidden"]
-                    * (2 if i % hparams["n_gnns_per_iter"] == 0 else 3),
-                    [hparams["hidden"]] * (hparams["n_edge_weight_layers"] - 1) + [1],
+                    (hparams["node_hidden"] * 2)
+                    if i % hparams["n_gnns_per_iter"] == 0
+                    else (hparams["node_hidden"] * 2 + hparams["edge_hidden"]),
+                    [hparams["edge_hidden"]] * (hparams["n_edge_weight_layers"] - 1)
+                    + [1],
                     layer_norm=hparams["layernorm"],
                     batch_norm=hparams["batchnorm"],
                     hidden_activation=hparams["hidden_activation"],
@@ -92,8 +97,8 @@ class GNNMetricLearning(NodeEncodingStage):
         )
 
         self.node_network_0 = make_mlp(
-            hparams["hidden"],
-            [hparams["hidden"]] * hparams["n_node_0_layers"],
+            hparams["node_hidden"],
+            [hparams["node_hidden"]] * hparams["n_node_0_layers"],
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
             hidden_activation=hparams["hidden_activation"],
@@ -103,8 +108,8 @@ class GNNMetricLearning(NodeEncodingStage):
         self.node_networks = nn.ModuleList(
             [
                 make_mlp(
-                    2 * hparams["hidden"],
-                    [hparams["hidden"]] * hparams["n_node_layers"],
+                    hparams["node_hidden"] + hparams["edge_hidden"],
+                    [hparams["node_hidden"]] * hparams["n_node_layers"],
                     layer_norm=hparams["layernorm"],
                     batch_norm=hparams["batchnorm"],
                     hidden_activation=hparams["hidden_activation"],
@@ -120,8 +125,8 @@ class GNNMetricLearning(NodeEncodingStage):
         self.node_decoders = nn.ModuleList(
             [
                 make_mlp(
-                    hparams["hidden"],
-                    [hparams["hidden"]] * (hparams["n_decoder_layers"] - 1)
+                    hparams["node_hidden"],
+                    [hparams["node_hidden"]] * (hparams["n_decoder_layers"] - 1)
                     + [hparams["emb_dim"]],
                     layer_norm=hparams["layernorm"],
                     batch_norm=hparams["batchnorm"],
@@ -132,10 +137,30 @@ class GNNMetricLearning(NodeEncodingStage):
             ]
         )
 
+    def cu_knn_graph(self, x, k, loop=False, cosine=False):
+        with cupy.cuda.Device(self.device.index):
+            x_cu = cupy.from_dlpack(x)
+            knn = NearestNeighbors(n_neighbors=k)
+            knn.fit(x_cu)
+            _, graph_idxs = knn.kneighbors(x_cu)
+            graph_idxs = torch.from_dlpack(graph_idxs)
+        ind = (
+            torch.arange(graph_idxs.shape[0], device=self.device)
+            .unsqueeze(1)
+            .expand(graph_idxs.shape)
+        )
+        graph = torch.stack([graph_idxs.flatten(), ind.flatten()], dim=0)
+        if not loop:
+            return graph[:, graph[0] != graph[1]]
+        else:
+            return graph
+
     def get_knn_edges(self, x, i):
-        x = self.node_decoders[i](x)
+        x = self.node_decoders[0 if self.hparams["recurrent"] else i](x)
         if self.hparams["embedding_norm"]:
             x = F.normalize(x)
+
+        # return self.cu_knn_graph(x, k=self.hparams["knn_train"], cosine=False, loop=False)
         return knn_graph(x, k=self.hparams["knn_train"], cosine=False, loop=False)
 
     def forward(self, batch, **kwargs):
@@ -160,13 +185,11 @@ class GNNMetricLearning(NodeEncodingStage):
                 start, end = checkpoint(
                     self.get_knn_edges,
                     x,
-                    0 if self.hparams["recurrent"] else i,
+                    i,
                     use_reentrant=False,
                 )
             else:
-                start, end = self.get_knn_edges(
-                    x, 0 if self.hparams["recurrent"] else i
-                )
+                start, end = self.get_knn_edges(x, i)
             knn_end = time.time()
             # print("kNN time: ", knn_end - knn_start)
             batch.knn_time += knn_end - knn_start
@@ -231,6 +254,7 @@ class GNNMetricLearning(NodeEncodingStage):
         )
 
     def knn_loss(self, batch, k):
+        # edges = self.cu_knn_graph(batch.hit_embedding, k=k, cosine=False, loop=False)
         edges = knn_graph(batch.hit_embedding, k=k, cosine=False, loop=False)
         y = self.get_target(batch, edges)
         w = self.get_weight(batch, edges, y)

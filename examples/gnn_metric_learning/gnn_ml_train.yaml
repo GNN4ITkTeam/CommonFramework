@@ -38,7 +38,8 @@ hard_cuts:
 node_features: [hit_r, hit_phi, hit_z, hit_eta, hit_cluster_x_1, hit_cluster_y_1, hit_cluster_z_1, hit_cluster_x_2, hit_cluster_y_2, hit_cluster_z_2]
 node_scales: [1000., 3.14159265359, 1000., 1., 1000., 1000., 1000., 1000., 1000., 1000.]
 # edge_features: [edge_dr, edge_dphi, edge_dz, edge_deta, edge_phislope, edge_rphislope]
-hidden: 128
+node_hidden: 128
+edge_hidden: 128
 emb_dim: 24
 n_encoder_layers: 3
 n_node_0_layers: 3
