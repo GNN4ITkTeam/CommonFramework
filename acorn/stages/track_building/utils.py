@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 from scipy.sparse import coo_matrix, csr_matrix
 
 from acorn.utils import get_ratio
+from acorn.utils.mapping_utils import get_condition_lambda
 from acorn.utils.version_utils import get_pyg_data_keys
 
 
@@ -36,18 +37,16 @@ def build_truth_bgraph(
     Argument:
         event: a torch_geometric event record
         signal_selection: a dictionary map the name of the feature to the signal selection,
-        which is a tuple that is one of the following:
-            ("range", (vmin, vmax)): interval of that feature. Use `None` for unbounded.
-            ("isin", [allowed values]): is in a set of values
-            ("notin", [disallowed values]): is not in the set of values
+            refer to `get_condition_lambda` for the formatting
         target_selection: the same idea as selection but this will REMOVE the tracks from consideration.
+            should only be used when speed is important, otherwise could lead to incorrect result.
     Returns:
         truth_bgraph: a csr_matrix sparse graph where (i, j) denotes hit i belongs to particle j
         truth_info: a dictionary of truth-level information of each particle, which contains:
             original_pid: the particle id in the original event record
             pid: the re-indexed particle id ranging from (0, num_particles)
             pt: transverse momentum of the particle,
-            eta: the pseudo rapidity of the particle,
+            eta_particle: the pseudo rapidity of the particle,
             radius: radius of the vertex,
             nhits: number of hits recorded,
             pdgId: the PDG Id of the particle,
@@ -61,21 +60,9 @@ def build_truth_bgraph(
 
     # select targets
     is_target = torch.ones(event.particle_id.shape[0], dtype=bool)
-    for name, (method, queries) in target_selection.items():
-        name = "eta_particle" if name == "eta" else name
-        if method == "range":
-            if queries[0] is not None:
-                is_target &= event[name] >= queries[0]
-            if queries[1] is not None:
-                is_target &= event[name] <= queries[1]
-        elif method == "isin":
-            is_target &= torch.isin(event[name], torch.as_tensor(queries))
-        elif method == "notin":
-            is_target &= ~torch.isin(event[name], torch.as_tensor(queries))
-        else:
-            raise ValueError(
-                f"Method must be one of range, isin, notin, but got {method}"
-            )
+    for condition_key, (condition_val) in target_selection.items():
+        assert condition_key in event
+        is_target &= get_condition_lambda(condition_key, condition_val)(event)
 
     # relabel tracks and particles:
     original_pid, pid = event.particle_id[is_target].unique(return_inverse=True)
@@ -92,7 +79,6 @@ def build_truth_bgraph(
             pid,
             event[attr_name][is_target],
         )
-    truth_info["eta"] = truth_info.pop("eta_particle")
 
     # build scipy bipartite graphs
     truth_bgraph = coo_matrix(
@@ -106,24 +92,9 @@ def build_truth_bgraph(
 
     # select signals
     truth_info["is_signal"] = torch.ones(num_particles, dtype=bool)
-    for name, (method, queries) in signal_selection.items():
-        if method == "range":
-            if queries[0] is not None:
-                truth_info["is_signal"] &= truth_info[name] >= queries[0]
-            if queries[1] is not None:
-                truth_info["is_signal"] &= truth_info[name] <= queries[1]
-        elif method == "isin":
-            truth_info["is_signal"] &= torch.isin(
-                truth_info[name], torch.as_tensor(queries)
-            )
-        elif method == "notin":
-            truth_info["is_signal"] &= ~torch.isin(
-                truth_info[name], torch.as_tensor(queries)
-            )
-        else:
-            raise ValueError(
-                f"Method must be one of range, isin, notin, but got {method}"
-            )
+    for condition_key, (condition_val) in signal_selection.items():
+        assert condition_key in event
+        truth_info["is_signal"] &= get_condition_lambda(condition_key, condition_val)(truth_info)
 
     return truth_bgraph, truth_info
 
@@ -220,8 +191,7 @@ def evaluate_tracking(
     event: Data,
     tracks: torch.tensor,
     min_hits: Optional[int] = 5,
-    signal_selection: Optional[Dict[str, Tuple[float, float]]] = {},
-    target_selection: Optional[Dict[str, Tuple[float, float]]] = {},
+    target_tracks: Optional[Dict[str, Tuple[float, float]]] = {},
     matching_fraction: Optional[float] = 0.5,
     style: Optional[str] = "ATLAS",
 ) -> pd.DataFrame:
@@ -230,12 +200,11 @@ def evaluate_tracking(
         event: a `Data` object containing the truth information
         tracks: a `torch.tensor` of shape [2, N] where the tracks[0, i] node belongs to the tracks[1, i] track
         min_hits: minimum number of hits to be considered a particle
-        signal_selection: a dictionary map the name of the feature to the signal selection,
+        target_tracks: a dictionary map the name of the feature to the signal selection,
         which is a tuple that is one of the following:
             ("range", (vmin, vmax)): interval of that feature. Use `None` for unbounded.
             ("isin", [allowed values]): is in a set of values
             ("notin", [disallowed values]): is not in the set of values
-        target_selection: the same idea as selection but this will REMOVE the tracks from consideration.
         matching_fraction: the matching fraction to be used.
         style: the style of matching. Can either be one-way, two-way, or ATLAS.
     Return:
@@ -243,7 +212,7 @@ def evaluate_tracking(
         truth_df: a pd.DataFrame contraining truth level information
     """
     truth_bgraph, truth_info = build_truth_bgraph(
-        event, signal_selection=signal_selection, target_selection=target_selection
+        event, signal_selection=target_tracks, target_selection={}
     )
     pred_bgraph, pred_info = build_pred_bgraph(event, tracks, min_hits)
     matching, eff, pur = match_bgraphs(
@@ -258,7 +227,7 @@ def evaluate_tracking(
             "purity": pur,
             "pid": truth_info["original_pid"][matching[0]],
             "pt": truth_info["pt"][matching[0]],
-            "eta": truth_info["eta"][matching[0]],
+            "eta_particle": truth_info["eta_particle"][matching[0]],
             "radius": truth_info["radius"][matching[0]],
             "nhits": truth_info["nhits"][matching[0]],
             "pdgId": truth_info["pdgId"][matching[0]],
@@ -273,7 +242,7 @@ def evaluate_tracking(
         {
             "pid": truth_info["original_pid"],
             "pt": truth_info["pt"],
-            "eta": truth_info["eta"],
+            "eta_particle": truth_info["eta_particle"],
             "radius": truth_info["radius"],
             "nhits": truth_info["nhits"],
             "pdgId": truth_info["pdgId"],
@@ -283,7 +252,7 @@ def evaluate_tracking(
     )
 
     if matching_fraction < 0.5:
-        raise ValueError("Matching fraction must be greater or equal to 0.5!")
+        raise ValueError("Matching fraction must not be less than 0.5!")
     elif matching_fraction == 0.5:
         matching_fraction += 1e-12
 
@@ -404,18 +373,15 @@ def from_bgraph_to_df(graph):
         {"hit_id": graph.bgraph[0].cpu(), "track_id": graph.bgraph[1].cpu()}
     )
 
-
 # ------------- PLOTTING UTILS ----------------
-
 
 def plot_eff(
     all_stats: Dict[str, pd.Series],
     bins: np.ndarray,
-    xlabel: str,
-    caption: str,
-    save_path: Optional[str] = "track_reconstruction_eff_vs_pt.png",
+    varconf: str,
+    save_path="track_reconstruction_eff_vs_XXX.png"
 ):
-
+    
     denominator = "total_signal"
     numerator = "reconstructed_signal"
 
@@ -423,6 +389,7 @@ def plot_eff(
     df = df.merge(
         pd.concat(all_stats[numerator]).groupby("bin_id").agg("sum"), on="bin_id"
     ).reset_index()
+
     xerrs = np.stack([bins[df.bin_id.astype(int)], bins[df.bin_id.astype(int) + 1]])
     xvals = xerrs.mean(0)
     xerrs = xerrs - xvals
@@ -430,22 +397,26 @@ def plot_eff(
     eff, err = get_ratio(df[numerator], df[denominator])
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.errorbar(
-        xvals,
+        xvals * varconf.get("x_scale", 1),
         eff,
-        xerr=xerrs,
+        xerr=xerrs * varconf.get("x_scale", 1),
         yerr=err,
         fmt="o",
         color="black",
         label="Track efficiency",
     )
     # Add x and y labels
-    ax.set_xlabel(xlabel, fontsize=16)
-    ax.set_ylabel("Tracking efficiency", fontsize=16)
+    ax.set_xlabel(varconf.get("x_label", "x_label is None"), fontsize=16)
+    ax.set_ylabel("Track Efficiency", fontsize=16)
+    if "y_lim" in varconf:
+        ax.set_ylim(ymin=varconf["y_lim"][0], ymax=varconf["y_lim"][1])
 
     atlasify(
         "Internal",
-        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-        r" \bar{t}$ and soft interactions) " + "\n" + caption,
+        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries ($t"
+        r" \bar{t}$ and soft interactions) " + "\n"
+        r"$p_T > 1$GeV, $|\eta| < 4$",
+        enlarge=1,
     )
 
     # Save the plot

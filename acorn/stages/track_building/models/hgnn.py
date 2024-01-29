@@ -215,8 +215,7 @@ class HierarchicalGNN(MLTrackBuildingStage):
             batch.full_event,
             batch.get_tracks(bgraph),
             min_hits=self.hparams["min_track_length"],
-            signal_selection=self.hparams["selection"],
-            target_selection={},
+            target_tracks=self.hparams["target_tracks"],
             matching_fraction=self.hparams["matching_fraction"],
             style=self.hparams["matching_style"],
         )
@@ -290,9 +289,9 @@ class HierarchicalGNN(MLTrackBuildingStage):
         event.full_event.bgraph = event.full_event.bgraph[
             :, event.full_event.bscores > config.get("score_cut", 0)
         ]
-
+        
         tracks = pd.DataFrame({
-            "hid_id": event.full_event.bgraph.cpu()[0],
+            "hit_id": event.full_event.bgraph.cpu()[0],
             "track_id": event.full_event.bgraph.cpu()[1]
         }).groupby("track_id")["hit_id"].apply(list)
         

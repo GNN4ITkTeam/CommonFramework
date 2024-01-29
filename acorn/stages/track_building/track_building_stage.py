@@ -138,14 +138,13 @@ class TrackBuildingStage:
 
         all_plots = config["plots"]
         graph_constructor.cache_dfs(config)
-        suffix = f"{config['matching_style']}_{config['matching_fraction']}"
         os.makedirs(graph_constructor.hparams["stage_dir"], exist_ok=True)
-        graph_constructor.write_high_level_stats(config, suffix)
+        graph_constructor.write_high_level_stats()
 
         # TODO: Handle the list of plots properly
         for plot_function, plot_config in all_plots.items():
             if hasattr(graph_constructor, plot_function):
-                getattr(graph_constructor, plot_function)(plot_config, suffix)
+                getattr(graph_constructor, plot_function)(plot_config)
             else:
                 print(f"Plot {plot_function} not implemented")
 
@@ -171,14 +170,13 @@ class TrackBuildingStage:
                 event,
                 event.bgraph,
                 min_hits=config["min_track_length"],
-                signal_selection=config["signal_selection"],
-                target_selection=config["target_selection"],
+                target_tracks=config.get("target_tracks", {}),
                 matching_fraction=config["matching_fraction"],
                 style=config["matching_style"],
             )
             self.all_dfs.append((matching_df, truth_df))
 
-    def write_high_level_stats(self, config, suffix):
+    def write_high_level_stats(self):
         all_stats = {}
         for matching_df, truth_df in tqdm(self.all_dfs):
             stats = utils.get_statistics(matching_df, truth_df)
@@ -189,7 +187,7 @@ class TrackBuildingStage:
                 for name in stats:
                     all_stats[name] = [stats[name]]
         with open(
-            os.path.join(self.hparams["stage_dir"], f"summary_{suffix}.txt"), "w"
+            os.path.join(self.hparams["stage_dir"], "summary.txt"), "w"
         ) as f:
             f.write(
                 make_result_summary(
@@ -203,17 +201,28 @@ class TrackBuildingStage:
                     sum(all_stats['duplicate_rate']) / len(all_stats['duplicate_rate'])
                 )
             )
+    def tracking_efficiency(self, plot_config):
+        for var, varconf in plot_config["variables"].items():
+            if var == "pt":
+                self.tracking_efficiency_pt(varconf)
+            if var == "eta":
+                self.tracking_efficiency_eta(varconf)
 
-    def tracking_efficiency_pt(self, plot_config, suffix):
+    def tracking_efficiency_pt(self, varconf):
         """
         Plot the graph construction efficiency vs. pT of the tracks.
         """
         all_stats = {}
-        pt_bins = np.logspace(
-            np.log10(plot_config["min_pt"]),
-            np.log10(plot_config["max_pt"]),
-            plot_config["n_bins"],
-        )
+        if "x_bins" in varconf:
+            pt_bins = varconf["x_bins"]
+        elif "x_lim" in varconf:
+            pt_bins = np.logspace(
+                np.log10(varconf["x_lim"][0]), np.log10(varconf["x_lim"][1]), 10
+            )
+        else:
+            raise ValueError("One of x_bins or x_lim must be specified")
+        pt_bins /= varconf.get("x_scale", 1)
+
         for matching_df, truth_df in tqdm(self.all_dfs):
             stats = utils.get_statistics(matching_df, truth_df, "pt", pt_bins)
             if all_stats:
@@ -227,23 +236,30 @@ class TrackBuildingStage:
         utils.plot_eff(
             all_stats=all_stats,
             bins=pt_bins,
-            xlabel=r"$p_T$ (MeV)",
-            caption=plot_config["caption"],
+            varconf=varconf,
             save_path=os.path.join(
-                self.hparams["stage_dir"], f"eff_vs_pt_{suffix}.png"
-            ),
+                self.hparams["stage_dir"],
+                f"track_reconstruction_eff_vs_pt_{self.hparams['matching_style']}.png",
+            )
         )
 
-    def tracking_efficiency_eta(self, plot_config, suffix):
+    def tracking_efficiency_eta(self, varconf):
         """
         Plot the graph construction efficiency vs. eta of the tracks.
         """
         all_stats = {}
-        eta_bins = np.linspace(
-            plot_config["min_eta"], plot_config["max_eta"], plot_config["n_bins"]
-        )
+        
+        if "x_bins" in varconf:
+            eta_bins = varconf["x_bins"]
+        elif "x_lim" in varconf:
+            eta_bins = np.arange(varconf["x_lim"][0], varconf["x_lim"][1], step=0.4)
+        else:
+            raise ValueError("One of x_bins or x_lim must be specified")
+        
+        eta_bins /= varconf.get("x_scale", 1)
+
         for matching_df, truth_df in tqdm(self.all_dfs):
-            stats = utils.get_statistics(matching_df, truth_df, "eta", eta_bins)
+            stats = utils.get_statistics(matching_df, truth_df, "eta_particle", eta_bins)
             if all_stats:
                 for name in all_stats:
                     all_stats[name].append(stats[name])
@@ -255,11 +271,11 @@ class TrackBuildingStage:
         utils.plot_eff(
             all_stats=all_stats,
             bins=eta_bins,
-            xlabel=r"Pseudo rapidity $\eta$",
-            caption=plot_config["caption"],
+            varconf=varconf,
             save_path=os.path.join(
-                self.hparams["stage_dir"], f"eff_vs_eta_{suffix}.png"
-            ),
+                self.hparams["stage_dir"],
+                f"track_reconstruction_eff_vs_eta_{self.hparams['matching_style']}.png",
+            )
         )
 
     def apply_target_conditions(self, event, target_tracks):
