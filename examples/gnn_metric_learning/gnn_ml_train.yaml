@@ -6,6 +6,7 @@ stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/ttbar_gnnml
 project: gnnml_ttbar # Used in logging
 gpus: 4
 nodes: 1
+precision: 16
 
 # Dataset parameters
 data_split: [2000, 400, 200] # Number of [training, validation, testing] examples
@@ -60,6 +61,7 @@ randomisation: 100000
 knn_loss: 10
 knn_val: 10
 margin: 1
+cu_knn: False
 
 # Training parameters
 warmup: 10

@@ -25,6 +25,7 @@ from torch_scatter import scatter_add
 import torch.nn as nn
 from cuml.neighbors import NearestNeighbors
 import cupy
+import pytorch_pfn_extras as ppe
 
 from torch.utils.checkpoint import checkpoint
 
@@ -137,9 +138,11 @@ class GNNMetricLearning(NodeEncodingStage):
             ]
         )
 
+        ppe.cuda.use_torch_mempool_in_cupy()
+
     def cu_knn_graph(self, x, k, loop=False, cosine=False):
         with cupy.cuda.Device(self.device.index):
-            x_cu = cupy.from_dlpack(x)
+            x_cu = cupy.from_dlpack(x.detach())
             knn = NearestNeighbors(n_neighbors=k)
             knn.fit(x_cu)
             _, graph_idxs = knn.kneighbors(x_cu)
@@ -160,8 +163,12 @@ class GNNMetricLearning(NodeEncodingStage):
         if self.hparams["embedding_norm"]:
             x = F.normalize(x)
 
-        # return self.cu_knn_graph(x, k=self.hparams["knn_train"], cosine=False, loop=False)
-        return knn_graph(x, k=self.hparams["knn_train"], cosine=False, loop=False)
+        if self.hparams.get("cu_knn"):
+            return self.cu_knn_graph(
+                x, k=self.hparams["knn_train"], cosine=False, loop=False
+            )
+        else:
+            return knn_graph(x, k=self.hparams["knn_train"], cosine=False, loop=False)
 
     def forward(self, batch, **kwargs):
         x = torch.stack(
@@ -254,8 +261,12 @@ class GNNMetricLearning(NodeEncodingStage):
         )
 
     def knn_loss(self, batch, k):
-        # edges = self.cu_knn_graph(batch.hit_embedding, k=k, cosine=False, loop=False)
-        edges = knn_graph(batch.hit_embedding, k=k, cosine=False, loop=False)
+        if self.hparams.get("cu_knn"):
+            edges = self.cu_knn_graph(
+                batch.hit_embedding, k=k, cosine=False, loop=False
+            )
+        else:
+            edges = knn_graph(batch.hit_embedding, k=k, cosine=False, loop=False)
         y = self.get_target(batch, edges)
         w = self.get_weight(batch, edges, y)
         tp = torch.sum(y == 1)

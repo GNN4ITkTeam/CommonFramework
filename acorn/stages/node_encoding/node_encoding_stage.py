@@ -73,8 +73,10 @@ class NodeEncodingStage(LightningModule):
     def setup(self, stage="fit"):
         if stage in ["fit", "predict"]:
             self.load_data(self.hparams["input_dir"], stage)
+            torch.set_float32_matmul_precision("medium" if stage == "fit" else "high")
         elif stage == "test":
             self.load_data(self.hparams["stage_dir"], stage)
+            torch.set_float32_matmul_precision("high")
 
     def load_data(self, input_dir, stage):
         for data_name, data_num in zip(
