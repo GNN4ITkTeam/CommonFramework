@@ -13,8 +13,12 @@
 # limitations under the License.
 
 """
-This class represents the entire logic of the track building stage. In particular, it
-1. 
+This class represents the entire logic of the graph construction stage. In particular, it
+1. Loads events from the Athena-dumped csv files
+2. Processes them into PyG Data objects with the specificied structure (see docs)
+3. Runs the training of the metric learning or module map
+4. Can run inference to build graphs
+5. Can run evaluation to plot/print the performance of the graph construction
 
 TODO: Update structure with the latest Gravnet base class
 """
@@ -24,7 +28,7 @@ import logging
 
 from torch_geometric.data import Dataset
 import torch
-import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
 from acorn.utils import (
@@ -137,148 +141,107 @@ class TrackBuildingStage:
         graph_constructor.setup(stage="test")
 
         all_plots = config["plots"]
-        graph_constructor.cache_dfs(config)
-        os.makedirs(graph_constructor.hparams["stage_dir"], exist_ok=True)
-        graph_constructor.write_high_level_stats()
 
         # TODO: Handle the list of plots properly
         for plot_function, plot_config in all_plots.items():
             if hasattr(graph_constructor, plot_function):
-                getattr(graph_constructor, plot_function)(plot_config)
+                getattr(graph_constructor, plot_function)(plot_config, config)
             else:
                 print(f"Plot {plot_function} not implemented")
 
-    def eval_preprocess_event(self, event, config):
-        if not hasattr(event, "bgraph") and hasattr(event, "labels"):
-            event.bgraph = torch.stack(
-                [
-                    torch.arange(event.labels.shape[0], device=event.labels.device)[
-                        event.labels >= 0
-                    ],
-                    torch.as_tensor(
-                        event.labels[event.labels >= 0], device=event.labels.device
-                    ),
-                ]
-            )
-        return event
+    def tracking_efficiency(self, plot_config, config):
+        """
+        Plot the track efficiency vs. pT of the edge.
+        """
+        all_y_truth, all_pt = [], []
+        dataset = getattr(self, config["dataset"])
 
-    def cache_dfs(self, config):
-        self.all_dfs = []
-        for event in tqdm(self.testset):
-            event = self.eval_preprocess_event(event, config)
-            matching_df, truth_df = utils.evaluate_tracking(
-                event,
-                event.bgraph,
-                min_hits=config["min_track_length"],
-                target_tracks=config.get("target_tracks", {}),
-                matching_fraction=config["matching_fraction"],
-                style=config["matching_style"],
-            )
-            self.all_dfs.append((matching_df, truth_df))
-
-    def write_high_level_stats(self):
-        all_stats = {}
-        for matching_df, truth_df in tqdm(self.all_dfs):
-            stats = utils.get_statistics(matching_df, truth_df)
-            if all_stats:
-                for name in all_stats:
-                    all_stats[name].append(stats[name])
-            else:
-                for name in stats:
-                    all_stats[name] = [stats[name]]
-        with open(os.path.join(self.hparams["stage_dir"], "summary.txt"), "w") as f:
-            f.write(
-                make_result_summary(
-                    sum(all_stats["reconstructed_signal"]),
-                    sum(all_stats["total_signal"]),
-                    sum(all_stats["num_matched_particles"]),
-                    sum(all_stats["num_tracks"]),
-                    sum(all_stats["num_duplicated_tracks"]),
-                    sum(all_stats["reconstructed_signal"])
-                    / sum(all_stats["total_signal"]),
-                    sum(all_stats["fake_rate"]) / len(all_stats["duplicate_rate"]),
-                    sum(all_stats["duplicate_rate"]) / len(all_stats["duplicate_rate"]),
+        evaluated_events = []
+        for event in tqdm(dataset):
+            evaluated_events.append(
+                utils.evaluate_labelled_graph(
+                    event,
+                    matching_fraction=config["matching_fraction"],
+                    matching_style=config["matching_style"],
+                    sel_conf=config["target_tracks"],
+                    min_track_length=config["min_track_length"],
                 )
             )
 
-    def tracking_efficiency(self, plot_config):
+        evaluated_events = pd.concat(evaluated_events)
+
+        particles = evaluated_events[evaluated_events["is_reconstructable"]]
+        reconstructed_particles = particles[
+            particles["is_reconstructed"] & particles["is_matchable"]
+        ]
+        tracks = evaluated_events[evaluated_events["is_matchable"]]
+        matched_tracks = tracks[tracks["is_matched"]]
+
+        n_particles = len(particles.drop_duplicates(subset=["event_id", "particle_id"]))
+        n_reconstructed_particles = len(
+            reconstructed_particles.drop_duplicates(subset=["event_id", "particle_id"])
+        )
+
+        n_tracks = len(tracks.drop_duplicates(subset=["event_id", "track_id"]))
+        n_matched_tracks = len(
+            matched_tracks.drop_duplicates(subset=["event_id", "track_id"])
+        )
+
+        n_dup_reconstructed_particles = (
+            len(reconstructed_particles) - n_reconstructed_particles
+        )
+
+        eff = n_reconstructed_particles / n_particles
+        fake_rate = 1 - (n_matched_tracks / n_tracks)
+        dup_rate = n_dup_reconstructed_particles / n_reconstructed_particles
+
+        result_summary = make_result_summary(
+            n_reconstructed_particles,
+            n_particles,
+            n_matched_tracks,
+            n_tracks,
+            n_dup_reconstructed_particles,
+            eff,
+            fake_rate,
+            dup_rate,
+        )
+
+        self.log.info("Result Summary :\n\n" + result_summary)
+
+        res_fname = os.path.join(
+            self.hparams["stage_dir"],
+            f"results_summary_{self.hparams['matching_style']}.txt",
+        )
+
+        with open(res_fname, "w") as f:
+            f.write(result_summary)
+
+        # First get the list of particles without duplicates
+        grouped_reco_particles = particles.groupby("particle_id")[
+            "is_reconstructed"
+        ].any()
+        # particles["is_reconstructed"] = particles["particle_id"].isin(grouped_reco_particles[grouped_reco_particles].index.values)
+        particles.loc[
+            particles["particle_id"].isin(
+                grouped_reco_particles[grouped_reco_particles].index.values
+            ),
+            "is_reconstructed",
+        ] = True
+        particles = particles.drop_duplicates(subset=["particle_id"])
+
+        # Plot the results across pT and eta (if provided in conf file)
+        os.makedirs(self.hparams["stage_dir"], exist_ok=True)
+
         for var, varconf in plot_config["variables"].items():
-            if var == "pt":
-                self.tracking_efficiency_pt(varconf)
-            if var == "eta":
-                self.tracking_efficiency_eta(varconf)
-
-    def tracking_efficiency_pt(self, varconf):
-        """
-        Plot the graph construction efficiency vs. pT of the tracks.
-        """
-        all_stats = {}
-        if "x_bins" in varconf:
-            pt_bins = varconf["x_bins"]
-        elif "x_lim" in varconf:
-            pt_bins = np.logspace(
-                np.log10(varconf["x_lim"][0]), np.log10(varconf["x_lim"][1]), 10
+            utils.plot_eff(
+                particles,
+                var,
+                varconf,
+                save_path=os.path.join(
+                    self.hparams["stage_dir"],
+                    f"track_reconstruction_eff_vs_{var}_{self.hparams['matching_style']}.png",
+                ),
             )
-        else:
-            raise ValueError("One of x_bins or x_lim must be specified")
-        pt_bins /= varconf.get("x_scale", 1)
-
-        for matching_df, truth_df in tqdm(self.all_dfs):
-            stats = utils.get_statistics(matching_df, truth_df, "pt", pt_bins)
-            if all_stats:
-                for name in all_stats:
-                    all_stats[name].append(stats[name])
-            else:
-                for name in stats:
-                    all_stats[name] = [stats[name]]
-
-        # Plot the results across pT and eta
-        utils.plot_eff(
-            all_stats=all_stats,
-            bins=pt_bins,
-            varconf=varconf,
-            save_path=os.path.join(
-                self.hparams["stage_dir"],
-                f"track_reconstruction_eff_vs_pt_{self.hparams['matching_style']}.png",
-            ),
-        )
-
-    def tracking_efficiency_eta(self, varconf):
-        """
-        Plot the graph construction efficiency vs. eta of the tracks.
-        """
-        all_stats = {}
-
-        if "x_bins" in varconf:
-            eta_bins = varconf["x_bins"]
-        elif "x_lim" in varconf:
-            eta_bins = np.arange(varconf["x_lim"][0], varconf["x_lim"][1], step=0.4)
-        else:
-            raise ValueError("One of x_bins or x_lim must be specified")
-
-        eta_bins /= varconf.get("x_scale", 1)
-
-        for matching_df, truth_df in tqdm(self.all_dfs):
-            stats = utils.get_statistics(
-                matching_df, truth_df, "eta_particle", eta_bins
-            )
-            if all_stats:
-                for name in all_stats:
-                    all_stats[name].append(stats[name])
-            else:
-                for name in stats:
-                    all_stats[name] = [stats[name]]
-
-        # Plot the results across pT and eta
-        utils.plot_eff(
-            all_stats=all_stats,
-            bins=eta_bins,
-            varconf=varconf,
-            save_path=os.path.join(
-                self.hparams["stage_dir"],
-                f"track_reconstruction_eff_vs_eta_{self.hparams['matching_style']}.png",
-            ),
-        )
 
     def apply_target_conditions(self, event, target_tracks):
         """
