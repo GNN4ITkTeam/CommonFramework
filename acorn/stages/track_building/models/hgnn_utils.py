@@ -31,6 +31,7 @@ from scipy.sparse.csgraph import (
 
 # Local imports
 from ..track_building_stage import TrackBuildingStage
+from .cc_and_walk_utils import remove_cycles
 from acorn.stages.graph_construction.models.utils import graph_intersection
 from acorn.stages.track_building.utils import build_truth_bgraph, build_pred_bgraph
 from acorn.utils import (
@@ -216,12 +217,12 @@ class PartialData(object):
         random_drop: float = 0.0,
         signal_weight: float = 2,
         signal_selection: Optional[Dict[str, Tuple[float, float]]] = {
-            "pt": ("range", [1000, None]),
-            "nhits": ("range", [3, None]),
+            "pt": [1000, float("inf")],
+            "nhits": [3, float("inf")],
         },
         target_selection: Optional[Dict[str, Tuple[float, float]]] = {
-            "pt": ("range", [500, None]),
-            "nhits": ("range", [3, None]),
+            "pt": [500, float("inf")],
+            "nhits": [3, float("inf")],
         },
     ):
         """
@@ -261,6 +262,7 @@ class PartialData(object):
         everything is done on cpu then moved to the device!
         """
         event = self.full_event.cpu()
+        event = remove_cycles(event)
 
         # Initialize the array to track which hit to keep
         to_keep = torch.zeros_like(event.hit_id, dtype=torch.bool)
@@ -272,6 +274,7 @@ class PartialData(object):
 
         # Select good tracks with at least `min_hits` hits
         if self.tight_cut:
+            # run cc
             tight_edges = event.edge_index[
                 :, (event.scores > self.tight_cut) & edge_mask
             ].numpy()
@@ -280,10 +283,22 @@ class PartialData(object):
                 shape=(event.hit_id.shape[0], event.hit_id.shape[0]),
             ).tocsr()
             _, track_id = connected_components(graph, directed=False)
+            
+            # remove short tracks
             _, inverse, nhits = np.unique(
                 track_id, return_counts=True, return_inverse=True
             )
             track_id[nhits[inverse] < self.min_hits] = -1
+            
+            # remove any not simple tracks
+            out_hit_id, out_degree = np.unique(
+                tight_edges[0], return_counts=True, return_inverse=False
+            )
+            in_hit_id, in_degree = np.unique(
+                tight_edges[1], return_counts=True, return_inverse=False
+            )
+            track_id[np.isin(track_id, track_id[in_hit_id[in_degree > 1]])] = -1
+            track_id[np.isin(track_id, track_id[out_hit_id[out_degree > 1]])] = -1
 
             # store the good tracks and update tracker
             track_id = torch.as_tensor(track_id, device=self.device)
@@ -299,7 +314,7 @@ class PartialData(object):
         masked_idx = torch.cumsum(to_keep, dim=0) - 1
         masked_idx[
             ~to_keep
-        ] = -1  # Can be removed for performance, this is for sanity check
+        ] = -1  
 
         # build new `Data` instance
         edge_mask = (
@@ -445,11 +460,11 @@ class PartialData(object):
             tracks = torch.stack(
                 [
                     self.partial_event.hit_id[tracks[0]],
-                    tracks[1] + self.cc_tracks.max() + 1,
+                    tracks[1] + self.cc_tracks[1].max() + 1,
                 ],
                 dim=0,
             )
-            torch.cat([self.cc_tracks, tracks], dim=1)
+            tracks = torch.cat([self.cc_tracks, tracks], dim=1)
         else:
             tracks = tracks.clone()
             tracks[0] = self.partial_event.hit_id[tracks[0]]
