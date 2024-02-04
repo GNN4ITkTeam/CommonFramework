@@ -31,9 +31,9 @@ from scipy.sparse.csgraph import (
 
 # Local imports
 from ..track_building_stage import TrackBuildingStage
+from ..tracking_utils import build_truth_bgraph, build_pred_bgraph
 from .cc_and_walk_utils import remove_cycles
 from acorn.stages.graph_construction.models.utils import graph_intersection
-from acorn.stages.track_building.utils import build_truth_bgraph, build_pred_bgraph
 from acorn.utils import (
     load_datafiles_in_dir,
     get_optimizers,

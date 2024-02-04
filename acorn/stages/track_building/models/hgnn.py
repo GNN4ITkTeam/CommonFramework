@@ -21,7 +21,7 @@ import pandas as pd
 
 # Local imports
 from .hgnn_utils import MLTrackBuildingStage
-from acorn.stages.track_building.utils import evaluate_tracking, get_statistics
+from acorn.stages.track_building.tracking_utils import evaluate_tracking, get_statistics
 from acorn.stages.track_building.models.gnn_modules.hgnn_models import (
     Pooling,
     InteractionGNNBlock,
@@ -283,8 +283,12 @@ class HierarchicalGNN(MLTrackBuildingStage):
         batch.full_event.boutput = logits
         batch.full_event.bscores = scores
 
-        # For backward compatibility build labels
-        
+        # For backward compatibility build labels, should be removed in the future.
+        labels = - torch.ones_like(batch.full_event.hit_id)
+        filtered_bgraph = bgraph[:, scores >= self.hparams.get("score_cut", 0)]
+        _, unique_idx = filtered_bgraph[0].unique(return_inverse = True)
+        labels[filtered_bgraph[0][unique_idx]] = filtered_bgraph[1][unique_idx]
+        batch.full_event.bscores = labels
 
         torch.save(batch.full_event, output_dir)
 
