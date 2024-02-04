@@ -283,6 +283,9 @@ class HierarchicalGNN(MLTrackBuildingStage):
         batch.full_event.boutput = logits
         batch.full_event.bscores = scores
 
+        # For backward compatibility build labels
+        
+
         torch.save(batch.full_event, output_dir)
 
     def eval_preprocess_event(self, event, config):
