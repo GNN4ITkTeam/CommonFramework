@@ -1,8 +1,8 @@
 # CommonFramework configuration
 stage: track_building
 model: HierarchicalGNN
-input_dir: /global/cfs/cdirs/m2616/pmtuan/inferred_data/igcn_14999421_epoch66_redo/ # Should contain the files used in training and inference
-stage_dir: /global/cfs/cdirs/m3443/usr/ryanliu/HGNN/hgnn_example/ # A directory to be created that will store logs, artifacts, and output data
+input_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/
+stage_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track_hgnn/
 
 # Dataset parameters
 plots:
