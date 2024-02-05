@@ -41,11 +41,15 @@ node_scales: [1000., 3.14159265359, 1000., 1., 1000., 1000., 1000., 1000., 1000.
 # edge_features: [edge_dr, edge_dphi, edge_dz, edge_deta, edge_phislope, edge_rphislope]
 node_hidden: 128
 edge_hidden: 128
-emb_dim: 24
+node_0_hidden: 128
+encoder_hidden: 128
+decoder_hiden: 128
+node_rep_dim: 128
+edge_rep_dim: 128
+node_pspace_dim: 24
 n_encoder_layers: 3
 n_node_0_layers: 3
 n_edge_layers: 3
-n_edge_weight_layers: 3
 n_node_layers: 3
 n_decoder_layers: 3
 hidden_activation: SiLU

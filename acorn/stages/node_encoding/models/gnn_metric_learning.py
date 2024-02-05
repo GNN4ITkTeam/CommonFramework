@@ -50,7 +50,8 @@ class GNNMetricLearning(NodeEncodingStage):
 
         self.node_encoder = make_mlp(
             in_channels,
-            [hparams["node_hidden"]] * hparams["n_encoder_layers"],
+            [hparams["encoder_hidden"]] * (hparams["n_encoder_layers"] - 1)
+            + [hparams["node_rep_dim"]],
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
             hidden_activation=hparams["hidden_activation"],
@@ -61,10 +62,11 @@ class GNNMetricLearning(NodeEncodingStage):
         self.edge_networks = nn.ModuleList(
             [
                 make_mlp(
-                    (hparams["node_hidden"] * 2)
+                    (hparams["node_rep_dim"] * 2)
                     if i % hparams["n_gnns_per_iter"] == 0
-                    else (hparams["node_hidden"] * 2 + hparams["edge_hidden"]),
-                    [hparams["edge_hidden"]] * hparams["n_edge_layers"],
+                    else (hparams["node_rep_dim"] * 2 + hparams["edge_rep_dim"]),
+                    [hparams["edge_hidden"]] * (hparams["n_edge_layers"] - 1)
+                    + [hparams["edge_rep_dim"] + 1],
                     layer_norm=hparams["layernorm"],
                     batch_norm=hparams["batchnorm"],
                     hidden_activation=hparams["hidden_activation"],
@@ -77,29 +79,10 @@ class GNNMetricLearning(NodeEncodingStage):
             ]
         )
 
-        self.edge_weight_networks = nn.ModuleList(
-            [
-                make_mlp(
-                    (hparams["node_hidden"] * 2)
-                    if i % hparams["n_gnns_per_iter"] == 0
-                    else (hparams["node_hidden"] * 2 + hparams["edge_hidden"]),
-                    [hparams["edge_hidden"]] * (hparams["n_edge_weight_layers"] - 1)
-                    + [1],
-                    layer_norm=hparams["layernorm"],
-                    batch_norm=hparams["batchnorm"],
-                    hidden_activation=hparams["hidden_activation"],
-                    output_activation="Sigmoid",
-                )
-                for i in range(
-                    (1 if hparams["recurrent"] else hparams["n_iters"])
-                    * hparams["n_gnns_per_iter"]
-                )
-            ]
-        )
-
         self.node_network_0 = make_mlp(
-            hparams["node_hidden"],
-            [hparams["node_hidden"]] * hparams["n_node_0_layers"],
+            hparams["node_rep_dim"],
+            [hparams["node_0_hidden"]] * (hparams["n_node_0_layers"] - 1)
+            + [hparams["node_rep_dim"]],
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
             hidden_activation=hparams["hidden_activation"],
@@ -109,8 +92,9 @@ class GNNMetricLearning(NodeEncodingStage):
         self.node_networks = nn.ModuleList(
             [
                 make_mlp(
-                    hparams["node_hidden"] + hparams["edge_hidden"],
-                    [hparams["node_hidden"]] * hparams["n_node_layers"],
+                    hparams["node_rep_dim"] + hparams["edge_rep_dim"],
+                    [hparams["node_hidden"]] * (hparams["n_node_layers"] - 1)
+                    + [hparams["node_rep_dim"]],
                     layer_norm=hparams["layernorm"],
                     batch_norm=hparams["batchnorm"],
                     hidden_activation=hparams["hidden_activation"],
@@ -126,9 +110,9 @@ class GNNMetricLearning(NodeEncodingStage):
         self.node_decoders = nn.ModuleList(
             [
                 make_mlp(
-                    hparams["node_hidden"],
-                    [hparams["node_hidden"]] * (hparams["n_decoder_layers"] - 1)
-                    + [hparams["emb_dim"]],
+                    hparams["node_rep_dim"],
+                    [hparams["decoder_hiden"]] * (hparams["n_decoder_layers"] - 1)
+                    + [hparams["node_pspace_dim"]],
                     layer_norm=hparams["layernorm"],
                     batch_norm=hparams["batchnorm"],
                     hidden_activation=hparams["hidden_activation"],
@@ -228,15 +212,13 @@ class GNNMetricLearning(NodeEncodingStage):
 
         e = torch.cat([x[start], x[end]] if j == 0 else [x[start], x[end], e], dim=-1)
 
-        w = self.edge_weight_networks[
-            (0 if self.hparams["recurrent"] else (i * self.hparams["n_gnns_per_iter"]))
-            + j
-        ](e)
-        w = softmax(w, end)
         e = self.edge_networks[
             (0 if self.hparams["recurrent"] else (i * self.hparams["n_gnns_per_iter"]))
             + j
         ](e)
+        w = e[:, -1:]
+        w = softmax(w, end)
+        e = e[:, :-1]
 
         # Node
         w = scatter_add(e * w, end, dim=0, dim_size=x.shape[0])
