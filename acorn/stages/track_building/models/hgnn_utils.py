@@ -44,12 +44,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class MLTrackBuildingStage(TrackBuildingStage, LightningModule):
     def __init__(self, hparams):
-        TrackBuildingStage.__init__(self, hparams, get_logger=False)
-        LightningModule.__init__(self)
         """
         Initialise the PyModuleMap - a python implementation of the Triplet Module Map.
         """
-        self.dataset_class = PartialGraphDataset
+        TrackBuildingStage.__init__(self, hparams, get_logger=False)
+        LightningModule.__init__(self)
 
     def setup(self, stage="fit"):
         """
@@ -60,6 +59,7 @@ class MLTrackBuildingStage(TrackBuildingStage, LightningModule):
         """
 
         if stage in ["fit", "predict"]:
+            self.dataset_class = PartialGraphDataset
             self.load_data(stage, self.hparams["input_dir"])
         elif stage == "test":
             self.load_data(stage, self.hparams["stage_dir"])

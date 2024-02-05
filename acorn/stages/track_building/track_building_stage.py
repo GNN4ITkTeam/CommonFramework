@@ -206,7 +206,7 @@ class TrackBuildingStage:
             dup_rate,
         )
 
-        self.log.info("Result Summary :\n\n" + result_summary)
+        # self.log.info("Result Summary :\n\n" + result_summary)
 
         res_fname = os.path.join(
             self.hparams["stage_dir"],

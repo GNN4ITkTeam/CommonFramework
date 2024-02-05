@@ -284,11 +284,15 @@ class HierarchicalGNN(MLTrackBuildingStage):
         batch.full_event.bscores = scores
 
         # For backward compatibility build labels, should be removed in the future.
-        labels = - torch.ones_like(batch.full_event.hit_id)
-        filtered_bgraph = bgraph[:, scores >= self.hparams.get("score_cut", 0)]
-        _, unique_idx = filtered_bgraph[0].unique(return_inverse = True)
-        labels[filtered_bgraph[0][unique_idx]] = filtered_bgraph[1][unique_idx]
-        batch.full_event.bscores = labels
+        mask = scores >= self.hparams.get("score_cut", 0)
+        filtered_bgraph = batch.get_tracks(bgraph[:, mask][:, torch.argsort(scores[mask])]).cpu()
+        track_df = pd.DataFrame({"hit_id": filtered_bgraph[0], "track_id": filtered_bgraph[1]})
+        track_df = track_df.drop_duplicates(subset="hit_id", keep="last")
+        hit_id_df = pd.DataFrame({"hit_id": batch.full_event.hit_id})
+        hit_id_df = hit_id_df.merge(track_df, on="hit_id", how="left")
+        hit_id_df.fillna(-1, inplace=True)
+        track_id_tensor = torch.from_numpy(hit_id_df.track_id.values).long()
+        batch.full_event.labels = track_id_tensor
 
         torch.save(batch.full_event, output_dir)
 
