@@ -283,13 +283,13 @@ class PartialData(object):
                 shape=(event.hit_id.shape[0], event.hit_id.shape[0]),
             ).tocsr()
             _, track_id = connected_components(graph, directed=False)
-            
+
             # remove short tracks
             _, inverse, nhits = np.unique(
                 track_id, return_counts=True, return_inverse=True
             )
             track_id[nhits[inverse] < self.min_hits] = -1
-            
+
             # remove any not simple tracks
             out_hit_id, out_degree = np.unique(
                 tight_edges[0], return_counts=True, return_inverse=False
@@ -312,9 +312,7 @@ class PartialData(object):
 
         # prepare to mask out the noise hits
         masked_idx = torch.cumsum(to_keep, dim=0) - 1
-        masked_idx[
-            ~to_keep
-        ] = -1  
+        masked_idx[~to_keep] = -1
 
         # build new `Data` instance
         edge_mask = (

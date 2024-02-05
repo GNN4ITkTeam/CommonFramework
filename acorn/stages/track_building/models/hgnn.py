@@ -285,8 +285,12 @@ class HierarchicalGNN(MLTrackBuildingStage):
 
         # For backward compatibility build labels, should be removed in the future.
         mask = scores >= self.hparams.get("score_cut", 0)
-        filtered_bgraph = batch.get_tracks(bgraph[:, mask][:, torch.argsort(scores[mask])]).cpu()
-        track_df = pd.DataFrame({"hit_id": filtered_bgraph[0], "track_id": filtered_bgraph[1]})
+        filtered_bgraph = batch.get_tracks(
+            bgraph[:, mask][:, torch.argsort(scores[mask])]
+        ).cpu()
+        track_df = pd.DataFrame(
+            {"hit_id": filtered_bgraph[0], "track_id": filtered_bgraph[1]}
+        )
         track_df = track_df.drop_duplicates(subset="hit_id", keep="last")
         hit_id_df = pd.DataFrame({"hit_id": batch.full_event.hit_id})
         hit_id_df = hit_id_df.merge(track_df, on="hit_id", how="left")

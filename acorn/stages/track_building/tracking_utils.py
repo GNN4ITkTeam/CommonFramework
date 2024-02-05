@@ -11,9 +11,10 @@ from acorn.utils.mapping_utils import get_condition_lambda
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    
+
 # ------------- MATCHING UTILS ----------------
-    
+
+
 def build_truth_bgraph(
     event: Data,
     signal_selection: Optional[Dict[str, Tuple[float, float]]] = {},
