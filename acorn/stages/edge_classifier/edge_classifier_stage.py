@@ -457,7 +457,7 @@ class EdgeClassifierStage(LightningModule):
         ) and self.hparams.get("skip_existing"):
             return
         if batch.edge_index.shape[1] == 0:
-            batch.scores = torch.tensor([], device=self.device)
+            batch.edge_scores = torch.tensor([], device=self.device)
         else:
             eval_dict = self.shared_evaluation(batch, batch_idx)
             batch = eval_dict["batch"]

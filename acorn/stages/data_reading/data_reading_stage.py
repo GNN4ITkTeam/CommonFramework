@@ -162,14 +162,12 @@ class EventReader:
         self._save_pyg_data(graph, output_dir, event_id)
 
     def _build_all_pyg(self, dataset_name):
-        dataset = getattr(self, dataset_name)
-        if dataset is None:
-            return
         stage_dir = os.path.join(self.config["stage_dir"], dataset_name)
         csv_events = self.get_file_names(
             stage_dir, filename_terms=["particles", "truth"]
         )
-        assert len(csv_events) > 0, "No CSV files found!"
+        if len(csv_events) == 0:
+            return
         max_workers = (
             self.config["max_workers"] if "max_workers" in self.config else None
         )
