@@ -74,6 +74,9 @@ class GraphConstructionStage:
         elif stage == "test":
             self.load_data(self.hparams["stage_dir"])
 
+        if stage in ["predict", "test"]:
+            torch.set_float32_matmul_precision("highest")
+
     def load_data(self, input_dir):
         """
         Load in the data for training, validation and testing.
