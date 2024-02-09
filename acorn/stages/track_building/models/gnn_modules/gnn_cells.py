@@ -263,7 +263,7 @@ class DynamicGraphConstruction(nn.Module):
         self.weighting_function = getattr(torch, weighting_function)
         self.register_buffer("knn_radius", torch.ones(1), persistent=True)
 
-    def forward(self, src_embeddings, dst_embeddings, original_graph=None, offset = 0):
+    def forward(self, src_embeddings, dst_embeddings, original_graph=None, offset=0):
         """
         src embeddings: source nodes' embeddings
         dst embeddings: destination nodes' embeddings
@@ -299,13 +299,13 @@ class DynamicGraphConstruction(nn.Module):
                 )  # Keep track of the minimum radius needed to give right number of neighbors
 
         # Compute bipartite attention
-        likelihood = - torch.log(
+        likelihood = -torch.log(
             (src_embeddings[graph[0]] - dst_embeddings[graph[1]])
             .square()
             .sum(-1)
             .clamp(min=1e-12)
         )
-        
+
         # regularize to ensure variance of weights
         edge_weights_logits = self.gamma.exp() * (likelihood - offset) + self.beta
         edge_weights = self.weighting_function(edge_weights_logits)

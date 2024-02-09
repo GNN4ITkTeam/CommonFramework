@@ -21,7 +21,10 @@ import pandas as pd
 
 # Local imports
 from .hgnn_utils import MLTrackBuildingStage
-from acorn.stages.track_building.models.hgnn_matching_utils import evaluate_tracking, get_statistics
+from acorn.stages.track_building.models.hgnn_matching_utils import (
+    evaluate_tracking,
+    get_statistics,
+)
 from acorn.stages.track_building.models.gnn_modules.hgnn_models import (
     Pooling,
     InteractionGNNBlock,
