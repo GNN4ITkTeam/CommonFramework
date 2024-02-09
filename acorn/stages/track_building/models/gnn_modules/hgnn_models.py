@@ -293,7 +293,7 @@ class Pooling(nn.Module):
         # semb = F.normalize(semb)
 
         # Construct graphs
-        bgraph, bweights, logits = self.bgraph_construction(emb, semb, original_bgraph)
-        sgraph, sweights = self.sgraph_construction(semb, semb)
+        bgraph, bweights, logits = self.bgraph_construction(emb, semb, original_bgraph, offset = self.score_cut)
+        sgraph, sweights = self.sgraph_construction(semb, semb, offset = self.score_cut)
 
         return emb, semb, bgraph, bweights, sgraph, sweights, logits, mask
