@@ -166,7 +166,8 @@ class EventReader:
         csv_events = self.get_file_names(
             stage_dir, filename_terms=["particles", "truth"]
         )
-        assert len(csv_events) > 0, "No CSV files found!"
+        if len(csv_events) == 0:
+            return
         max_workers = (
             self.config["max_workers"] if "max_workers" in self.config else None
         )
@@ -521,27 +522,19 @@ class EventReader:
 
         track_edges = hid_mapping[track_edges]
 
-        # This test imposes a limit to how we simplify the graph: We don't allow shared EDGES (i.e. two different particles can share a hit, but not an edge between the same two hits). We want to ensure these are in a tiny minority
-        assert (
-            (
-                hits.hit_particle_id.values[track_edges[0]]
-                != track_features["track_particle_id"]
-            )
-            & (
-                hits.hit_particle_id.values[track_edges[1]]
-                != track_features["track_particle_id"]
-            )
-        ).sum() < 50, "The number of shared EDGES is unusually high!"
-
         # Remove duplicate edges
-        track_edges, unique_track_edge_indices = np.unique(
+        unique_track_edges, unique_track_edge_indices = np.unique(
             track_edges, axis=1, return_index=True
         )
         track_features = {
             k: v[unique_track_edge_indices] for k, v in track_features.items()
         }
 
-        return track_edges, track_features, hits
+        # This test imposes a limit to how we simplify the graph: We don't allow shared EDGES (i.e. two different particles can share a hit, but not an edge between the same two hits). We want to ensure these are in a tiny minority
+        n_shared_edges = track_edges.shape[1] - unique_track_edges.shape[1]
+        assert n_shared_edges < 50, "The number of shared EDGES is unusually high!"
+
+        return unique_track_edges, track_features, hits
 
     def get_file_names(self, inputdir, filename_terms: Union[str, list] = None):
         """
@@ -592,6 +585,9 @@ class EventReader:
 
     def _test_csv_conversion(self):
         for data_name in ["trainset", "valset", "testset"]:
+            dataset = getattr(self, data_name)
+            if dataset is None:
+                continue
             self.csv_events = self.get_file_names(
                 os.path.join(self.config["stage_dir"], data_name),
                 filename_terms=["truth", "particles"],
