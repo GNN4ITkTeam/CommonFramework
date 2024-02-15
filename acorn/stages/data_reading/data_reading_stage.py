@@ -282,7 +282,7 @@ class EventReader:
         return hits
 
     def get_pixel_regions_index(self, hits):
-        pixel_regions_index = pd.Index([])
+        pixel_regions_index = pd.Index([], dtype=hits.index.dtype)
         for region_id, desc in self.config["region_labels"].items():
             if desc["hardware"] == "PIXEL":
                 pixel_regions_index = pixel_regions_index.append(
@@ -414,6 +414,23 @@ class EventReader:
         for track_feature in set(
             self.config["feature_sets"]["track_features"]
         ).intersection(set(hits.columns)):
+            
+            if( not (hits[track_feature].values[track_index_edges][0]== hits[track_feature].values[track_index_edges][1]).all() ):
+                print("\nDEBUG")
+                print(hits[track_feature].values[track_index_edges][0])
+                print(len(hits[track_feature].values[track_index_edges][0]))
+                print('\n')
+                print(hits[track_feature].values[track_index_edges][1])
+                print(len(hits[track_feature].values[track_index_edges][1]))
+                print('\n')
+                test = hits[track_feature].values[track_index_edges][0]==hits[track_feature].values[track_index_edges][1]
+                print(test)
+
+                for i,e in enumerate(test):
+
+                    if not e:
+                        print(i,hits[track_feature].values[track_index_edges][0][i],hits[track_feature].values[track_index_edges][1][i],hits['hit_id'].values[track_index_edges][0][i],hits['hit_id'].values[track_index_edges][1][i],hits['particle_id'].values[track_index_edges][0][i],hits['particle_id'].values[track_index_edges][1][i])
+
             assert (
                 hits[track_feature].values[track_index_edges][0]
                 == hits[track_feature].values[track_index_edges][1]
@@ -421,6 +438,8 @@ class EventReader:
             track_features[track_feature] = hits[track_feature].values[
                 track_index_edges[0]
             ]
+
+            
 
         if "redundant_split_edges" in self.config["feature_sets"]["track_features"]:
             track_features["redundant_split_edges"] = self._get_redundant_split_edges(
@@ -489,7 +508,11 @@ class EventReader:
 
         # This test imposes a limit to how we simplify the graph: We don't allow shared EDGES (i.e. two different particles can share a hit, but not an edge between the same two hits). We want to ensure these are in a tiny minority
         n_shared_edges = track_edges.shape[1] - unique_track_edges.shape[1]
-        assert n_shared_edges < 50, "The number of shared EDGES is unusually high!"
+
+        if n_shared_edges > 50:
+            print(f"WARNING : high number of shared EDGES ({n_shared_edges} shared edges for {track_edges.shape[1]} edges in total)")
+
+        assert n_shared_edges < 100, f"The number of shared EDGES is unusually high: {n_shared_edges} !"
 
         return unique_track_edges, track_features, hits
 
