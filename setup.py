@@ -20,6 +20,7 @@ dependencies = [
     "pytest-cov",
     "torch-geometric==2.2.0",
     "uproot",
+    "xrootd",
     "class-resolver",
 ]
 
