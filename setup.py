@@ -8,7 +8,7 @@ def read(fname):
 
 setup(
     name="acorn",
-    version="0.0.1",
+    version="1.1.0",
     description="A common framework for GNN4ITK",
     author="GNN4ITK Team",
     packages=find_packages(include=["acorn", "acorn.*"]),
