@@ -16,6 +16,7 @@ from .models.connected_components import ConnectedComponents
 from .models.hgnn import HierarchicalGNN
 from .models.cc_and_walk import CCandWalk
 from .models.cc_and_all_simple_path import WeaklyConnectedComponentsAllSimplePath
+from .models.transformer import Transformer
 from .utils import *
 
 __all__ = [
@@ -23,5 +24,6 @@ __all__ = [
     "HierarchicalGNN",
     "CCandWalk",
     "WeaklyConnectedComponentsAllSimplePath",
+    "Transformer",
     "utils",
 ]

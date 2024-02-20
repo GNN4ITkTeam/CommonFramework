@@ -244,9 +244,10 @@ class DynamicGraphConstruction(nn.Module):
     def __init__(
         self,
         k: int,
-        weighting_function: str,
+        weighting_function: Optional[str] = "exp",
         symmetrize: Optional[bool] = False,
         normalize: Optional[bool] = True,
+        return_weights: Optional[bool] = True,
         return_logits: Optional[bool] = False,
     ):
         """
@@ -257,10 +258,12 @@ class DynamicGraphConstruction(nn.Module):
         self.k = k
         self.symmetrize = symmetrize
         self.normalize = normalize
+        self.return_weights = return_weights
         self.return_logits = return_logits
-        self.gamma = nn.parameter.Parameter(data=torch.zeros(1), requires_grad=True)
-        self.beta = nn.parameter.Parameter(data=torch.zeros(1), requires_grad=True)
-        self.weighting_function = getattr(torch, weighting_function)
+        if return_weights:
+            self.gamma = nn.parameter.Parameter(data=torch.zeros(1), requires_grad=True)
+            self.beta = nn.parameter.Parameter(data=torch.zeros(1), requires_grad=True)
+            self.weighting_function = getattr(torch, weighting_function)
         self.register_buffer("knn_radius", torch.ones(1), persistent=True)
 
     def forward(self, src_embeddings, dst_embeddings, original_graph=None, offset=0):
@@ -305,7 +308,8 @@ class DynamicGraphConstruction(nn.Module):
             .sum(-1)
             .clamp(min=1e-12)
         )
-
+        if not self.return_weights:
+            return graph
         # regularize to ensure variance of weights
         edge_weights_logits = self.gamma.exp() * (likelihood - offset) + self.beta
         edge_weights = self.weighting_function(edge_weights_logits)

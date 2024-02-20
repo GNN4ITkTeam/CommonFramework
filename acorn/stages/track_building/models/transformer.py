@@ -15,9 +15,11 @@
 # 3rd party imports
 import os
 import torch
+from torch import nn
 import math
 import torch.nn.functional as F
 import pandas as pd
+from torch_scatter import scatter_mean
 
 # Local imports
 from .ml_track_building import MLTrackBuildingStage
@@ -25,17 +27,19 @@ from acorn.stages.track_building.models.hgnn_matching_utils import (
     evaluate_tracking,
     get_statistics,
 )
-from acorn.stages.track_building.models.ml_modules.hgnn_models import (
-    Pooling,
-    InteractionGNNBlock,
-    HierarchicalGNNBlock,
+from acorn.utils.ml_utils import make_mlp
+from acorn.stages.graph_construction.models.utils import graph_intersection
+from acorn.stages.track_building.models.ml_modules.gnn_cells import (
+    DynamicGraphConstruction,
 )
-from acorn.stages.track_building.models.ml_modules.gnn_cells import find_neighbors
+from acorn.stages.track_building.models.ml_modules.transformer_utils import (
+    BTransformerBlock,
+)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-class HierarchicalGNN(MLTrackBuildingStage):
+class Transformer(MLTrackBuildingStage):
     def __init__(self, hparams):
         super().__init__(hparams)
         """
@@ -44,43 +48,41 @@ class HierarchicalGNN(MLTrackBuildingStage):
         model_config = hparams["model_config"]
 
         # Initialize Modules
-
-        self.interaction_layer = InteractionGNNBlock(
-            d_model=model_config["d_model"],
-            n_node_features=len(hparams["node_features"]),
-            d_hidden=model_config["d_hidden"],
-            n_iterations=model_config["n_interaction_iterations"],
-            hidden_activation=model_config["hidden_activation"],
-            output_activation=model_config["output_activation"],
-            dropout=model_config["dropout"],
-            checkpoint=hparams["checkpoint"],
+        self.encoder = make_mlp(
+            input_size=len(hparams["node_features"]),
+            sizes=[model_config["d_model"]] * 2,
+            hidden_activation="GELU",
         )
-
-        self.pooling_layer = Pooling(
-            d_model=model_config["d_model"],
-            d_hidden=model_config["d_hidden"],
-            emb_size=model_config["emb_size"],
-            n_output_layers=model_config["n_output_layers"],
-            hidden_activation=model_config["hidden_activation"],
-            output_activation=model_config["output_activation"],
-            dropout=model_config["dropout"],
-            momentum=model_config["cut_momentum"],
-            bsparsity=model_config["bsparsity"],
-            ssparsity=model_config["ssparsity"],
-            resolution=model_config["resolution"],
-            min_size=model_config["min_size"],
+        self.transformer_blocks = nn.ModuleList(
+            [
+                BTransformerBlock(
+                    d_model=model_config["d_model"],
+                    d_ff=model_config["d_ff"],
+                    heads=model_config["heads"],
+                    dropout=model_config["dropout"],
+                )
+                for _ in range(model_config["n_iter"])
+            ]
         )
-
-        self.hgnn_layer = HierarchicalGNNBlock(
-            d_model=model_config["d_model"],
-            emb_size=model_config["emb_size"],
-            d_hidden=model_config["d_hidden"],
-            n_output_layers=model_config["n_output_layers"],
-            n_iterations=model_config["n_hierarchical_iterations"],
-            hidden_activation=model_config["hidden_activation"],
-            output_activation=model_config["output_activation"],
-            dropout=model_config["dropout"],
-            checkpoint=hparams["checkpoint"],
+        self.output_hits = make_mlp(
+            input_size=model_config["d_model"],
+            sizes=[model_config["d_model"], model_config["d_emb"]],
+            hidden_activation="GELU",
+        )
+        self.output_tracks = make_mlp(
+            input_size=model_config["d_model"],
+            sizes=[model_config["d_model"], model_config["d_emb"]],
+            hidden_activation="GELU",
+        )
+        self.output_model = make_mlp(
+            input_size=2 * model_config["d_model"],
+            sizes=[model_config["d_model"], 1],
+            hidden_activation="GELU",
+        )
+        self.graph_construction = DynamicGraphConstruction(
+            k=model_config["sparsity"],
+            symmetrize=False,
+            return_weights=False,
         )
 
         self.save_hyperparameters(hparams)
@@ -95,35 +97,54 @@ class HierarchicalGNN(MLTrackBuildingStage):
             ],
             dim=-1,
         ).float()
-        graph = torch.cat(
-            [partial_event.edge_index, partial_event.edge_index.flip(0)], dim=1
+
+        hits = self.encoder(node_attr)
+        tracks = scatter_mean(
+            hits[partial_event.cluster[0]], partial_event.cluster[1], dim=0
         )
-        nodes, edges = self.interaction_layer(node_attr, graph)
-        (
-            emb,
-            semb,
-            bgraph,
-            bweights,
-            sgraph,
-            sweights,
-            emb_logits,
-            mask,
-        ) = self.pooling_layer(nodes, graph)
-        if self.hparams["model_config"].get("cut_edge", False):
-            edges = edges[mask]
-            graph = graph[:, mask]
-        logits = self.hgnn_layer(
-            nodes, edges, semb, graph, bgraph, bweights, sgraph, sweights
+        hits, tracks = hits[:, None, :], tracks[:, None, :]
+        for layer in self.transformer_blocks:
+            hits, tracks = layer(hits, tracks)
+
+        emb = self.output_hits(hits.detach()).squeeze(1)
+        semb = self.output_tracks(tracks.detach()).squeeze(1)
+
+        bgraph = self.graph_construction(
+            emb, semb, original_graph=partial_event.cluster
+        )
+        emb_logits = -torch.log(
+            (emb[bgraph[0]] - semb[bgraph[1]]).square().sum(-1).clamp(min=1e-12)
+        )
+        logits = self.output_model(
+            torch.cat([hits[bgraph[0]], tracks[bgraph[1]]], dim=-1).squeeze(1)
         )
 
-        return bgraph, logits, emb, emb_logits
+        return bgraph, logits, emb, semb, emb_logits
 
-    def loss_function(self, batch, bgraph, logits, emb, emb_logits, prefix="train"):
+    def embedding_loss(self, bgraph, y, emb, semb):
+        hinge = 2 * y.float() - 1
+        dist = (emb[bgraph[0]] - semb[bgraph[1]]).square().sum(-1)
+        dist = (dist + 1e-12).sqrt()
+        embedding_loss = (
+            (
+                F.hinge_embedding_loss(
+                    dist, hinge, margin=self.hparams["margin"], reduction="none"
+                )
+                / self.hparams["margin"]
+            )
+            .square()
+            .mean()
+        )
+        return embedding_loss
 
-        loss_weight = (1 - self.hparams["auxiliary_min"]) * math.exp(
+    def loss_function(
+        self, batch, bgraph, logits, emb, semb, emb_logits, prefix="train"
+    ):
+
+        loss_weight = math.exp(
             -max(0, self.trainer.global_step - self.hparams["pretraining_steps"])
             / self.hparams["auxiliary_decay"]
-        ) + self.hparams["auxiliary_min"]
+        )
         bgraph_y, weights, relavent_mask = batch.fetch_truth(
             bgraph,
             torch.sigmoid(
@@ -138,43 +159,21 @@ class HierarchicalGNN(MLTrackBuildingStage):
             )
         ).sum()
 
-        # if self.trainer.global_step < self.hparams["pretraining_steps"] + self.hparams["auxiliary_steps"]:
-        hnm_graph_idxs = find_neighbors(
-            emb, emb, r_max=self.hparams["margin"], k_max=50
+        # compute embedding loss
+        emb_bgraph, emb_y = graph_intersection(
+            bgraph,
+            batch.partial_event.cluster,
+            return_pred_to_truth=False,
+            return_truth_to_pred=False,
+            unique_pred=False,
+            unique_truth=True,
         )
-        positive_idxs = hnm_graph_idxs >= 0
-        ind = (
-            torch.arange(hnm_graph_idxs.shape[0], device=self.device)
-            .unsqueeze(1)
-            .expand(hnm_graph_idxs.shape)
-        )
-        hnm_graph = torch.stack(
-            [ind[positive_idxs], hnm_graph_idxs[positive_idxs]], dim=0
-        )
-        hnm_graph = torch.cat(
-            [
-                hnm_graph,
-                batch.partial_event.edge_index,
-                batch.partial_event.track_edges,
-            ],
-            dim=1,
-        )
-        hnm_graph, hinge, emb_weights = batch.fetch_emb_truth(hnm_graph)
-        dist = (emb[hnm_graph[0]] - emb[hnm_graph[1]]).square().sum(-1)
-        dist = (dist + 1e-12).sqrt()
-        embedding_loss = (
-            F.hinge_embedding_loss(
-                dist, hinge, margin=self.hparams["margin"], reduction="none"
-            )
-            / self.hparams["margin"]
-        ).square()
-        embedding_loss = (emb_weights * embedding_loss).sum()
 
-        loss = (
-            1 - loss_weight
-        ) * classification_loss + loss_weight * embedding_loss * self.hparams.get(
-            "emb_ratio", 1
-        )
+        embedding_loss = (1 - loss_weight) * self.embedding_loss(
+            emb_bgraph, emb_y
+        ) + loss_weight * self.embedding_loss(bgraph, bgraph_y, emb, semb)
+
+        loss = classification_loss + embedding_loss * self.hparams.get("emb_ratio", 1)
         return loss, {
             prefix + "_loss": loss,
             prefix + "_classification_loss": classification_loss,
@@ -185,9 +184,9 @@ class HierarchicalGNN(MLTrackBuildingStage):
         }
 
     def training_step(self, batch, batch_idx):
-        bgraph, logits, emb, emb_logits = self(batch.partial_event)
+        bgraph, logits, emb, semb, emb_logits = self(batch.partial_event)
         loss, info = self.loss_function(
-            batch, bgraph, logits, emb, emb_logits, prefix="train"
+            batch, bgraph, logits, emb, semb, emb_logits, prefix="train"
         )
 
         info["num_cluster"] = (bgraph[1].max() + 1).float()
@@ -205,9 +204,9 @@ class HierarchicalGNN(MLTrackBuildingStage):
         return loss
 
     def shared_evaluation(self, batch, batch_idx, stage="val"):
-        bgraph, logits, emb, emb_logits = self(batch.partial_event)
+        bgraph, logits, emb, semb, emb_logits = self(batch.partial_event)
         loss, info = self.loss_function(
-            batch, bgraph, logits, emb, emb_logits, prefix=stage
+            batch, bgraph, logits, emb, semb, emb_logits, prefix=stage
         )
 
         # evaluation
@@ -276,7 +275,7 @@ class HierarchicalGNN(MLTrackBuildingStage):
 
     def build_track(self, batch, output_dir):
 
-        bgraph, logits, _, _ = self(batch.partial_event)
+        bgraph, logits, _, _, _ = self(batch.partial_event)
 
         # evaluation
         scores = torch.sigmoid(logits)

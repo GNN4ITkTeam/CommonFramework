@@ -22,6 +22,7 @@ from torch.utils.data import DataLoader
 from torch_geometric.data import Data
 from typing import Dict, Tuple, Optional
 import numpy as np
+from torch_geometric.utils import to_scipy_sparse_matrix
 from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import (
     connected_components,
@@ -211,9 +212,11 @@ class PartialData(object):
         self,
         event: Data,
         edge_cut: float = 1e-3,
+        clustering_cut: float = 0,
         loose_cut: float = 0.01,
         tight_cut: Optional[float] = None,
         min_hits: int = 9,
+        clustering_min_hit: int = 3,
         random_drop: float = 0.0,
         signal_weight: float = 2,
         signal_selection: Optional[Dict[str, Tuple[float, float]]] = {
@@ -229,10 +232,12 @@ class PartialData(object):
         Arguments:
             event: a `pytorch_geometric` event record
             edge_cut: the cut that is applied edge-wise
+            clustering_cut: the cut to perform clustering
             loose_cut: any hit that is isolated by the cut will be removed
             tight_cut: any connected component that is longer than `min_hits`
                 under this cut will be selected and disregarded.
             min_hits: see `tight_cut`
+            clustering_min_hit: the minimum number of hits required in a cluster.
             random_drop: randonly drop some edge for data augmentation
             signal_weight: the weight to weigh signals over other positives.
             signal_selection: a dictionary map the name of the feature to the signal selection,
@@ -246,9 +251,11 @@ class PartialData(object):
 
         self.full_event = event
         self.edge_cut = edge_cut
+        self.clustering_cut = clustering_cut
         self.loose_cut = loose_cut
         self.tight_cut = tight_cut
         self.min_hits = min_hits
+        self.clustering_min_hit = clustering_min_hit
         self.random_drop = random_drop
         self.signal_weight = signal_weight
         self.signal_selection = signal_selection
@@ -277,10 +284,9 @@ class PartialData(object):
             # run cc
             tight_edges = event.edge_index[
                 :, (event.scores > self.tight_cut) & edge_mask
-            ].numpy()
-            graph = coo_matrix(
-                (np.ones(tight_edges.shape[1]), tight_edges),
-                shape=(event.hit_id.shape[0], event.hit_id.shape[0]),
+            ]
+            graph = to_scipy_sparse_matrix(
+                tight_edges, num_nodes=event.x.shape[0]
             ).tocsr()
             _, track_id = connected_components(graph, directed=False)
 
@@ -309,6 +315,35 @@ class PartialData(object):
                 ]
             ).to(self.device)
             to_keep[track_id >= 0] = False
+
+        # perform clustering
+        if self.clustering_cut:
+            cluster_edges = event.edge_index[
+                :, (event.scores > self.clustering_cut) & edge_mask
+            ]
+            out_hit_id, out_degree = torch.unique(
+                cluster_edges[0], return_counts=True, return_inverse=False
+            )
+            in_hit_id, in_degree = torch.unique(
+                cluster_edges[1], return_counts=True, return_inverse=False
+            )
+            mask = torch.isin(
+                cluster_edges[0], out_hit_id[out_degree <= 1]
+            ) | torch.isin(cluster_edges[1], out_hit_id[out_degree <= 1])
+            cluster_edges = cluster_edges[:, mask]
+            graph = to_scipy_sparse_matrix(cluster_edges, num_nodes=event.x.shape[0])
+            _, labels = connected_components(graph, directed=False)
+            labels = torch.as_tensor(labels, dtype=torch.long, device=event.x.device)
+            _, inverse, counts = labels.unique(return_inverse=True, return_counts=True)
+            valid_mask = counts[inverse] >= self.clustering_min_hit
+            idxs = labels[valid_mask].unique(return_inverse=True)[1]
+            cluster = torch.stack(
+                [
+                    torch.arange(valid_mask.shape[0]).to(valid_mask.device)[valid_mask],
+                    idxs,
+                ],
+                dim=0,
+            )
 
         # prepare to mask out the noise hits
         masked_idx = torch.cumsum(to_keep, dim=0) - 1
@@ -339,6 +374,11 @@ class PartialData(object):
             pdgId=event.pdgId[track_edge_mask],
             primary=event.primary[track_edge_mask],
         )
+
+        if self.clustering_cut:
+            cluster = cluster[:, to_keep[cluster[0]]]
+            cluster[0] = masked_idx[cluster[0]]
+            partial_event.cluster = cluster
 
         return partial_event
 
