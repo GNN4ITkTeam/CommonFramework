@@ -29,8 +29,8 @@ node_scales:   [1000, 3.14, 1000]
 num_workers: [16, 16, 16]
 
 # Loss Function
-pretraining_steps: 1000
-auxiliary_decay: 4000
+pretraining_steps: 4000
+auxiliary_decay: 16000
 auxiliary_min: 0
 emb_ratio: 5
 margin: 1

@@ -31,7 +31,7 @@ def find_neighbors(embedding1, embedding2, r_max=1.0, k_max=10):
 def checkpointing(func, enabled=True):
     def checkpointed_fx(*x):
         if any(y.requires_grad for y in x) and enabled:
-            return checkpoint(func, *x)
+            return checkpoint(func, *x, use_reentrant=False)
         else:
             return func(*x)
 
