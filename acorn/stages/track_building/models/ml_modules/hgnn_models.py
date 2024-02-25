@@ -190,12 +190,18 @@ class Pooling(nn.Module):
         ssparsity: Optional[int] = 10,
         resolution: Optional[float] = 0.0,
         min_size: Optional[int] = 5,
+        use_prebuilt: Optional[bool] = False,
     ):
         super().__init__()
         self.resolution = resolution
         self.min_size = min_size
         self.momentum = momentum
-        self.gmm_model = GaussianMixture(2)
+        self.use_prebuilt = use_prebuilt
+        if not use_prebuilt:
+            self.gmm_model = GaussianMixture(2)
+            self.register_buffer(
+                "score_cut", torch.tensor([0], dtype=torch.float), persistent=True
+            )
         self.node_encoder = make_mlp(
             d_model,
             [d_hidden] * (n_output_layers - 1) + [emb_size],
@@ -213,9 +219,6 @@ class Pooling(nn.Module):
         )
         self.sgraph_construction = DynamicGraphConstruction(
             ssparsity, "sigmoid", symmetrize=True, normalize=True, return_logits=False
-        )
-        self.register_buffer(
-            "score_cut", torch.tensor([0], dtype=torch.float), persistent=True
         )
 
     def get_quadratic_coeff(self, weight, mean, var):
@@ -255,47 +258,53 @@ class Pooling(nn.Module):
         idxs = labels[valid_mask].unique(return_inverse=True)[1]
         return valid_mask, idxs
 
-    def forward(self, nodes, graph):
+    def forward(self, nodes, graph, cluster=None):
 
         emb = self.node_encoder(nodes)
-        # emb = F.normalize(emb)
 
-        likelihood = -torch.log(
-            (emb[graph[0]] - emb[graph[1]]).square().sum(-1).clamp(min=1e-12)
-        )
+        if self.use_prebuilt:
+            semb = scatter_mean(emb[cluster[0]], cluster[1], dim=0)
+            mask = torch.ones(graph.shape[1], device=nodes.device, dtype=bool)
+        else:
+            likelihood = -torch.log(
+                (emb[graph[0]] - emb[graph[1]]).square().sum(-1).clamp(min=1e-12)
+            )
+            # GMM edge cutting
+            samples = (
+                torch.randperm(likelihood.shape[0], device=likelihood.device) < 10000
+            )
+            self.gmm_model.fit(likelihood[samples, None].cpu().detach().numpy())
+            cut = self.determine_cut()
 
-        # GMM edge cutting
-        samples = torch.randperm(likelihood.shape[0], device=likelihood.device) < 10000
-        self.gmm_model.fit(likelihood[samples, None].cpu().detach().numpy())
-        cut = self.determine_cut()
+            # Moving Average
+            if self.training:
+                self.score_cut = (
+                    self.momentum * self.score_cut + (1 - self.momentum) * cut
+                )
 
-        # Moving Average
-        if self.training:
-            self.score_cut = self.momentum * self.score_cut + (1 - self.momentum) * cut
+            # Connected Components
+            mask = likelihood >= self.score_cut.to(likelihood.device)
+            graph = to_scipy_sparse_matrix(graph[:, mask], num_nodes=nodes.shape[0])
+            _, labels = connected_components(graph, directed=False)
+            valid_mask, idxs = self.get_clusters(
+                torch.as_tensor(labels, dtype=torch.long, device=emb.device)
+            )
+            cluster = torch.stack(
+                [
+                    torch.arange(valid_mask.shape[0]).to(valid_mask.device)[valid_mask],
+                    idxs,
+                ],
+                dim=0,
+            )
 
-        # Connected Components
-        mask = likelihood >= self.score_cut.to(likelihood.device)
-        graph = to_scipy_sparse_matrix(graph[:, mask], num_nodes=nodes.shape[0])
-        _, labels = connected_components(graph, directed=False)
-        valid_mask, idxs = self.get_clusters(
-            torch.as_tensor(labels, dtype=torch.long, device=emb.device)
-        )
-        original_bgraph = torch.stack(
-            [
-                torch.arange(valid_mask.shape[0]).to(valid_mask.device)[valid_mask],
-                idxs,
-            ],
-            dim=0,
-        )
-
-        # Compute centroids
-        semb = scatter_mean(emb[valid_mask], idxs, dim=0)
-        # semb = F.normalize(semb)
+            # Compute centroids
+            semb = scatter_mean(emb[valid_mask], idxs, dim=0)
 
         # Construct graphs
+        offset = 0 if self.use_prebuilt else self.score_cut
         bgraph, bweights, logits = self.bgraph_construction(
-            emb, semb, original_bgraph, offset=self.score_cut
+            emb, semb, cluster, offset=offset
         )
-        sgraph, sweights = self.sgraph_construction(semb, semb, offset=self.score_cut)
+        sgraph, sweights = self.sgraph_construction(semb, semb, offset=offset)
 
         return emb, semb, bgraph, bweights, sgraph, sweights, logits, mask

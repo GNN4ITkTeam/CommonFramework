@@ -28,6 +28,7 @@ from scipy.sparse.csgraph import (
     connected_components,
     min_weight_full_bipartite_matching,
 )
+from time import process_time
 
 
 # Local imports
@@ -63,6 +64,7 @@ class MLTrackBuildingStage(TrackBuildingStage, LightningModule):
             self.dataset_class = PartialGraphDataset
             self.load_data(stage, self.hparams["input_dir"])
         elif stage == "test":
+            torch.manual_seed(0)
             self.load_data(stage, self.hparams["stage_dir"])
 
     def train_dataloader(self):
@@ -212,9 +214,9 @@ class PartialData(object):
         self,
         event: Data,
         edge_cut: float = 1e-3,
-        clustering_cut: float = 0,
+        clustering_cut: float = 0.2,
         loose_cut: float = 0.01,
-        tight_cut: Optional[float] = None,
+        tight_cut: Optional[float] = 0.5,
         min_hits: int = 9,
         clustering_min_hit: int = 3,
         random_drop: float = 0.0,
@@ -260,8 +262,10 @@ class PartialData(object):
         self.signal_weight = signal_weight
         self.signal_selection = signal_selection
         self.target_selection = target_selection
+        self.time_taken = process_time()
 
         self._partial_event = self._preprocess_event()
+        self.time_taken = process_time() - self.time_taken
         self.truth_bgraph, self._truth_info = self._build_truth()
 
     def _preprocess_event(self) -> Data:
@@ -318,30 +322,36 @@ class PartialData(object):
 
         # perform clustering
         if self.clustering_cut:
+            # Apply the score cut
             cluster_edges = event.edge_index[
                 :, (event.scores > self.clustering_cut) & edge_mask
             ]
+
+            # Compute in and out degrees
             out_hit_id, out_degree = torch.unique(
                 cluster_edges[0], return_counts=True, return_inverse=False
             )
             in_hit_id, in_degree = torch.unique(
                 cluster_edges[1], return_counts=True, return_inverse=False
             )
+
+            # Masking out the junctions
             mask = torch.isin(
                 cluster_edges[0], out_hit_id[out_degree <= 1]
             ) | torch.isin(cluster_edges[1], out_hit_id[out_degree <= 1])
             cluster_edges = cluster_edges[:, mask]
+
+            # build csr graph and run cc
             graph = to_scipy_sparse_matrix(cluster_edges, num_nodes=event.x.shape[0])
             _, labels = connected_components(graph, directed=False)
             labels = torch.as_tensor(labels, dtype=torch.long, device=event.x.device)
             _, inverse, counts = labels.unique(return_inverse=True, return_counts=True)
             valid_mask = counts[inverse] >= self.clustering_min_hit
             idxs = labels[valid_mask].unique(return_inverse=True)[1]
+
+            # build the cluster
             cluster = torch.stack(
-                [
-                    torch.arange(valid_mask.shape[0]).to(valid_mask.device)[valid_mask],
-                    idxs,
-                ],
+                [torch.arange(valid_mask.shape[0])[valid_mask], idxs],
                 dim=0,
             )
 
@@ -379,6 +389,8 @@ class PartialData(object):
             cluster = cluster[:, to_keep[cluster[0]]]
             cluster[0] = masked_idx[cluster[0]]
             partial_event.cluster = cluster
+        else:
+            partial_event.cluster = None
 
         return partial_event
 

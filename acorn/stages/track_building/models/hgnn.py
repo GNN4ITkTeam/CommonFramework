@@ -15,9 +15,10 @@
 # 3rd party imports
 import os
 import torch
-import math
 import torch.nn.functional as F
 import pandas as pd
+import numpy as np
+from time import process_time
 
 # Local imports
 from .ml_track_building import MLTrackBuildingStage
@@ -69,6 +70,7 @@ class HierarchicalGNN(MLTrackBuildingStage):
             ssparsity=model_config["ssparsity"],
             resolution=model_config["resolution"],
             min_size=model_config["min_size"],
+            use_prebuilt=model_config["use_prebuilt"],
         )
 
         self.hgnn_layer = HierarchicalGNNBlock(
@@ -108,7 +110,7 @@ class HierarchicalGNN(MLTrackBuildingStage):
             sweights,
             emb_logits,
             mask,
-        ) = self.pooling_layer(nodes, graph)
+        ) = self.pooling_layer(nodes, graph, partial_event.cluster)
         if self.hparams["model_config"].get("cut_edge", False):
             edges = edges[mask]
             graph = graph[:, mask]
@@ -120,10 +122,17 @@ class HierarchicalGNN(MLTrackBuildingStage):
 
     def loss_function(self, batch, bgraph, logits, emb, emb_logits, prefix="train"):
 
-        loss_weight = (1 - self.hparams["auxiliary_min"]) * math.exp(
-            -max(0, self.trainer.global_step - self.hparams["pretraining_steps"])
-            / self.hparams["auxiliary_decay"]
-        ) + self.hparams["auxiliary_min"]
+        loss_weight = 1 - np.sin(
+            np.clip(
+                (self.trainer.global_step - self.hparams["pretraining_steps"])
+                / self.hparams["auxiliary_decay"],
+                0,
+                1,
+            )
+            * np.pi
+            / 2
+        )
+
         bgraph_y, weights, relavent_mask = batch.fetch_truth(
             bgraph,
             torch.sigmoid(
@@ -138,7 +147,7 @@ class HierarchicalGNN(MLTrackBuildingStage):
             )
         ).sum()
 
-        # if self.trainer.global_step < self.hparams["pretraining_steps"] + self.hparams["auxiliary_steps"]:
+        # compute auxaliary loss
         hnm_graph_idxs = find_neighbors(
             emb, emb, r_max=self.hparams["margin"], k_max=50
         )
@@ -191,7 +200,8 @@ class HierarchicalGNN(MLTrackBuildingStage):
         )
 
         info["num_cluster"] = (bgraph[1].max() + 1).float()
-        info["score_cut"] = self.pooling_layer.score_cut.item()
+        if not self.hparams["model_config"]["use_prebuilt"]:
+            info["score_cut"] = self.pooling_layer.score_cut.item()
         for key, value in info.items():
             self.log(
                 key,
@@ -269,12 +279,23 @@ class HierarchicalGNN(MLTrackBuildingStage):
         os.makedirs(
             os.path.join(self.hparams["stage_dir"], dataset.data_name), exist_ok=True
         )
+        os.makedirs(
+            os.path.join(self.hparams["stage_dir"], f"{dataset.data_name}_tracks"),
+            exist_ok=True,
+        )
         output_dir = os.path.join(
             self.hparams["stage_dir"], dataset.data_name, f"event{event_id}.pyg"
         )
-        self.build_track(batch, output_dir)
+        track_dir = os.path.join(
+            self.hparams["stage_dir"],
+            f"{dataset.data_name}_tracks",
+            f"event{event_id}.txt",
+        )
+        self.build_track(batch, output_dir, track_dir)
 
-    def build_track(self, batch, output_dir):
+    def build_track(self, batch, output_dir, track_dir):
+
+        start_time = process_time()
 
         bgraph, logits, _, _ = self(batch.partial_event)
 
@@ -288,47 +309,36 @@ class HierarchicalGNN(MLTrackBuildingStage):
 
         # For backward compatibility build labels, should be removed in the future.
         mask = scores >= self.hparams.get("score_cut", 0)
-        filtered_bgraph = batch.get_tracks(
-            bgraph[:, mask][:, torch.argsort(scores[mask])]
-        ).cpu()
-        track_df = pd.DataFrame(
-            {"hit_id": filtered_bgraph[0], "track_id": filtered_bgraph[1]}
+        bgraph = (
+            batch.get_tracks(
+                bgraph[:, mask][:, torch.argsort(scores[mask], descending=True)]
+            )
+            .cpu()
+            .numpy()
         )
-        track_df = track_df.drop_duplicates(subset="hit_id", keep="last")
-        hit_id_df = pd.DataFrame({"hit_id": batch.full_event.hit_id})
-        hit_id_df = hit_id_df.merge(track_df, on="hit_id", how="left")
-        hit_id_df.fillna(-1, inplace=True)
-        track_id_tensor = torch.from_numpy(hit_id_df.track_id.values).long()
+        _, idx = np.unique(bgraph[0], return_index=True)
+        filtered_bgraph = bgraph[:, idx]
+        track_id_tensor = -torch.ones(batch.full_event.x.shape[0], dtype=torch.long)
+        track_id_tensor[filtered_bgraph[0]] = torch.as_tensor(filtered_bgraph[1]).long()
         batch.full_event.labels = track_id_tensor
 
-        torch.save(batch.full_event, output_dir)
+        batch.full_event.time_taken = process_time() - start_time + batch.time_taken
 
-    def eval_preprocess_event(self, event, config):
-        event.full_event.bgraph = event.full_event.bgraph[
-            :, event.full_event.bscores > config.get("score_cut", 0)
-        ]
+        torch.save(batch.full_event, output_dir)
 
         tracks = (
             pd.DataFrame(
                 {
-                    "hit_id": event.full_event.bgraph.cpu()[0],
-                    "track_id": event.full_event.bgraph.cpu()[1],
+                    "hit_id": bgraph[0],
+                    "track_id": bgraph[1],
                 }
             )
             .groupby("track_id")["hit_id"]
             .apply(list)
         )
 
-        os.makedirs(
-            os.path.join(self.hparams["stage_dir"], "testset_tracks"),
-            exist_ok=True,
-        )
         with open(
-            os.path.join(
-                self.hparams["stage_dir"],
-                "testset_tracks",
-                f"event{event.full_event.event_id[0]}.txt",
-            ),
+            track_dir,
             "w",
         ) as f:
             f.write(
@@ -337,5 +347,3 @@ class HierarchicalGNN(MLTrackBuildingStage):
                     for t in tracks.values
                 )
             )
-
-        return event.full_event

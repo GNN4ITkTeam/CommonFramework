@@ -23,6 +23,7 @@ from torch_geometric.utils import to_networkx
 import networkx as nx
 from itertools import chain
 from functools import partial
+from time import process_time
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -72,6 +73,7 @@ class Walkthrough(TrackBuildingStage):
         logging.info(f"Saving tracks to {output_dir}")
 
         for graph in tqdm(dataset):
+            start_time = process_time()
             # Apply score cut
             edge_mask = graph.scores > self.hparams["score_cut"]
 
@@ -117,6 +119,7 @@ class Walkthrough(TrackBuildingStage):
             track_id_tensor[hit_id.values] = torch.from_numpy(track_id.values)
 
             graph.labels = track_id_tensor
+            graph.time_taken = process_time() - start_time
 
             # TODO: Graph name file??
             torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))

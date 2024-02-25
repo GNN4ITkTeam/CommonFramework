@@ -18,6 +18,8 @@ import logging
 import torch
 import scipy.sparse as sps
 from tqdm import tqdm
+import numpy as np
+from time import process_time
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -51,6 +53,7 @@ class ConnectedComponents(TrackBuildingStage):
 
         for graph in tqdm(dataset):
             # Apply score cut
+            start_time = process_time()
             edge_mask = graph.scores > self.hparams["score_cut"]
 
             # Get number of nodes
@@ -72,8 +75,13 @@ class ConnectedComponents(TrackBuildingStage):
             _, candidate_labels = sps.csgraph.connected_components(
                 sparse_edges, directed=False, return_labels=True
             )
+            _, inverse, counts = np.unique(
+                candidate_labels, return_counts=True, return_inverse=True
+            )
+            candidate_labels[counts[inverse] <= 1] = -1
             graph.labels = torch.from_numpy(candidate_labels).long()
             graph.config.append(self.hparams)
+            graph.time_taken = process_time() - start_time
 
             # TODO: Graph name file??
             torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
