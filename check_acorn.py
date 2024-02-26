@@ -29,11 +29,11 @@ def check():
         print("torch not found")
 
     try:
-        import pytorch_lightning
+        import lightning
 
-        print("pytorch_lightning: ", pytorch_lightning.__version__)
+        print("lightning: ", lightning.__version__)
     except ImportError:
-        print("pytorch_lightning not found")
+        print("lightning not found")
 
     try:
         import torch_geometric
@@ -48,7 +48,7 @@ def check():
 
         print("frnn found")
     except ImportError:
-        print("frnn not found")
+        print("[Optional] frnn not found")
 
     try:
         import cugraph
