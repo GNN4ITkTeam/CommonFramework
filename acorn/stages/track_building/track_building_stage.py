@@ -31,6 +31,7 @@ import torch
 import pandas as pd
 from tqdm import tqdm
 import numpy as np
+from typing import Dict
 
 from acorn.utils import (
     run_data_tests,
@@ -46,6 +47,7 @@ class TrackBuildingStage:
         super().__init__()
 
         self.dataset_class = GraphDataset
+        self.hparams: Dict
 
         # Logging config
         if get_logger:

@@ -26,21 +26,6 @@ from acorn.utils.version_utils import get_pyg_data_keys
 # ------------- MATCHING UTILS ----------------
 
 
-# def load_reconstruction_df(graph):
-#     """Load the reconstructed tracks from a file."""
-#     if hasattr(graph, "hit_id"):
-#         hit_id = graph.hit_id
-#     else:
-#         hit_id = torch.arange(graph.num_nodes)
-#     pids = torch.zeros(hit_id.shape[0], dtype=torch.int64)
-#     pids[graph.track_edges[0]] = graph.particle_id
-#     pids[graph.track_edges[1]] = graph.particle_id
-
-#     return pd.DataFrame(
-#         {"hit_id": hit_id, "track_id": graph.labels, "particle_id": pids}
-#     )
-
-
 def load_reconstruction_df(graph):
     """Load the reconstructed tracks from a file."""
     if hasattr(graph, "hit_id"):
