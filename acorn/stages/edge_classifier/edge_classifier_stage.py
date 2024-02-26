@@ -80,7 +80,9 @@ class EdgeClassifierStage(LightningModule):
         if stage in ["fit", "predict"]:
             self.load_data(stage, self.hparams[input_dir], preprocess)
             self.test_data(stage)
-            torch.set_float32_matmul_precision("medium" if stage == "fit" else "high")
+            torch.set_float32_matmul_precision(
+                "medium" if stage == "fit" else "highest"
+            )
         elif stage == "test":
             # during test stage, allow the possibility of
             if not self.hparams.get("reprocess_classifier"):
@@ -88,7 +90,7 @@ class EdgeClassifierStage(LightningModule):
                 input_dir = "stage_dir"
                 preprocess = False
             self.load_data(stage, self.hparams[input_dir], preprocess)
-            torch.set_float32_matmul_precision("high")
+            torch.set_float32_matmul_precision("highest")
         try:
             print("Defining figures of merit")
             self.logger.experiment.define_metric("val_loss", summary="min")

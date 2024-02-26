@@ -6,14 +6,15 @@ networkx
 seaborn
 pyyaml
 click
-lightning===2.1.2
+lightning==2.1.2
 pytest
 pytest-cov
 torch-geometric==2.4.0
-torch-scatter -f https://data.pyg.org/whl/torch-2.1.2+cu121.html
-torch-cluster -f https://data.pyg.org/whl/torch-2.1.2+cu121.html
+-f https://data.pyg.org/whl/torch-2.1.0+cu121.html
+torch-scatter
+torch-cluster
 uproot
 class-resolver
---extra-index-url=https://pypi.nvidia.com
+--extra-index-url https://pypi.nvidia.com
 cudf-cu12 
 cugraph-cu12
