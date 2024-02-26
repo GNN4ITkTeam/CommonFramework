@@ -14,11 +14,13 @@
 
 from .models.connected_components import ConnectedComponents
 from .models.cc_and_walk import CCandWalk
+from .models.cc_and_junction_removal import CCandJunctionRemoval
 from .models.cc_and_all_simple_path import WeaklyConnectedComponentsAllSimplePath
 
 __all__ = [
     "ConnectedComponents",
     "CCandWalk",
+    "CCandJunctionRemoval",
     "WeaklyConnectedComponentsAllSimplePath",
     "utils",
 ]
