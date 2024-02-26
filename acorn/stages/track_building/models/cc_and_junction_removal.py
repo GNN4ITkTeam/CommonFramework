@@ -21,9 +21,6 @@ from time import process_time
 from scipy.sparse.csgraph import connected_components
 import numpy as np
 
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 # Local imports
 from .cc_and_walk_utils import remove_cycles
 from ..track_building_stage import TrackBuildingStage
@@ -58,8 +55,8 @@ class CCandJunctionRemoval(TrackBuildingStage):
             # Initialize the array to track which hit to keep
             to_keep = torch.ones_like(event.hit_id, dtype=torch.bool)
             # random edge removal
-            edge_mask = (
-                torch.rand(event.edge_index.shape[1]) >= self.hparams["random_drop"]
+            edge_mask = torch.rand(event.edge_index.shape[1]) >= self.hparams.get(
+                "random_drop", 0
             )
 
             # Select good tracks with at least `min_hits` hits
