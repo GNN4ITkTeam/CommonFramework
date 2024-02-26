@@ -54,7 +54,10 @@ class ConnectedComponents(TrackBuildingStage):
         for graph in tqdm(dataset):
             # Apply score cut
             start_time = process_time()
-            edge_mask = graph.scores > self.hparams["score_cut"]
+            edge_mask = (graph.scores > self.hparams["score_cut"]) & (
+                torch.rand(graph.edge_index.shape[1])
+                >= self.hparams.get("random_drop", 0)
+            )
 
             # Get number of nodes
             if hasattr(graph, "num_nodes"):
