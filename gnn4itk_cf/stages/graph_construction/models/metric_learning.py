@@ -24,6 +24,7 @@ import torch.nn.functional as F
 from pytorch_lightning import LightningModule
 from torch_geometric.data import DataLoader, Dataset
 import torch
+import pandas as pd
 
 import logging
 
@@ -110,6 +111,18 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
     def forward(self, x):
         x_out = self.network(x)
+        np_input = x.cpu().detach().numpy()
+        df_input = pd.DataFrame(np_input)
+        if os.path.isfile("input.csv"):
+            df_input.to_csv("input.csv", mode="a", header=False)
+        else:
+            df_input.to_csv("input.csv")
+        np_output = x_out.cpu().detach().numpy()
+        df_output = pd.DataFrame(np_output)
+        if os.path.isfile("output.csv"):
+            df_output.to_csv("output.csv", mode="a", header=False)
+        else:
+            df_output.to_csv("output.csv")
         print("forward pass used")
         # x_out = forward_qonnx(x)
         if self.hparams["norm"]:
