@@ -30,6 +30,8 @@ from torch_geometric.data import Dataset
 import torch
 import pandas as pd
 from tqdm import tqdm
+import numpy as np
+from typing import Dict
 
 from acorn.utils import (
     run_data_tests,
@@ -41,16 +43,18 @@ from . import utils
 
 
 class TrackBuildingStage:
-    def __init__(self, hparams):
+    def __init__(self, hparams, get_logger=True):
         super().__init__()
 
         self.dataset_class = GraphDataset
+        self.hparams: Dict
 
         # Logging config
-        self.log = logging.getLogger("TrackBuilding")
-        log_level = hparams.get("log_level", "WARNING").upper()
-        self.log.setLevel(logging._nameToLevel.get(log_level, logging.WARNING))
-        self.log.info(f"Using log level {log_level}")
+        if get_logger:
+            self.log = logging.getLogger("TrackBuilding")
+            log_level = hparams.get("log_level", "WARNING").upper()
+            self.log.setLevel(logging._nameToLevel.get(log_level, logging.WARNING))
+            self.log.info(f"Using log level {log_level}")
 
     def setup(self, stage="fit"):
         """
@@ -64,6 +68,7 @@ class TrackBuildingStage:
             self.load_data(stage, self.hparams["input_dir"])
             self.test_data(stage)
         elif stage == "test":
+            torch.manual_seed(0)
             self.load_data(stage, self.hparams["stage_dir"])
 
     def load_data(self, stage, input_dir):
@@ -156,6 +161,7 @@ class TrackBuildingStage:
         dataset = getattr(self, config["dataset"])
 
         evaluated_events = []
+        times = []
         for event in tqdm(dataset):
             evaluated_events.append(
                 utils.evaluate_labelled_graph(
@@ -166,6 +172,11 @@ class TrackBuildingStage:
                     min_track_length=config["min_track_length"],
                 )
             )
+            times.append(event.time_taken)
+
+        times = np.array(times)
+        time_avg = np.mean(times)
+        time_std = np.std(times)
 
         evaluated_events = pd.concat(evaluated_events)
 
@@ -203,9 +214,9 @@ class TrackBuildingStage:
             eff,
             fake_rate,
             dup_rate,
+            time_avg,
+            time_std,
         )
-
-        self.log.info("Result Summary :\n\n" + result_summary)
 
         res_fname = os.path.join(
             self.hparams["stage_dir"],
@@ -272,6 +283,8 @@ def make_result_summary(
     eff,
     fake_rate,
     dup_rate,
+    time_avg,
+    time_std,
 ):
     summary = f"Number of reconstructed particles: {n_reconstructed_particles}\n"
     summary += f"Number of particles: {n_particles}\n"
@@ -284,6 +297,7 @@ def make_result_summary(
     summary += f"Efficiency: {eff:.3f}\n"
     summary += f"Fake rate: {fake_rate:.3f}\n"
     summary += f"Duplication rate: {dup_rate:.3f}\n"
+    summary += f"Latency: {time_avg:.3f} ± {time_std:.3f}\n"
 
     return summary
 

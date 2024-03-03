@@ -19,6 +19,7 @@ import torch
 import scipy.sparse as sps
 from tqdm import tqdm
 import networkx as nx
+from time import process_time
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -55,6 +56,7 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
 
         for graph in tqdm(dataset):
             # TODO check isolated nodes
+            start_time = process_time()
 
             graph.labels = -torch.ones(graph.hit_id.shape).long()
 
@@ -131,7 +133,8 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
             graph.config.append(self.hparams)
 
             # TODO: Graph name file??
-            # torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
+            graph.time_taken = process_time() - start_time
+            torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
 
             # Make a dataframe from pyg graph
             d = utils.load_reconstruction_df(graph)
