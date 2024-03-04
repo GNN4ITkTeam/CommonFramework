@@ -74,7 +74,7 @@ class GNNMetricLearning(NodeEncodingStage):
                 )
                 for i in range(
                     (1 if hparams["recurrent"] else hparams["n_iters"])
-                    * hparams["n_gnns_per_iter"]
+                    * (2 if hparams["recurrent_gnn"] else hparams["n_gnns_per_iter"])
                 )
             ]
         )
@@ -102,7 +102,7 @@ class GNNMetricLearning(NodeEncodingStage):
                 )
                 for i in range(
                     (1 if hparams["recurrent"] else hparams["n_iters"])
-                    * hparams["n_gnns_per_iter"]
+                    * (1 if hparams["recurrent_gnn"] else hparams["n_gnns_per_iter"])
                 )
             ]
         )
@@ -143,7 +143,7 @@ class GNNMetricLearning(NodeEncodingStage):
             return graph
 
     def get_knn_edges(self, x, i):
-        x = self.node_decoders[0 if self.hparams["recurrent"] else i](x)
+        x = self.node_decoders[0 if self.hparams["recurrent"] else i](x).detach()
         if self.hparams["embedding_norm"]:
             x = F.normalize(x)
 
@@ -213,8 +213,19 @@ class GNNMetricLearning(NodeEncodingStage):
         e = torch.cat([x[start], x[end]] if j == 0 else [x[start], x[end], e], dim=-1)
 
         e = self.edge_networks[
-            (0 if self.hparams["recurrent"] else (i * self.hparams["n_gnns_per_iter"]))
-            + j
+            (
+                0
+                if self.hparams["recurrent"]
+                else (
+                    i
+                    * (
+                        1
+                        if self.hparams["recurrent_gnn"]
+                        else self.hparams["n_gnns_per_iter"]
+                    )
+                )
+            )
+            + (min(1, j) if self.hparams["recurrent_gnn"] else j)
         ](e)
         w = e[:, -1:]
         w = softmax(w, end)
@@ -225,8 +236,19 @@ class GNNMetricLearning(NodeEncodingStage):
         # w = scatter_mean(e, end, dim=0, dim_size=x.shape[0])
         x = torch.cat([x, w], dim=1)
         x = self.node_networks[
-            (0 if self.hparams["recurrent"] else (i * self.hparams["n_gnns_per_iter"]))
-            + j
+            (
+                0
+                if self.hparams["recurrent"]
+                else (
+                    i
+                    * (
+                        1
+                        if self.hparams["recurrent_gnn"]
+                        else self.hparams["n_gnns_per_iter"]
+                    )
+                )
+            )
+            + (0 if self.hparams["recurrent_gnn"] else j)
         ](x)
 
         return x, e
@@ -245,10 +267,12 @@ class GNNMetricLearning(NodeEncodingStage):
     def knn_loss(self, batch, k):
         if self.hparams.get("cu_knn"):
             edges = self.cu_knn_graph(
-                batch.hit_embedding, k=k, cosine=False, loop=False
+                batch.hit_embedding.detach(), k=k, cosine=False, loop=False
             )
         else:
-            edges = knn_graph(batch.hit_embedding, k=k, cosine=False, loop=False)
+            edges = knn_graph(
+                batch.hit_embedding.detach(), k=k, cosine=False, loop=False
+            )
         y = self.get_target(batch, edges)
         w = self.get_weight(batch, edges, y)
         tp = torch.sum(y == 1)

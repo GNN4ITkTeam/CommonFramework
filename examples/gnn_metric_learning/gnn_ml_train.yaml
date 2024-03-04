@@ -1,7 +1,7 @@
 # CommonFramework configuration
 stage: node_encoding
 model: GNNMetricLearning
-input_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/ttbar_gnnml_feature_store
+input_dir: /global/cfs/cdirs/m2616/object_condensation/ttbar_gnnml_feature_store
 stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/ttbar_gnnml
 project: gnnml_ttbar # Used in logging
 gpus: 4
@@ -51,7 +51,7 @@ n_encoder_layers: 3
 n_node_0_layers: 3
 n_edge_layers: 3
 n_node_layers: 3
-n_decoder_layers: 3
+n_decoder_layers: 1
 hidden_activation: SiLU
 output_activation: Tanh
 layernorm: False
@@ -60,7 +60,8 @@ embedding_norm: True
 n_iters: 4
 n_gnns_per_iter: 8
 recurrent: True
-knn_train: 10
+recurrent_gnn: False
+knn_train: 20
 randomisation: 100000
 knn_loss: 10
 knn_val: 10

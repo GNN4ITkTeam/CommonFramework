@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH -A m3443 -q regular
-#SBATCH -C gpu
+#SBATCH -C gpu&hbm80g
 #SBATCH -t 12:00:00
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=4
