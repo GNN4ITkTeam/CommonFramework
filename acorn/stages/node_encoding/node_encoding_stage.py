@@ -685,21 +685,22 @@ class NodeEncodingStage(LightningModule):
         ax.plot(
             knn,
             max_target_tp / t,
-            color="black",
-            marker="o",
+            color="grey",
+            markersize=0,
             linestyle=":",
             label="Eff. Upper Bound",
         )
         ax.plot(
             knn,
             max_tp / p,
-            color="black",
-            marker="o",
+            color="grey",
+            markersize=0,
             linestyle="-.",
             label="Pur. Upper Bound",
         )
         ax.set_xlabel("k", ha="right", x=0.95, fontsize=14)
         ax.set_ylabel("Efficiency (Purity)", ha="right", y=0.95, fontsize=14)
+        ax.legend(loc="upper right", fontsize=14)
         # ax.set_ylim(ylim)
         plt.tight_layout()
 
@@ -878,7 +879,7 @@ class NodeEncodingStage(LightningModule):
                 err,
                 xlabel,
                 plot_config["title"],
-                plot_config.get("ylim", [0.8, 1.04]),
+                plot_config.get("ylim", [0.7, 1.04]),
                 "Efficiency",
                 logx=logx,
                 color="black",
@@ -917,7 +918,7 @@ class NodeEncodingStage(LightningModule):
             else r"$p_T > 1$GeV" + "\n"
         )
 
-        epss = np.linspace(0.05, 1, 20)
+        epss = np.linspace(0.05, 0.5, 10)
         n_particles = [0] * len(epss)
         n_matched_particles = [0] * len(epss)
         n_matched_tracks = [0] * len(epss)
@@ -1002,6 +1003,7 @@ class NodeEncodingStage(LightningModule):
         ax.set_xlabel(r"$\epsilon$", ha="right", x=0.95, fontsize=14)
         ax.set_ylabel("Efficiency (Rate)", ha="right", y=0.95, fontsize=14)
         ax.set_ylim([0, 1])
+        ax.legend(loc="upper right", fontsize=14)
         plt.tight_layout()
 
         # Save the plot
@@ -1050,10 +1052,16 @@ class NodeEncodingStage(LightningModule):
             start = time.time()
             self.cluster(event, eps, 3)
             end = time.time()
-            dbscan_ts.append(start - end)
+            dbscan_ts.append(end - start)
+
+        ns = np.array(ns)
+        ts = np.array(ts)
+        dbscan_ts = np.array(dbscan_ts)
+        knn_ts = np.array(knn_ts)
 
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.plot(ns, ts, "o", label="Total")
+        ax.plot(ns, ts + dbscan_ts, "o", label="Total")
+        ax.plot(ns, ts - knn_ts, "o", label="Graph attention")
         ax.plot(ns, knn_ts, "o", label="KNN")
         ax.plot(ns, dbscan_ts, "o", label="DBScan")
         ax.set_xlabel("Number of spacepoints", ha="right", x=0.95, fontsize=14)
