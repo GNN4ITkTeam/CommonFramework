@@ -414,7 +414,6 @@ class EventReader:
         for track_feature in set(
             self.config["feature_sets"]["track_features"]
         ).intersection(set(hits.columns)):
-
             assert (
                 hits[track_feature].values[track_index_edges][0]
                 == hits[track_feature].values[track_index_edges][1]
