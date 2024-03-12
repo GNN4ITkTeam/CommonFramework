@@ -414,22 +414,6 @@ class EventReader:
         for track_feature in set(
             self.config["feature_sets"]["track_features"]
         ).intersection(set(hits.columns)):
-            
-            if( not (hits[track_feature].values[track_index_edges][0]== hits[track_feature].values[track_index_edges][1]).all() ):
-                print("\nDEBUG")
-                print(hits[track_feature].values[track_index_edges][0])
-                print(len(hits[track_feature].values[track_index_edges][0]))
-                print('\n')
-                print(hits[track_feature].values[track_index_edges][1])
-                print(len(hits[track_feature].values[track_index_edges][1]))
-                print('\n')
-                test = hits[track_feature].values[track_index_edges][0]==hits[track_feature].values[track_index_edges][1]
-                print(test)
-
-                for i,e in enumerate(test):
-
-                    if not e:
-                        print(i,hits[track_feature].values[track_index_edges][0][i],hits[track_feature].values[track_index_edges][1][i],hits['hit_id'].values[track_index_edges][0][i],hits['hit_id'].values[track_index_edges][1][i],hits['particle_id'].values[track_index_edges][0][i],hits['particle_id'].values[track_index_edges][1][i])
 
             assert (
                 hits[track_feature].values[track_index_edges][0]
@@ -438,8 +422,6 @@ class EventReader:
             track_features[track_feature] = hits[track_feature].values[
                 track_index_edges[0]
             ]
-
-            
 
         if "redundant_split_edges" in self.config["feature_sets"]["track_features"]:
             track_features["redundant_split_edges"] = self._get_redundant_split_edges(
