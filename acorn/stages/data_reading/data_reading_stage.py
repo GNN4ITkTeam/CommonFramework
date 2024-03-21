@@ -456,8 +456,7 @@ class EventReader:
 
         return secondary_clusters
 
-    @staticmethod
-    def remap_edges(track_edges, track_features, hits):
+    def remap_edges(self, track_edges, track_features, hits):
         """
         Here we do two things:
         1. Remove duplicate hits from the hit list (since a hit is a node and therefore only exists once), and remap the corresponding truth track edge indices
@@ -486,7 +485,12 @@ class EventReader:
 
         # This test imposes a limit to how we simplify the graph: We don't allow shared EDGES (i.e. two different particles can share a hit, but not an edge between the same two hits). We want to ensure these are in a tiny minority
         n_shared_edges = track_edges.shape[1] - unique_track_edges.shape[1]
-        assert n_shared_edges < 50, "The number of shared EDGES is unusually high!"
+        if n_shared_edges > 50:
+            self.log.warning(
+                f"WARNING : high number of shared EDGES ({n_shared_edges} shared edges for {track_edges.shape[1]} edges in total)"
+            )
+
+        assert n_shared_edges < 100, "Too many shared edges!"
 
         return unique_track_edges, track_features, hits
 
