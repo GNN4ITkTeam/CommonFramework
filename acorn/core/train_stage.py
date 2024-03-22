@@ -31,7 +31,12 @@ except ImportError:
 
 from pytorch_lightning import LightningModule
 
-from .core_utils import str_to_class, get_trainer, get_stage_module
+from .core_utils import (
+    str_to_class,
+    get_trainer,
+    find_latest_checkpoint,
+    get_default_root_dir,
+)
 
 
 @click.command()
@@ -67,6 +72,7 @@ def train(config_file, checkpoint=None, sweep=False, checkpoint_resume_dir=None)
     if wandb is not None and config.get("log_wandb", True) and sweep:
         wandb.init(
             project=config["project"],
+            entity=config.get("entity", None),
             # track hyperparameters and run metadata
             config=config,
         )
@@ -98,14 +104,31 @@ def train(config_file, checkpoint=None, sweep=False, checkpoint_resume_dir=None)
 def lightning_train(
     config, stage_module_class, checkpoint=None, checkpoint_resume_dir=None
 ):
-    stage_module, ckpt_config, default_root_dir = get_stage_module(
-        config,
-        stage_module_class,
-        checkpoint_path=checkpoint,
-        checkpoint_resume_dir=checkpoint_resume_dir,
-    )
+    stage_module = stage_module_class(config)
+
+    default_root_dir = get_default_root_dir()
+    checkpoint_path = checkpoint
+
+    if checkpoint_resume_dir is not None:
+        if not os.path.exists(checkpoint_resume_dir):
+            raise Exception(
+                f"Checkpoint resume directory {checkpoint_resume_dir} does not exist."
+            )
+        if not find_latest_checkpoint(checkpoint_resume_dir, "*.ckpt"):
+            raise Exception(
+                "No checkpoint found in checkpoint resume directory"
+                f" {checkpoint_resume_dir}."
+            )
+        default_root_dir = checkpoint_resume_dir
+
+    # if default_root_dir contains checkpoint, use latest checkpoint as starting point, ignore the input checkpoint_path
+    if default_root_dir is not None and find_latest_checkpoint(
+        default_root_dir, "*.ckpt"
+    ):
+        checkpoint_path = find_latest_checkpoint(default_root_dir, "*.ckpt")
+
     trainer = get_trainer(config, default_root_dir)
-    trainer.fit(stage_module)
+    trainer.fit(stage_module, ckpt_path=checkpoint_path)
 
 
 if __name__ == "__main__":

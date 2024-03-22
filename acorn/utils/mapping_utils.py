@@ -260,6 +260,8 @@ def map_tracks_to_edges(
     edgelike_output = torch.zeros(
         num_edges, dtype=tracklike_input.dtype, device=tracklike_input.device
     )
+    if num_edges == 0:
+        return edgelike_output
     edgelike_output[truth_map[truth_map >= 0]] = tracklike_input[truth_map >= 0]
     edgelike_output[truth_map[truth_map == -1]] = float("nan")
     return edgelike_output
