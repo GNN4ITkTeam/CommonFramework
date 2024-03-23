@@ -8,18 +8,18 @@ devices: 1
 nodes: 1
 
 # Dataset parameters
-data_split: [0, 0, 10] # Number of [training, validation, testing] examples
+data_split: [0, 10, 0] # Number of [training, validation, testing] examples
 
 # Evaluation parameters
 score_cut: 0.5
-target_tracks: 
+target_tracks:
   pt: [1000., .inf]
   nhits: [3., .inf]
   primary: True
 
 # Plotting parameters
 plots:
-  graph_scoring_efficiency: 
+  graph_scoring_efficiency:
     title: Interaction GNN Edge-wise Efficiency
     pt_units: MeV
   graph_roc_curve:
