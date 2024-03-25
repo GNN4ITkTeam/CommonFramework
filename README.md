@@ -71,6 +71,12 @@ pip install git+https://github.com/asnaylor/prefix_sum.git
 pip install git+https://github.com/xju2/FRNN.git
 ```
 
+**Note: If you got this error message:**
+```bash
+error: command /usr/bin/gcc failed with exit code 1 
+```
+**It might be necessary to go into the installation script of FRNN and change the cpp flag from c++14 to c++17**
+
 -----
 
 **IMPORTANT! On December 2, 2023 a major refactoring of the code was merged on `dev`**
