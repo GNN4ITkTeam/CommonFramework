@@ -2,10 +2,11 @@
 stage: node_encoding
 model: GNNMetricLearning
 input_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/trackml_gnnml_feature_store
-stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/trackml_gnnml
+stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/trackml_gnnml_layernorm
 project: gnnml_trackml # Used in logging
 gpus: 4
 nodes: 1
+precision: 16
 
 # Dataset parameters
 data_split: [2000, 400, 200] # Number of [training, validation, testing] examples
@@ -37,27 +38,35 @@ hard_cuts:
 # Model parameters
 node_features: [hit_r, hit_phi, hit_z,   hit_cell_count, hit_cell_val, hit_leta, hit_lphi, hit_lx, hit_ly, hit_lz, hit_geta, hit_gphi]
 node_scales:   [1000,  3.14,    1000,    1,              1,            1,        1,        0.1,    1,      0.1,    1,        3.14]
-hidden: 128
-emb_dim: 24
+
+node_hidden: 128
+edge_hidden: 128
+node_0_hidden: 128
+encoder_hidden: 128
+decoder_hiden: 128
+node_rep_dim: 128
+edge_rep_dim: 128
+node_pspace_dim: 24
 n_encoder_layers: 3
 n_node_0_layers: 3
 n_edge_layers: 3
-n_edge_weight_layers: 3
 n_node_layers: 3
-n_decoder_layers: 3
+n_decoder_layers: 1
 hidden_activation: SiLU
 output_activation: Tanh
-layernorm: False
-batchnorm: True
+layernorm: True
+batchnorm: False
 embedding_norm: True
 n_iters: 4
 n_gnns_per_iter: 8
 recurrent: True
-knn_train: 10
+recurrent_gnn: False
+knn_train: 20
 randomisation: 100000
 knn_loss: 10
 knn_val: 10
 margin: 1
+cu_knn: False
 
 # Training parameters
 warmup: 10
