@@ -279,7 +279,7 @@ class EventReader:
         return hits
 
     def get_pixel_regions_index(self, hits):
-        pixel_regions_index = pd.Index([])
+        pixel_regions_index = pd.Index([], dtype=hits.index.dtype)
         for region_id, desc in self.config["region_labels"].items():
             if desc["hardware"] == "PIXEL":
                 pixel_regions_index = pixel_regions_index.append(
