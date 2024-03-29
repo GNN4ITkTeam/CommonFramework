@@ -274,26 +274,33 @@ class EventDataset(Dataset):
         particles = None
         hits = None
 
+        event_file_root_name = f"event{self.evt_ids[idx]}"
+
+        if self.hparams.get("event_prefix"):
+            event_file_root_name = (
+                f"{self.hparams['event_prefix']}_{event_file_root_name}"
+            )
+
         if self.use_pyg:
             # Check if file event{self.evt_ids[idx]}-graph.pyg exists
             if os.path.exists(
                 os.path.join(
                     self.input_dir,
                     self.data_name,
-                    f"event{self.evt_ids[idx]}-graph.pyg",
+                    f"{event_file_root_name}-graph.pyg",
                 )
             ):
                 graph = torch.load(
                     os.path.join(
                         self.input_dir,
                         self.data_name,
-                        f"event{self.evt_ids[idx]}-graph.pyg",
+                        f"{event_file_root_name}-graph.pyg",
                     )
                 )
             else:
                 graph = torch.load(
                     os.path.join(
-                        self.input_dir, self.data_name, f"event{self.evt_ids[idx]}.pyg"
+                        self.input_dir, self.data_name, f"{event_file_root_name}.pyg"
                     )
                 )
             if not self.use_csv:
@@ -304,14 +311,14 @@ class EventDataset(Dataset):
                 os.path.join(
                     self.input_dir,
                     self.data_name,
-                    f"event{self.evt_ids[idx]}-particles.csv",
+                    f"{event_file_root_name}-particles.csv",
                 )
             )
             hits = pd.read_csv(
                 os.path.join(
                     self.input_dir,
                     self.data_name,
-                    f"event{self.evt_ids[idx]}-truth.csv",
+                    f"{event_file_root_name}-truth.csv",
                 )
             )
             if not self.use_pyg:
@@ -329,22 +336,29 @@ class EventDataset(Dataset):
         all_event_ids = sorted(
             list({re.findall("[0-9]+", file)[-1] for file in all_files})
         )
+
         if self.num_events is not None:
             all_event_ids = all_event_ids[: self.num_events]
 
         # Check that events are present for the requested filetypes
+        if self.hparams.get("event_prefix"):
+            prefix = self.hparams["event_prefix"] + "_"
+        else:
+            prefix = ""
+
         if self.use_csv:
             all_event_ids = [
                 evt_id
                 for evt_id in all_event_ids
-                if (f"event{evt_id}-truth.csv" in all_files)
-                and (f"event{evt_id}-particles.csv" in all_files)
+                if (f"{prefix}event{evt_id}-truth.csv" in all_files)
+                and (f"{prefix}event{evt_id}-particles.csv" in all_files)
             ]
         if self.use_pyg:
             all_event_ids = [
                 evt_id
                 for evt_id in all_event_ids
-                if f"event{evt_id}-graph.pyg" or f"event{evt_id}.pyg" in all_files
+                if f"{prefix}event{evt_id}-graph.pyg"
+                or f"{prefix}event{evt_id}.pyg" in all_files
             ]
 
         return all_event_ids
