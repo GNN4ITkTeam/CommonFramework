@@ -17,6 +17,12 @@ def cli():
     default=None,
     help="Directory to resume checkpoint from",
 )
+@click.option(
+    "--load_only_model_parameters",
+    default=False,
+    type=bool,
+    help="Load only model parameters from checkpoint instead of the full training states",
+)
 def train(config_file, checkpoint, sweep, checkpoint_resume_dir):
     train_stage.main(config_file, checkpoint, sweep, checkpoint_resume_dir)
 

@@ -197,7 +197,7 @@ def get_stage_module(
         stage_module, config = load_module(checkpoint_path, stage_module_class)
     else:
         stage_module = stage_module_class(config)
-    return stage_module, config, default_root_dir
+    return stage_module, config, default_root_dir, checkpoint_path
 
 
 def load_module(checkpoint_path, stage_module_class):
