@@ -22,3 +22,7 @@ run tests:
       coverage_report:
         coverage_format: cobertura
         path: tests/coverage.xml
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: always
+    - when: on_failure
