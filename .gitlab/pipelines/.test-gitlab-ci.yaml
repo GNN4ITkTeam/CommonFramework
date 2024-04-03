@@ -8,9 +8,12 @@ run tests:
   script:
     - cd tests
     - ls -la
-    - wget https://portal.nersc.gov/project/m3443/dtmurnane/GNN4ITk/TestData/test_files.zip
+    - wget https://portal.nersc.gov/project/m3443/dtmurnane/GNN4ITk/TestData/test_files.zip 2>&1 >& /dev/null
     - ls -la
-    - unzip test_files.zip
+    - unzip test_files.zip 2>&1 >& /dev/null
+    - source activate gnn4itk
+    - which python
+    - wandb disabled
     - pytest --cov --cov-report term --cov-report xml:coverage.xml
     - ls -la
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
@@ -20,6 +23,6 @@ run tests:
         coverage_format: cobertura
         path: tests/coverage.xml
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - when: manual
       allow_failure: true
