@@ -23,8 +23,16 @@ def cli():
     type=bool,
     help="Load only model parameters from checkpoint instead of the full training states",
 )
-def train(config_file, checkpoint, sweep, checkpoint_resume_dir):
-    train_stage.main(config_file, checkpoint, sweep, checkpoint_resume_dir)
+def train(
+    config_file, checkpoint, sweep, checkpoint_resume_dir, load_only_model_parameters
+):
+    train_stage.main(
+        config_file,
+        checkpoint,
+        sweep,
+        checkpoint_resume_dir,
+        load_only_model_parameters,
+    )
 
 
 @cli.command()
