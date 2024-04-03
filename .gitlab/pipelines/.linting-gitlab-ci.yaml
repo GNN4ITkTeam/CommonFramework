@@ -6,7 +6,11 @@
   script:
     - flake8 .
   needs: []
-  allow_failure: True
+  rules:
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      allow_failure: false
 
 .black_check_template: &black_check_template
   stage: linting
@@ -15,7 +19,12 @@
     - pip install black==22.8.0
   script:
     - black --check .
-  needs: []
+  needs: []  
+  rules:
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      allow_failure: false
 
 
 flake8:
