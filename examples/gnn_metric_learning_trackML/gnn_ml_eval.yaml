@@ -2,7 +2,7 @@
 stage: node_encoding
 model: GNNMetricLearning
 input_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/trackml_gnnml_feature_store
-stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/trackml_gnnml
+stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/trackml_gnnml_layernorm
 project: gnnml_trackml # Used in logging
 gpus: 1
 nodes: 1

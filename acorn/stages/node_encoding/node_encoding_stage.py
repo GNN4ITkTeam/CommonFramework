@@ -1132,6 +1132,8 @@ class GraphDataset(Dataset):
         # self.remove_split_cluster_truth(event) TODO: Should handle this at some point
         if self.stage != "test":
             self.scale_features(event)
+        if "hit_module_index" in event:
+            event["hit_module_id"] = event.pop("hit_module_index")
 
     def apply_hard_cuts(self, event):
         """
@@ -1140,14 +1142,10 @@ class GraphDataset(Dataset):
         2. Pruning the input graph to only include nodes that are connected to these edges.
         """
 
-        if (
-            self.hparams is not None
-            and "hard_cuts" in self.hparams.keys()
-            and self.hparams["hard_cuts"]
-        ):
-            assert isinstance(
-                self.hparams["hard_cuts"], dict
-            ), "Hard cuts must be a dictionary"
+        if self.hparams.get("hard_cuts") or self.hparams.get("phi_segmented"):
+            hard_cuts = self.hparams.get("hard_cuts", {})
+            if self.hparams.get("phi_segmented"):
+                hard_cuts["hit_phi"] = []
             handle_hard_node_cuts(event, self.hparams["hard_cuts"])
 
             uni, inv_idx, count = torch.unique(
@@ -1160,7 +1158,7 @@ class GraphDataset(Dataset):
         Ensure that data is clean and has the correct shape
         """
 
-        if not hasattr(event, "num_nodes"):
+        if not hasattr(event, "num_nodes") or event.num_nodes is None:
             assert "hit_x" in event.keys, "No node features found in event"
             event.num_nodes = event.hit_x.shape[0]
 
