@@ -17,7 +17,7 @@ import warnings
 import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
-from torch_scatter import scatter_add
+from torch_scatter import scatter_add, scatter_mean
 from torch_geometric.nn import aggr
 
 from acorn.utils import make_mlp
@@ -305,7 +305,7 @@ class InteractionGNNWithPyG(EdgeClassifierStage):
                 else InteractionConv(
                     self.network_input_size,
                     aggr=self.hparams["aggregation"],
-                    **self.hparams
+                    **self.hparams,
                 )
             )
 
@@ -546,6 +546,10 @@ class InteractionGNN2(EdgeClassifierStage):
         # hyperparams
         # self.hparams = hparams
 
+        self.aggr_function = (
+            scatter_add if self.hparams.get("aggr", "sum") == "sum" else scatter_mean
+        )
+
     def forward(self, batch):
         x = torch.stack(
             [batch[feature] for feature in self.hparams["node_features"]], dim=-1
@@ -627,8 +631,12 @@ class InteractionGNN2(EdgeClassifierStage):
         else:
             e_updated = self.edge_network[i](edge_inputs)
         # Update nodes
-        edge_messages_from_src = scatter_add(e_updated, dst, dim=0, dim_size=x.shape[0])
-        edge_messages_from_dst = scatter_add(e_updated, src, dim=0, dim_size=x.shape[0])
+        edge_messages_from_src = self.aggr_function(
+            e_updated, dst, dim=0, dim_size=x.shape[0]
+        )
+        edge_messages_from_dst = self.aggr_function(
+            e_updated, src, dim=0, dim_size=x.shape[0]
+        )
         if self.hparams["in_out_diff_agg"]:
             node_inputs = torch.cat(
                 [edge_messages_from_src, edge_messages_from_dst, x], dim=-1
