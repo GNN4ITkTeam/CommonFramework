@@ -7,16 +7,21 @@ stage_dir: MY_DATA_DIR/Example_3/connected_components/ # A directory to be creat
 # Dataset parameters
 data_split: [80, 10, 10] # Number of [training, validation, testing] examples
 
+target_tracks:
+    pt: [1000, .inf]
+    nhits: [3, .inf]
+
 plots:
   tracking_efficiency:
+    title: Example 3 Track Reconstruction Efficiency
     variables:
       pt:
-        title: Example 1 Track Reconstruction Efficiency
         pt_units: MeV
-        x_lim: [0, 10000]
-        x_label: pT [MeV]
+        x_lim: [1000, 20000]
+        y_lim: [0, 1.3]
+        x_label: $p_T [MeV]$
 
 matching_fraction: 0.5
 matching_style: ATLAS
-min_track_length: 3
-min_particle_length: 3
+min_track_length: 5
+min_particle_length: 5

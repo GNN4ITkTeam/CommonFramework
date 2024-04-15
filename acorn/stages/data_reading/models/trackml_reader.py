@@ -61,9 +61,6 @@ class TrackMLReader(EventReader):
 
     def _build_single_csv(self, event, output_dir=None):
         truth_file = event["truth"]
-        # hits_file = event["hits"]
-        # particles_file = event["particles"]
-        # cells_file = event["cells"]
         event_id = event["event_id"]
 
         # Check if file already exists
@@ -118,6 +115,10 @@ class TrackMLReader(EventReader):
         """
         Calculate the radius and pT of each particle
         """
+
+        # Convert from GeV to MeV
+        for column in ["px", "py", "pz"]:
+            particles[column] = particles[column] * 1000
 
         # Calculate the radius of the particle
         particles["radius"] = np.sqrt(particles["vx"] ** 2 + particles["vy"] ** 2)

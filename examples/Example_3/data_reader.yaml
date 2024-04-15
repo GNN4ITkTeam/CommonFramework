@@ -4,7 +4,7 @@ model: TrackMLReader
 input_dir: MY_DATA_DIR/Example_3/trackml_100_events
 stage_dir: MY_DATA_DIR/Example_3/feature_store/
 detector_path: MY_DATA_DIR/Example_3/detectors.csv
-max_workers: 32
+max_workers: 8
 
 # Feature Configurations
 feature_sets:

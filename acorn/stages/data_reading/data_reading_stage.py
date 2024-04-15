@@ -106,7 +106,7 @@ class EventReader:
         os.makedirs(output_dir, exist_ok=True)
 
         # Build CSV files, optionally with multiprocessing
-        max_workers = self.config["max_workers"] if "max_workers" in self.config else 1
+        max_workers = self.config.get("max_workers", 1)
         if max_workers != 1:
             process_map(
                 partial(self._build_single_csv, output_dir=output_dir),
@@ -279,65 +279,79 @@ class EventReader:
         return hits
 
     def get_pixel_regions_index(self, hits):
-        pixel_regions_index = pd.Index([], dtype=hits.index.dtype)
-        for region_id, desc in self.config["region_labels"].items():
-            if desc["hardware"] == "PIXEL":
-                pixel_regions_index = pixel_regions_index.append(
-                    hits.index[hits.region == region_id]
-                )
+        pixel_regions_index = hits.hardware == "PIXEL"
         return pixel_regions_index
 
     def _add_handengineered_features(self, hits):
+        # Assert that the necessary columns are present in the hits dataframe
+        requested_features = self.config["feature_sets"]["hit_features"]
+
+        # Ensure basic geometric features are calculated if configured
+        if "r" in requested_features:
+            if not all(col in hits.columns for col in ["x", "y"]):
+                raise ValueError(
+                    "Missing coordinates for calculating 'r'. Required: 'x', 'y'."
+                )
+            hits["r"] = np.sqrt(hits["x"] ** 2 + hits["y"] ** 2)
+        if "phi" in requested_features:
+            if not all(col in hits.columns for col in ["x", "y"]):
+                raise ValueError(
+                    "Missing coordinates for calculating 'phi'. Required: 'x', 'y'."
+                )
+            hits["phi"] = np.arctan2(hits["y"], hits["x"])
+        if "eta" in requested_features:
+            if not all(col in hits.columns for col in ["x", "y", "z"]):
+                raise ValueError(
+                    "Missing coordinates for calculating 'eta'. Required: 'x', 'y', 'z'."
+                )
+            hits["eta"] = self.calc_eta(hits["r"], hits["z"])
+
+        # Calculate cluster features if the respective coordinates are available
+        for i in [1, 2]:  # For each cluster
+            cluster_prefix = f"cluster_{i}_"
+            for feature in ["r", "phi", "eta"]:
+                if f"{cluster_prefix}{feature}" in requested_features:
+                    required_coords = (
+                        ["x", "y"] if feature != "eta" else ["x", "y", "z"]
+                    )
+                    available_coords = [
+                        coord
+                        for coord in required_coords
+                        if f"{cluster_prefix}{coord}" in hits.columns
+                    ]
+                    if len(available_coords) != len(required_coords):
+                        raise ValueError(
+                            f"Missing coordinates for calculating '{cluster_prefix}{feature}'. Required: {', '.join(required_coords)}."
+                        )
+
+                    # Calculate 'r' and 'phi' if both 'x' and 'y' are available
+                    if feature in ["r", "phi"]:
+                        hits[f"{cluster_prefix}r"] = np.sqrt(
+                            hits[f"{cluster_prefix}x"] ** 2
+                            + hits[f"{cluster_prefix}y"] ** 2
+                        )
+                        hits[f"{cluster_prefix}phi"] = np.arctan2(
+                            hits[f"{cluster_prefix}y"], hits[f"{cluster_prefix}x"]
+                        )
+
+                    # Calculate 'eta' if 'z' is also available
+                    if feature == "eta":
+                        hits[f"{cluster_prefix}eta"] = self.calc_eta(
+                            hits[f"{cluster_prefix}r"], hits[f"{cluster_prefix}z"]
+                        )
+
+        # Apply pixel region adjustments if applicable
         pixel_regions_idx = self.get_pixel_regions_index(hits)
-        assert all(
-            col in hits.columns
-            for col in [
-                "x",
-                "y",
-                "z",
-                "cluster_x_1",
-                "cluster_y_1",
-                "cluster_z_1",
-                "cluster_x_2",
-                "cluster_y_2",
-                "cluster_z_2",
-            ]
-        ), "Need to add (x,y,z) features"
-        if "r" in self.config["feature_sets"]["hit_features"]:
-            r = np.sqrt(hits.x**2 + hits.y**2)
-            hits = hits.assign(r=r)
-        if "phi" in self.config["feature_sets"]["hit_features"]:
-            phi = np.arctan2(hits.y, hits.x)
-            hits = hits.assign(phi=phi)
-        if "eta" in self.config["feature_sets"]["hit_features"]:
-            eta = self.calc_eta(
-                r, hits.z
-            )  # TODO check if r is defined (same for clusters, below)
-            hits = hits.assign(eta=eta)
-        if "cluster_r_1" in self.config["feature_sets"]["hit_features"]:
-            cluster_r_1 = np.sqrt(hits.cluster_x_1**2 + hits.cluster_y_1**2)
-            cluster_r_1.loc[pixel_regions_idx] = r.loc[pixel_regions_idx]
-            hits = hits.assign(cluster_r_1=cluster_r_1)
-        if "cluster_phi_1" in self.config["feature_sets"]["hit_features"]:
-            cluster_phi_1 = np.arctan2(hits.cluster_y_1, hits.cluster_x_1)
-            cluster_phi_1.loc[pixel_regions_idx] = phi.loc[pixel_regions_idx]
-            hits = hits.assign(cluster_phi_1=cluster_phi_1)
-        if "cluster_eta_1" in self.config["feature_sets"]["hit_features"]:
-            cluster_eta_1 = self.calc_eta(cluster_r_1, hits.cluster_z_1)
-            cluster_eta_1.loc[pixel_regions_idx] = eta.loc[pixel_regions_idx]
-            hits = hits.assign(cluster_eta_1=cluster_eta_1)
-        if "cluster_r_2" in self.config["feature_sets"]["hit_features"]:
-            cluster_r_2 = np.sqrt(hits.cluster_x_2**2 + hits.cluster_y_2**2)
-            cluster_r_2.loc[pixel_regions_idx] = r.loc[pixel_regions_idx]
-            hits = hits.assign(cluster_r_2=cluster_r_2)
-        if "cluster_phi_2" in self.config["feature_sets"]["hit_features"]:
-            cluster_phi_2 = np.arctan2(hits.cluster_y_2, hits.cluster_x_2)
-            cluster_phi_2.loc[pixel_regions_idx] = phi.loc[pixel_regions_idx]
-            hits = hits.assign(cluster_phi_2=cluster_phi_2)
-        if "cluster_eta_2" in self.config["feature_sets"]["hit_features"]:
-            cluster_eta_2 = self.calc_eta(cluster_r_2, hits.cluster_z_2)
-            cluster_eta_2.loc[pixel_regions_idx] = eta.loc[pixel_regions_idx]
-            hits = hits.assign(cluster_eta_2=cluster_eta_2)
+        for feature in ["r", "phi", "eta"]:
+            for i in [1, 2]:
+                cluster_prefix = f"cluster_{i}_"
+                if (
+                    f"{cluster_prefix}{feature}" in hits.columns
+                    and feature in hits.columns
+                ):
+                    hits.loc[
+                        pixel_regions_idx, f"{cluster_prefix}{feature}"
+                    ] = hits.loc[pixel_regions_idx, feature]
 
         return hits
 

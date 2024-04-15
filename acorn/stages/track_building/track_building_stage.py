@@ -243,14 +243,22 @@ class TrackBuildingStage:
         os.makedirs(self.hparams["stage_dir"], exist_ok=True)
 
         for var, varconf in plot_config["variables"].items():
+
+            save_path = os.path.join(
+                self.hparams["stage_dir"],
+                f"track_reconstruction_eff_vs_{var}_{self.hparams['matching_style']}.png",
+            )
+
             utils.plot_eff(
                 particles,
                 var,
                 varconf,
-                save_path=os.path.join(
-                    self.hparams["stage_dir"],
-                    f"track_reconstruction_eff_vs_{var}_{self.hparams['matching_style']}.png",
-                ),
+                save_path=save_path,
+            )
+
+            print(
+                "Finish plotting. Find the plot at"
+                f' {os.path.join(config["stage_dir"], save_path)}'
             )
 
     def apply_target_conditions(self, event, target_tracks):

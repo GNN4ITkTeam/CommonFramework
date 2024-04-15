@@ -20,13 +20,13 @@ weighting:
   - weight: 1.
     conditions:
       y: True
-      pt: [1., .inf]
+      pt: [1000., .inf]
       nhits: [3, .inf]
 
 # A list of hard cut conditions. Any hits not passing these conditions will be removed from the training and validation dataset.
 # By definition, noise will not pass any of these cuts, so any hard cuts will remove noise.
 hard_cuts:
-  pt: [1., .inf]
+  pt: [1000., .inf]
 
 # Model parameters
 edge_cut: 0.5
@@ -38,7 +38,7 @@ nb_node_layer: 2
 nb_edge_layer: 2
 layernorm: True
 batchnorm: False
-aggregation: [sum, mean, max, std]
+aggregation: sum
 hidden_activation: SiLU
 output_activation: Tanh
 
