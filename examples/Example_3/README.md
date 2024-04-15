@@ -46,7 +46,11 @@ acorn infer metric_learning_infer.yaml
 acorn eval metric_learning_eval.yaml
 ```
 
-**4.** If the graphs constructed from the metric learning stage are too large (they might be if, for instance, you are training on full events and the metric learning hasn't quite converged, or if you have a GPU with less than 10Gb memory), one can then apply a `Filter` to reduce the number of edges in the graph. This is done by training a `Filter` model:
+**Optional**
+----
+If the graphs constructed from the metric learning stage are too large (they might be if, for instance, you are training on full events and the metric learning hasn't quite converged, or if you have a GPU with less than 10Gb memory), one can then apply a `Filter` to reduce the number of edges in the graph. This is done by training a `Filter` model.
+
+**4.** 
 ```bash
 acorn train filter_train.yaml
 ```
@@ -55,8 +59,9 @@ acorn train filter_train.yaml
 ```bash
 acorn infer filter_infer.yaml
 ```
+---
 
-**6.** Then, we train the GNN (here we will train on a toy version of the data that only includes pT>1GeV particles - this is configured with the `hard_cuts` option in the `gnn_train.yaml` file):
+**6.** Then, we train the GNN (NOTE: if you trained the filter, then you should point the input directory to the filter stage directory, and comment out the "input_cut" configuration in the GNN training config file):
 ```bash
 acorn train gnn_train.yaml
 ```

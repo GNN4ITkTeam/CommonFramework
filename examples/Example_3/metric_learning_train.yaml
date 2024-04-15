@@ -26,13 +26,13 @@ weighting:
   - weight: 3.
     conditions:
       y: True
-      pt: [1., .inf]
+      pt: [1000., .inf]
       nhits: [3., .inf]
 
 # A list of hard cut conditions. Any hits not passing these conditions will be removed from the training and validation dataset.
 # By definition, noise will not pass any of these cuts, so any hard cuts will remove noise.
 hard_cuts:
-  pt: [1., .inf]
+  pt: [1000., .inf]
 
 # Model parameters
 undirected: True

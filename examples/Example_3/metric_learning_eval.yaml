@@ -10,11 +10,11 @@ data_split: [0, 10, 0] # Number of [training, validation, testing] examples
 
 # Evaluation parameters
 target_tracks:
-  pt: [1., .inf]
+  pt: [1000., .inf]
   nhits: [3., .inf]
 
 # Plotting parameters
 plots:
   graph_construction_efficiency:
     title: "Metric Learning Edge-wise Efficiency"
-    pt_units: GeV
+    pt_units: MeV

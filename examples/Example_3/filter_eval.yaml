@@ -14,13 +14,12 @@ data_split: [0, 10, 0] # Number of [training, validation, testing] examples
 # Evaluation parameters
 score_cut: 0.2
 target_tracks:
-  pt: [1., .inf]
+  pt: [1000., .inf]
   nhits: [3., .inf]
 
 # Plotting parameters
 plots:
   graph_scoring_efficiency:
     title: Filter Edge-wise Efficiency
-    pt_units: GeV
   graph_roc_curve:
     title: Filter ROC curve

@@ -13,4 +13,4 @@ data_split: [80, 10, 10] # Number of [training, validation, testing] examples
 
 # Model inference parameters
 r_infer: 0.1
-knn_infer: 1000
+knn_infer: 100
