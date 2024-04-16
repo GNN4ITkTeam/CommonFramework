@@ -25,6 +25,8 @@ TODO: Update structure with the latest Gravnet base class
 
 import sys
 import time
+import random
+import math
 
 sys.path.append("../")
 
@@ -135,23 +137,17 @@ class NodeEncodingStage(LightningModule):
         return DataLoader(self.testset, batch_size=1, num_workers=num_workers)
 
     def predict_dataloader(self):
-        dataloaders = []
-        for i, (data_name, data_num) in enumerate(
-            zip(["trainset", "valset", "testset"], self.hparams["data_split"])
-        ):
-            if data_num > 0:
-                dataset = getattr(self, data_name)
-                num_workers = (
-                    16
-                    if (
-                        "num_workers" not in self.hparams
-                        or self.hparams["num_workers"] is None
-                    )
-                    else self.hparams["num_workers"][i]
-                )
-                dataloaders.append(
-                    DataLoader(dataset, batch_size=1, num_workers=num_workers)
-                )
+        """
+        Load the prediction sets (which is a list of the three datasets)
+        """
+        dataloaders = [
+            self.train_dataloader(),
+            self.val_dataloader(),
+            self.test_dataloader(),
+        ]
+        dataloaders = [
+            dataloader for dataloader in dataloaders if dataloader is not None
+        ]
         return dataloaders
 
     @classmethod
@@ -1066,7 +1062,7 @@ class NodeEncodingStage(LightningModule):
         ax.plot(ns, dbscan_ts, "o", label="DBScan")
         ax.set_xlabel("Number of spacepoints", ha="right", x=0.95, fontsize=14)
         ax.set_ylabel("Inference time per event [s]", ha="right", y=0.95, fontsize=14)
-        ax.set_ylim([0, 1])
+        ax.set_ylim([0, 1.8])
         plt.tight_layout()
 
         # Save the plot
@@ -1144,9 +1140,16 @@ class GraphDataset(Dataset):
 
         if self.hparams.get("hard_cuts") or self.hparams.get("phi_segmented"):
             hard_cuts = self.hparams.get("hard_cuts", {})
-            if self.hparams.get("phi_segmented"):
-                hard_cuts["hit_phi"] = []
-            handle_hard_node_cuts(event, self.hparams["hard_cuts"])
+            if self.hparams.get("phi_segmented") and self.data_name == "trainset":
+                graph_fraction = 0.1
+                phi_low = math.pi * (2 * random.random() - 1)
+                phi_high = phi_low + math.pi * 2 * graph_fraction
+                phi_high %= math.pi * 2
+                if phi_high > phi_low:
+                    hard_cuts["hit_phi"] = [phi_low, phi_high]
+                else:
+                    hard_cuts["hit_phi"] = ["not_within", [phi_high, phi_low]]
+            handle_hard_node_cuts(event, hard_cuts)
 
             uni, inv_idx, count = torch.unique(
                 event.hit_particle_id, return_counts=True, return_inverse=True
