@@ -125,6 +125,8 @@ class GNNMetricLearning(NodeEncodingStage):
         ppe.cuda.use_torch_mempool_in_cupy()
 
     def cu_knn_graph(self, x, k, loop=False, cosine=False):
+        if not loop:
+            k += 1
         with cupy.cuda.Device(self.device.index):
             x_cu = cupy.from_dlpack(x.detach())
             knn = NearestNeighbors(n_neighbors=k)
@@ -457,9 +459,9 @@ class GNNMetricLearning(NodeEncodingStage):
 
         start = time.time()
 
-        data_name = ["trainset", "valset", "testset"][dataloader_idx]
-        dataset = getattr(self, data_name)
-
+        dataset = self.predict_dataloader()[dataloader_idx].dataset
+        # data_name = ["trainset", "valset", "testset"][dataloader_idx]
+        # dataset = getattr(self, data_name)
         if os.path.isfile(
             os.path.join(
                 self.hparams["stage_dir"],
@@ -478,7 +480,7 @@ class GNNMetricLearning(NodeEncodingStage):
         end = time.time()
         batch.inference_time = end - start
 
-        self.save_graph(batch, data_name)
+        self.save_graph(batch, dataset.data_name)
 
     def save_graph(self, event, data_name):
         event.config.append(self.hparams)
