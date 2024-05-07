@@ -59,25 +59,30 @@ class GNNMetricLearning(NodeEncodingStage):
         )
 
         # The node network computes new node features
-        self.edge_networks = nn.ModuleList(
-            [
-                make_mlp(
-                    (hparams["node_rep_dim"] * 2)
-                    if i % hparams["n_gnns_per_iter"] == 0
-                    else (hparams["node_rep_dim"] * 2 + hparams["edge_rep_dim"]),
-                    [hparams["edge_hidden"]] * (hparams["n_edge_layers"] - 1)
-                    + [hparams["edge_rep_dim"] + 1],
-                    layer_norm=hparams["layernorm"],
-                    batch_norm=hparams["batchnorm"],
-                    hidden_activation=hparams["hidden_activation"],
-                    output_activation=hparams["hidden_activation"],
-                )
-                for i in range(
-                    (1 if hparams["recurrent"] else hparams["n_iters"])
-                    * (2 if hparams["recurrent_gnn"] else hparams["n_gnns_per_iter"])
-                )
-            ]
-        )
+        if hparams["n_iters"] > 0:
+            self.edge_networks = nn.ModuleList(
+                [
+                    make_mlp(
+                        (hparams["node_rep_dim"] * 2)
+                        if i % hparams["n_gnns_per_iter"] == 0
+                        else (hparams["node_rep_dim"] * 2 + hparams["edge_rep_dim"]),
+                        [hparams["edge_hidden"]] * (hparams["n_edge_layers"] - 1)
+                        + [hparams["edge_rep_dim"] + 1],
+                        layer_norm=hparams["layernorm"],
+                        batch_norm=hparams["batchnorm"],
+                        hidden_activation=hparams["hidden_activation"],
+                        output_activation=hparams["hidden_activation"],
+                    )
+                    for i in range(
+                        (1 if hparams["recurrent"] else hparams["n_iters"])
+                        * (
+                            2
+                            if hparams["recurrent_gnn"]
+                            else hparams["n_gnns_per_iter"]
+                        )
+                    )
+                ]
+            )
 
         self.node_network_0 = make_mlp(
             hparams["node_rep_dim"],
@@ -89,23 +94,28 @@ class GNNMetricLearning(NodeEncodingStage):
             output_activation=hparams["hidden_activation"],
         )
 
-        self.node_networks = nn.ModuleList(
-            [
-                make_mlp(
-                    hparams["node_rep_dim"] + hparams["edge_rep_dim"],
-                    [hparams["node_hidden"]] * (hparams["n_node_layers"] - 1)
-                    + [hparams["node_rep_dim"]],
-                    layer_norm=hparams["layernorm"],
-                    batch_norm=hparams["batchnorm"],
-                    hidden_activation=hparams["hidden_activation"],
-                    output_activation=hparams["hidden_activation"],
-                )
-                for i in range(
-                    (1 if hparams["recurrent"] else hparams["n_iters"])
-                    * (1 if hparams["recurrent_gnn"] else hparams["n_gnns_per_iter"])
-                )
-            ]
-        )
+        if hparams["n_iters"] > 0:
+            self.node_networks = nn.ModuleList(
+                [
+                    make_mlp(
+                        hparams["node_rep_dim"] + hparams["edge_rep_dim"],
+                        [hparams["node_hidden"]] * (hparams["n_node_layers"] - 1)
+                        + [hparams["node_rep_dim"]],
+                        layer_norm=hparams["layernorm"],
+                        batch_norm=hparams["batchnorm"],
+                        hidden_activation=hparams["hidden_activation"],
+                        output_activation=hparams["hidden_activation"],
+                    )
+                    for i in range(
+                        (1 if hparams["recurrent"] else hparams["n_iters"])
+                        * (
+                            1
+                            if hparams["recurrent_gnn"]
+                            else hparams["n_gnns_per_iter"]
+                        )
+                    )
+                ]
+            )
 
         self.node_decoders = nn.ModuleList(
             [
@@ -121,6 +131,25 @@ class GNNMetricLearning(NodeEncodingStage):
                 for i in range(1 if hparams["recurrent"] else (hparams["n_iters"] + 1))
             ]
         )
+
+        if hparams.get("node_filter"):
+            self.node_filters = nn.ModuleList(
+                [
+                    make_mlp(
+                        hparams["node_rep_dim"],
+                        [hparams["node_filter_hiden"]]
+                        * (hparams["n_node_filter_layers"] - 1)
+                        + [1],
+                        layer_norm=hparams["layernorm"],
+                        batch_norm=hparams["batchnorm"],
+                        hidden_activation=hparams["hidden_activation"],
+                        output_activation="Sigmoid",
+                    )
+                    for i in range(
+                        1 if hparams["recurrent"] else (hparams["n_iters"] + 1)
+                    )
+                ]
+            )
 
         ppe.cuda.use_torch_mempool_in_cupy()
 
@@ -148,18 +177,26 @@ class GNNMetricLearning(NodeEncodingStage):
         x = self.node_decoders[0 if self.hparams["recurrent"] else i](x).detach()
         if self.hparams["embedding_norm"]:
             x = F.normalize(x)
+        if self.hparams.get("node_filter"):
+            node_score = self.node_filters[0 if self.hparams["recurrent"] else i](x)
+
+        k = (
+            self.hparams["knn_train"]
+            if type(self.hparams["knn_train"]) == int
+            else self.hparams["knn_train"][i]
+        )
 
         if self.hparams.get("cu_knn"):
-            return self.cu_knn_graph(
-                x, k=self.hparams["knn_train"], cosine=False, loop=False
-            )
+            return self.cu_knn_graph(x, k=k, cosine=False, loop=False)
         else:
-            return knn_graph(x, k=self.hparams["knn_train"], cosine=False, loop=False)
+            return knn_graph(x, k=k, cosine=False, loop=False)
 
     def forward(self, batch, **kwargs):
         x = torch.stack(
             [batch[feature] for feature in self.hparams["node_features"]], dim=-1
         ).float()
+
+        assert len(x) > 0, "Input node size == 0!!"
 
         if self.hparams.get("checkpoint", False):
             v = checkpoint(self.node_encoder, x, use_reentrant=False)

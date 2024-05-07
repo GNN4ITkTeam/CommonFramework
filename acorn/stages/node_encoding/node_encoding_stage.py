@@ -608,7 +608,8 @@ class NodeEncodingStage(LightningModule):
             )
 
     def node_knn_eff_pur_vs_k(self, plot_config, config):
-        knn = range(1, 21)
+        # knn = range(1, 21)
+        knn = range(4, 81, 4)
         tp = [0] * 20
         target_tp = [0] * 20
         t = [0] * 20
@@ -631,7 +632,10 @@ class NodeEncodingStage(LightningModule):
 
         for event in tqdm(dataset):
             event = event.to(self.device)
-            for k in knn:
+            for i, k in enumerate(knn):
+                assert (
+                    len(event.hit_embedding) > k
+                ), f"number of nodes ({len(event.hit_embedding)}) < k ({k})!!"
                 edge_index = knn_graph(
                     event.hit_embedding, k=k, cosine=False, loop=False
                 )
@@ -653,12 +657,12 @@ class NodeEncodingStage(LightningModule):
                     upper_bound=k,
                 )
 
-                tp[k - 1] += edge_y.sum().item()
-                target_tp[k - 1] += edge_target_mask.sum().item()
-                t[k - 1] += hit_target_t.sum().item()
-                max_tp[k - 1] += max_hit_t.sum().item()
-                max_target_tp[k - 1] += max_hit_target_t.sum().item()
-                p[k - 1] += len(event.hit_particle_pt) * k
+                tp[i] += edge_y.sum().item()
+                target_tp[i] += edge_target_mask.sum().item()
+                t[i] += hit_target_t.sum().item()
+                max_tp[i] += max_hit_t.sum().item()
+                max_target_tp[i] += max_hit_target_t.sum().item()
+                p[i] += len(event.hit_particle_pt) * k
 
         knn = np.array(knn)
         tp = np.array(tp)
@@ -1138,18 +1142,27 @@ class GraphDataset(Dataset):
         2. Pruning the input graph to only include nodes that are connected to these edges.
         """
 
-        if self.hparams.get("hard_cuts") or self.hparams.get("phi_segmented"):
-            hard_cuts = self.hparams.get("hard_cuts", {})
-            if self.hparams.get("phi_segmented") and self.data_name == "trainset":
-                graph_fraction = 0.1
-                phi_low = math.pi * (2 * random.random() - 1)
-                phi_high = phi_low + math.pi * 2 * graph_fraction
-                phi_high %= math.pi * 2
-                if phi_high > phi_low:
-                    hard_cuts["hit_phi"] = [phi_low, phi_high]
-                else:
-                    hard_cuts["hit_phi"] = ["not_within", [phi_high, phi_low]]
-            handle_hard_node_cuts(event, hard_cuts)
+        if self.hparams.get("hard_cuts") or (
+            self.hparams.get("phi_segmented") and self.data_name == "trainset"
+        ):
+            hard_cut_finished = False
+            while not hard_cut_finished:
+                hard_cuts = self.hparams.get("hard_cuts", {})
+                if self.hparams.get("phi_segmented") and self.data_name == "trainset":
+                    graph_fraction = self.hparams.get("graph_fraction", 0.1)
+                    phi_low = math.pi * (2 * random.random() - 1)
+                    phi_high = phi_low + math.pi * 2 * graph_fraction
+                    phi_high %= math.pi * 2
+                    if phi_high > phi_low:
+                        hard_cuts["hit_phi"] = [phi_low, phi_high]
+                    else:
+                        hard_cuts["hit_phi"] = ["not_within", [phi_high, phi_low]]
+                hard_cut_finished = handle_hard_node_cuts(
+                    event,
+                    hard_cuts,
+                    self.hparams.get("min_nodes", 20),
+                    self.hparams.get("max_nodes"),
+                )
 
             uni, inv_idx, count = torch.unique(
                 event.hit_particle_id, return_counts=True, return_inverse=True

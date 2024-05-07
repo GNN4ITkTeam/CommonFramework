@@ -161,7 +161,7 @@ def handle_hard_cuts(event, hard_cuts_config):
             event[track_feature] = event[track_feature][..., true_track_mask]
 
 
-def handle_hard_node_cuts(event, hard_cuts_config):
+def handle_hard_node_cuts(event, hard_cuts_config, min_nodes=0, max_nodes=None):
     """
     Given set of cut config, remove nodes that do not pass the cuts.
     Remap the track_edges to the new node list.
@@ -190,6 +190,11 @@ def handle_hard_node_cuts(event, hard_cuts_config):
         )
         node_mask = node_mask * node_val_mask
 
+    if node_mask.sum() < min_nodes:
+        return False
+    if max_nodes and node_mask.sum() > max_nodes:
+        return False
+
     logging.info(
         f"Masking the following number of nodes with the HARD CUT: {node_mask.sum()} /"
         f" {node_mask.shape[0]}"
@@ -216,6 +221,8 @@ def handle_hard_node_cuts(event, hard_cuts_config):
 
     event.track_edges = node_lookup[event.track_edges]
     event.num_nodes = node_mask.sum()
+
+    return True
 
 
 def reset_angle(angles):
