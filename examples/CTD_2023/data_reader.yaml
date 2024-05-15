@@ -29,4 +29,6 @@ region_labels:
     5: {hardware: PIXEL, barrel_endcap: 2}
     6: {hardware: STRIP, barrel_endcap: 2}
 
+fix_index_mismatch: True
+
 log_level: INFO
