@@ -42,6 +42,7 @@ translator = {
     "SPz": "z",
     "SPCL1_index": "cluster_index_1",
     "SPCL2_index": "cluster_index_2",
+    "SPisOverlap": "SPisOverlap",
     "CLindex": "cluster_id",
     "CLhardware": "hardware",
     "CLx": "cluster_x",
@@ -52,7 +53,7 @@ translator = {
     "CLeta_module": "eta_module",
     "CLphi_module": "phi_module",
     "CLside": "side",
-    "CLmoduleID": "module_id",  # warning, this field is not present in origianl .txt dump
+    "CLmoduleID": "module_id",
     "CLpixel_count": "count",
     "CLcharge_count": "charge_count",
     "CLloc_eta": "loc_eta",
@@ -146,7 +147,7 @@ def read_particles(branches: dict):
     return particles
 
 
-def read_spacepoints(branches: dict):
+def read_spacepoints(branches: dict, overlap_sp_cut: int = 999):
     """
     Parse the dict of np arrays made from the athena dump in ROOT, for only one event
     return a panda dataframe containing the space points
@@ -173,10 +174,14 @@ def read_spacepoints(branches: dict):
         warnings.warn("Hit IDs are not sequential, fixing")
         spacepoints["hit_id"] = range(len(spacepoints))
 
+    # Apply a cut in the SP overlap flag: -1=pixel, 0=strip not overlap, 1=strip overlap eta, 2=strip overlap phi
+    if overlap_sp_cut >= -1 and overlap_sp_cut <= 2:
+        spacepoints = spacepoints[spacepoints.SPisOverlap < overlap_sp_cut]
+
     return spacepoints
 
 
-def read_clusters(branches: dict, particles: pd.DataFrame):
+def read_clusters(branches: dict, particles: pd.DataFrame, fix_index_mismatch: bool):
     """
     Parse the dict of np arrays made from the athena dump in ROOT, for only one event
     return a panda dataframe containing the clusters
@@ -187,9 +192,6 @@ def read_clusters(branches: dict, particles: pd.DataFrame):
     # print("\nClusters prelim\n")
     # print(clusters)
     # print(clusters.dtypes)
-
-    # Fix indexing mismatch in DumpObjects
-    # clusters['cluster_id'] = clusters['cluster_id'] - 1
 
     # Make a dataframe with only clusters associated to a particle
     # If a cluster is associated to multiple particles, split in several rows
@@ -239,8 +241,9 @@ def read_clusters(branches: dict, particles: pd.DataFrame):
     # clusters = clusters.astype( { k:str for k in cluster_col_names if k!='cluster_id' } )
     clusters["particle_id"] = clusters["particle_id"].fillna(0).astype(int)
 
-    # Fix indexing mismatch in DumpObjects
-    clusters["cluster_id"] = clusters["cluster_id"] - 1
+    # Fix indexing mismatch in DumpObjects -- needed only for dump older than v5
+    if fix_index_mismatch:
+        clusters["cluster_id"] = clusters["cluster_id"] - 1
 
     # Remove useless coloumns (particle_id has now all the info)
     clusters = clusters.drop(["subevent", "barcode"], axis=1)
@@ -308,6 +311,7 @@ truth_col_order = [
     "particle_id",
     "region",
     "module_id",
+    "SPisOverlap",
 ]
 
 particles_col_order = [

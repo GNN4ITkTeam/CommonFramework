@@ -97,9 +97,8 @@ def get_detectable_particles(particles, clusters):
         .count()
         .reset_index(name="num_clusters")
     )
-    particles = pd.merge(particles, num_clusters, on="particle_id").fillna(
-        method="ffill"
-    )
+    particles = pd.merge(particles, num_clusters, on="particle_id")
+    particles = particles.ffill()
 
     cut1 = particles[particles.charge.abs() > 0]  # Keep charged particles
     return cut1[
