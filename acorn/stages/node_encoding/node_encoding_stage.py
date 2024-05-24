@@ -332,9 +332,14 @@ class NodeEncodingStage(LightningModule):
 
         for event in tqdm(dataset):
             event = event.to(self.device)
-            event.edge_index = knn_graph(
-                event.hit_embedding, k=plot_config["knn"], cosine=False, loop=False
-            )
+            if self.hparams.get("cu_knn"):
+                event.edge_index = self.cu_knn_graph(
+                    event.hit_embedding, k=plot_config["knn"], cosine=False, loop=False
+                )
+            else:
+                event.edge_index = knn_graph(
+                    event.hit_embedding, k=plot_config["knn"], cosine=False, loop=False
+                )
             event.edge_y = self.get_target(event, event.edge_index) == 1
             event.edge_target_mask = self.get_edge_target_mask(
                 event,
@@ -541,7 +546,7 @@ class NodeEncodingStage(LightningModule):
             # Save the plot
             atlasify(
                 atlas=True if config.get("trackML_label") else "Internal",
-                subtext=base_subtext + f"kNN graph (k={plot_config['knn']})" + "\n"
+                subtext=base_subtext + f"KNN graph (k={plot_config['knn']})" + "\n"
                 f"Global efficiency: {target_tp / t :.4f}"
                 + "\n"
                 + f"Efficiency upper bound: {max_target_tp / t :.4f}",
@@ -597,7 +602,7 @@ class NodeEncodingStage(LightningModule):
             # Save the plot
             atlasify(
                 atlas=True if config.get("trackML_label") else "Internal",
-                subtext=base_subtext + f"kNN graph (k={plot_config['knn']})" + "\n"
+                subtext=base_subtext + f"KNN graph (k={plot_config['knn']})" + "\n"
                 f"Global efficiency: {target_tp / t :.4f}"
                 + "\n"
                 + f"Efficiency upper bound: {max_target_tp / t :.4f}",
@@ -638,9 +643,14 @@ class NodeEncodingStage(LightningModule):
                 assert (
                     len(event.hit_embedding) > k
                 ), f"number of nodes ({len(event.hit_embedding)}) < k ({k})!!"
-                edge_index = knn_graph(
-                    event.hit_embedding, k=k, cosine=False, loop=False
-                )
+                if self.hparams.get("cu_knn"):
+                    edge_index = self.cu_knn_graph(
+                        event.hit_embedding, k=k, cosine=False, loop=False
+                    )
+                else:
+                    edge_index = knn_graph(
+                        event.hit_embedding, k=k, cosine=False, loop=False
+                    )
                 edge_y = self.get_target(event, edge_index) == 1
                 edge_target_mask = self.get_edge_target_mask(
                     event,
@@ -709,7 +719,7 @@ class NodeEncodingStage(LightningModule):
         # Save the plot
         atlasify(
             atlas=True if config.get("trackML_label") else "Internal",
-            subtext=base_subtext + "kNN graph",
+            subtext=base_subtext + "KNN graph",
         )
         fig.savefig(os.path.join(config["stage_dir"], "knn_eff_pur_vs_k.png"))
 
@@ -1068,7 +1078,7 @@ class NodeEncodingStage(LightningModule):
         ax.plot(ns, dbscan_ts, "o", label="DBScan")
         ax.set_xlabel("Number of spacepoints", ha="right", x=0.95, fontsize=14)
         ax.set_ylabel("Inference time per event [s]", ha="right", y=0.95, fontsize=14)
-        ax.set_ylim([0, 1.8])
+        ax.set_ylim([0, 0.45])
         plt.tight_layout()
 
         # Save the plot
@@ -1219,3 +1229,49 @@ class GraphDataset(Dataset):
         TODO
         """
         pass
+
+
+class PreGraphDataset(GraphDataset):
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+    def apply_hard_cuts(self, event):
+        """
+        Apply hard cuts to the event. This is implemented by
+        1. Finding which true edges are from tracks that pass the hard cut.
+        2. Pruning the input graph to only include nodes that are connected to these edges.
+        """
+
+        if self.hparams.get("hard_cuts") or (
+            self.hparams.get("phi_segmented") and self.data_name == "trainset"
+        ):
+            hard_cut_finished = False
+            while not hard_cut_finished:
+                hard_cuts = self.hparams.get("hard_cuts", {})
+                if self.hparams.get("phi_segmented") and self.data_name == "trainset":
+                    graph_fraction = self.hparams.get("graph_fraction", 0.1)
+                    phi_low = math.pi * (2 * random.random() - 1)
+                    phi_high = phi_low + math.pi * 2 * graph_fraction
+                    phi_high %= math.pi * 2
+                    if phi_high > phi_low:
+                        hard_cuts["hit_phi"] = [phi_low, phi_high]
+                    else:
+                        hard_cuts["hit_phi"] = ["not_within", [phi_high, phi_low]]
+                hard_cut_finished = handle_hard_node_cuts(
+                    event,
+                    hard_cuts,
+                    self.hparams.get("min_nodes", 20),
+                    self.hparams.get("max_nodes"),
+                    edges=True,
+                )
+
+            uni, inv_idx, count = torch.unique(
+                event.hit_particle_id, return_counts=True, return_inverse=True
+            )
+            event.hit_particle_nhits = count[inv_idx]
+
+        return event
