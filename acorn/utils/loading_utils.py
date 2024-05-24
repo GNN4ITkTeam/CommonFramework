@@ -131,7 +131,7 @@ def handle_weighting(event, weighting_config):
 
 
 def handle_hard_cuts(event, hard_cuts_config):
-    true_track_mask = torch.ones_like(event.truth_map, dtype=torch.bool)
+    true_track_mask = torch.ones_like(event.track_to_edge_map, dtype=torch.bool)
 
     for condition_key, condition_val in hard_cuts_config.items():
         assert (
@@ -161,7 +161,9 @@ def handle_hard_cuts(event, hard_cuts_config):
             event[track_feature] = event[track_feature][..., true_track_mask]
 
 
-def handle_hard_node_cuts(event, hard_cuts_config, min_nodes=0, max_nodes=None):
+def handle_hard_node_cuts(
+    event, hard_cuts_config, min_nodes=0, max_nodes=None, edges=False, tracks=False
+):
     """
     Given set of cut config, remove nodes that do not pass the cuts.
     Remap the track_edges to the new node list.
@@ -221,6 +223,19 @@ def handle_hard_node_cuts(event, hard_cuts_config, min_nodes=0, max_nodes=None):
 
     event.track_edges = node_lookup[event.track_edges]
     event.num_nodes = node_mask.sum()
+
+    if edges:
+        edge_mask = node_mask[event.edge_index]
+        edge_mask = edge_mask[0] & edge_mask[1]
+        for feature in event.keys:
+            if feature == "edge_index":
+                event.edge_index = event.edge_index.T[edge_mask].T
+                event.edge_index = node_lookup[event.edge_index]
+            elif (
+                isinstance(event[feature], torch.Tensor)
+                and get_variable_type(feature) == "edge-like"
+            ):
+                event[feature] = event[feature][edge_mask]
 
     return True
 
