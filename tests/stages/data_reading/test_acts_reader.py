@@ -1,6 +1,6 @@
 import sys
 
-sys.path.append("../acorn")
+sys.path.append("../../acorn")
 
 import pytest
 from pathlib import Path

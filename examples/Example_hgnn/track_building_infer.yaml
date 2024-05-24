@@ -1,0 +1,11 @@
+# CommonFramework configuration
+stage: track_building
+model: HierarchicalGNN
+input_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/
+stage_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track_hgnn/
+
+# Dataset parameters
+project: Example_hgnn # Used in logging
+accelerator: gpu
+devices: 1
+nodes: 1

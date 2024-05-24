@@ -223,6 +223,7 @@ def get_cell_stats(cells):
 def add_region_labels(hits, region_labels: dict):
     """
     Label the 6 detector regions (forward-endcap pixel, forward-endcap strip, etc.)
+    Also add a hardware key, where volume_ids 7-9 are PIXEL, and 12-18 are STRIP
     """
 
     for region_label, conditions in region_labels.items():
@@ -239,6 +240,11 @@ def add_region_labels(hits, region_labels: dict):
     assert (
         hits.region.isna()
     ).sum() == 0, "There are hits that do not belong to any region!"
+
+    # Add hardware key
+    hits["hardware"] = "UNKNOWN"
+    hits.loc[hits.volume_id.isin([7, 8, 9]), "hardware"] = "PIXEL"
+    hits.loc[hits.volume_id.isin([12, 13, 14, 15, 16, 17, 18]), "hardware"] = "STRIP"
 
     return hits
 

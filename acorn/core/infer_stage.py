@@ -49,6 +49,7 @@ def main(config_file, verbose, checkpoint):
 
 
 def infer(config_file, verbose=None, checkpoint=None):
+
     # set up logging
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
@@ -90,9 +91,12 @@ def lightning_infer(config, stage_module, checkpoint=None):
     # setup stage
     stage_module.setup(stage="predict")
 
+    accelerator = config.get("accelerator")
+    devices = config.get("devices")
+
     trainer = Trainer(
-        accelerator="gpu" if config["gpus"] else "cpu",
-        devices=config["gpus"] or 1,
+        accelerator=accelerator,
+        devices=devices,
         num_nodes=config["nodes"],
     )
 

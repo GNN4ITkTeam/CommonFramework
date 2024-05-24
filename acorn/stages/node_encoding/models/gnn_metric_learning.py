@@ -36,6 +36,7 @@ from acorn.utils import (
     get_condition_lambda,
     get_optimizers,
 )
+from acorn.utils.version_utils import get_pyg_data_keys
 
 
 class GNNMetricLearning(NodeEncodingStage):
@@ -371,8 +372,8 @@ class GNNMetricLearning(NodeEncodingStage):
 
                 for condition_key, condition_val in weight_spec["conditions"].items():
                     assert (
-                        condition_key in batch.keys
-                    ), f"Condition key {condition_key} not found in event keys {batch.keys}"
+                        condition_key in get_pyg_data_keys(batch)
+                    ), f"Condition key {condition_key} not found in event keys {get_pyg_data_keys(batch)}"
 
                     condition_lambda = get_condition_lambda(
                         condition_key, condition_val

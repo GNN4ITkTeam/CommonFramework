@@ -1,0 +1,78 @@
+# CommonFramework configuration
+stage: track_building
+model: HierarchicalGNN
+input_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/
+stage_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/track_hgnn/
+project: HGNN_example # Used in logging
+accelerator: gpu
+devices: 1
+nodes: 1
+
+# Dataset parameters
+data_split: [7800, 200, 1000] # Number of [training, validation, testing] examples[7800, 1000, 1000]
+data_config:
+    edge_cut: 0.01
+    clustering_cut: 0.5
+    loose_cut: 0.1
+    tight_cut: 0.9
+    min_hits: 5
+    clustering_min_hit: 3
+    random_drop: 0.
+    signal_weight: 2
+    signal_selection:
+        pt: [1000, .inf]
+        nhits: [3, .inf]
+    target_selection:
+        pt: [500, .inf]
+        nhits: [3, .inf]
+
+node_features: [r, phi, z]
+node_scales:   [1000, 3.14, 1000]
+num_workers: [16, 16, 16]
+
+# Loss Function
+pretraining_steps: 2000
+auxiliary_decay: 18000
+emb_ratio: 1
+margin: 1
+
+# Model Parameter
+model_config:
+    d_model: 128
+    d_hidden: 128
+    n_output_layers: 3
+    n_interaction_iterations: 4
+    n_hierarchical_iterations: 8
+    hidden_activation: GELU
+    output_activation: null
+    dropout: 0.
+    emb_size: 8
+    bsparsity: 8
+    ssparsity: 5
+    resolution: -1.
+    cut_momentum: 0.99
+    min_size: 3
+    use_prebuilt: true
+
+# Online Evaluation Parameter
+metric_to_monitor: tracking_efficiency
+metric_mode: max
+score_cut: 0.5
+matching_fraction: 0.5
+matching_style: ATLAS
+min_track_length: 3
+target_tracks:
+    pt: [1000, .inf]
+    nhits: [3, .inf]
+    primary: True
+    pdgId: [not_in, [11, -11]]
+    radius: [0., 260.]
+    eta_particle: [-4., 4.]
+
+# Training config
+warmup: null
+lr: 0.008
+patience: 10
+factor: 0.7
+max_epochs: 200
+checkpoint: false

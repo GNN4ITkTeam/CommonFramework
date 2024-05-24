@@ -1,0 +1,21 @@
+tqdm
+ipykernel
+atlasify
+trackml@ https://github.com/LAL/trackml-library/tarball/master#egg=trackml-3
+networkx
+seaborn
+pyyaml
+click
+lightning==2.1.2
+pytest
+pytest-cov
+torch-geometric==2.4.0
+-f https://data.pyg.org/whl/torch-2.1.0+cu121.html
+torch-scatter
+torch-cluster
+uproot
+class-resolver
+--extra-index-url https://pypi.nvidia.com
+cudf-cu12 
+cugraph-cu12
+xrootd

@@ -19,7 +19,6 @@ import pandas as pd
 import numpy as np
 import torch
 from tqdm import tqdm
-import time
 
 try:
     import cudf
@@ -47,6 +46,23 @@ class PyModuleMap(GraphConstructionStage):
         else:
             self.device = "cpu"
 
+        # Logging config
+        self.log = logging.getLogger("PyModuleMap")
+        log_level = (
+            self.hparams["log_level"].upper()
+            if "log_level" in self.hparams
+            else "WARNING"
+        )
+
+        if log_level == "WARNING":
+            self.log.setLevel(logging.WARNING)
+        elif log_level == "INFO":
+            self.log.setLevel(logging.INFO)
+        elif log_level == "DEBUG":
+            self.log.setLevel(logging.DEBUG)
+        else:
+            raise ValueError(f"Unknown logging level {log_level}")
+
     def to(self, device):
         return self
 
@@ -55,38 +71,52 @@ class PyModuleMap(GraphConstructionStage):
         Load in the module map dataframe. Should be in CSV format.
         """
 
-        names = [
-            "mid_1",
-            "mid_2",
-            "mid_3",
-            "occurence",
-            "z0max_12",
-            "z0min_12",
-            "dphimax_12",
-            "dphimin_12",
-            "phiSlopemax_12",
-            "phiSlopemin_12",
-            "detamax_12",
-            "detamin_12",
-            "z0max_23",
-            "z0min_23",
-            "dphimax_23",
-            "dphimin_23",
-            "phiSlopemax_23",
-            "phiSlopemin_23",
-            "detamax_23",
-            "detamin_23",
-            "diff_dzdr_max",
-            "diff_dzdr_min",
-            "diff_dydx_max",
-            "diff_dydx_min",
-        ]
-        self.MM = pd.read_csv(
-            self.hparams["module_map_path"],
-            names=names,
-            header=None,
-            delim_whitespace=True,
-        )
+        module_map_filename = self.hparams["module_map_path"]
+
+        self.log.info(f"Loading module map from {module_map_filename}")
+
+        if module_map_filename.endswith(".root"):
+            self.MM = utils.load_module_map_uproot(self.hparams["module_map_path"])
+        elif module_map_filename.endswith(".csv") or module_map_filename.endswith(
+            ".txt"
+        ):
+            names = [
+                "mid_1",
+                "mid_2",
+                "mid_3",
+                "occurence",
+                "z0max_12",
+                "z0min_12",
+                "dphimax_12",
+                "dphimin_12",
+                "phiSlopemax_12",
+                "phiSlopemin_12",
+                "detamax_12",
+                "detamin_12",
+                "z0max_23",
+                "z0min_23",
+                "dphimax_23",
+                "dphimin_23",
+                "phiSlopemax_23",
+                "phiSlopemin_23",
+                "detamax_23",
+                "detamin_23",
+                "diff_dzdr_max",
+                "diff_dzdr_min",
+                "diff_dydx_max",
+                "diff_dydx_min",
+            ]
+            self.MM = pd.read_csv(
+                self.hparams["module_map_path"],
+                names=names,
+                header=None,
+                delim_whitespace=True,
+            )
+        else:
+            raise ValueError(
+                "Unsupported module map file extension, should be .root, .txt or .csv"
+            )
+
         self.MM_1, self.MM_2, self.MM_triplet = self.get_module_features(self.MM)
 
         if self.gpu_available:
@@ -101,137 +131,127 @@ class PyModuleMap(GraphConstructionStage):
         self.load_module_map()
         output_dir = os.path.join(self.hparams["stage_dir"], data_name)
         os.makedirs(output_dir, exist_ok=True)
-        logging.info(f"Building graphs for {data_name}")
+        self.log.info(f"Building graphs for {data_name}")
 
         for graph, _, truth in tqdm(dataset):
             if graph is None:
                 continue
             if os.path.exists(os.path.join(output_dir, f"event{graph.event_id}.pyg")):
+                print(f"Graph {graph.event_id} already exists, skipping...")
                 continue
 
-            # Get timing
-            start_time = time.time()
-
-            hits = (
-                cudf.from_pandas(truth.copy()) if self.gpu_available else truth.copy()
-            )
-
-            hits = self.get_hit_features(hits)
-            merged_hits_1 = hits.merge(
-                self.MM_1, how="inner", left_on="mid", right_on="mid_2"
-            ).to_pandas()  # .drop(columns="mid")
-            merged_hits_2 = hits.merge(
-                self.MM_2, how="inner", left_on="mid", right_on="mid_2"
-            ).to_pandas()  # .drop(columns="mid")
-
-            # print(f"Time to merge: {time.time() - start_time}")
-
-            doublet_edges_1 = self.get_doublet_edges(
-                hits, merged_hits_1, "mid", "mid_1", first_doublet=True
-            )
-            doublet_edges_1 = doublet_edges_1[
-                [
-                    "hid_1",
-                    "hid_2",
-                    "mid_1",
-                    "mid_2",
-                    "mid_3",
-                    "x_1",
-                    "x_2",
-                    "y_1",
-                    "y_2",
-                    "r_1",
-                    "r_2",
-                    "z_1",
-                    "z_2",
-                ]
-            ]
-
-            # print(f"Time to get doublet edges: {time.time() - start_time}")
-
-            doublet_edges_2 = self.get_doublet_edges(
-                hits, merged_hits_2, "mid", "mid_3", first_doublet=False
-            )
-            doublet_edges_2 = doublet_edges_2[
-                [
-                    "hid_1",
-                    "hid_2",
-                    "mid_1",
-                    "mid_2",
-                    "mid_3",
-                    "x_2",
-                    "y_2",
-                    "r_2",
-                    "z_2",
-                ]
-            ].rename(
-                columns={
-                    "hid_1": "hid_2",
-                    "hid_2": "hid_3",
-                    "x_2": "x_3",
-                    "y_2": "y_3",
-                    "r_2": "r_3",
-                    "z_2": "z_3",
-                }
-            )
-            doublet_edges_2 = doublet_edges_2.merge(
-                self.MM_triplet,
-                how="inner",
-                left_on=["mid_1", "mid_2", "mid_3"],
-                right_on=["mid_1", "mid_2", "mid_3"],
-            )
-
-            # print(f"Time to get doublet edges 2: {time.time() - start_time}")
-
-            triplet_edges = doublet_edges_1.merge(
-                doublet_edges_2,
-                how="inner",
-                left_on=["mid_1", "hid_2", "mid_3"],
-                right_on=["mid_1", "hid_2", "mid_3"],
-                suffixes=("_1", "_2"),
-            )
-            triplet_edges = self.apply_triplet_cuts(triplet_edges)
-
-            # print(f"Time to get triplet edges: {time.time() - start_time}")
-
-            if self.gpu_available:
-                doublet_edges = cudf.concat(
-                    [
-                        triplet_edges[["hid_1", "hid_2"]],
-                        triplet_edges[["hid_2", "hid_3"]].rename(
-                            columns={"hid_2": "hid_1", "hid_3": "hid_2"}
-                        ),
-                    ]
-                )
-                doublet_edges = doublet_edges.to_pandas()
-            else:
-                doublet_edges = pd.concat(
-                    [
-                        triplet_edges[["hid_1", "hid_2"]],
-                        triplet_edges[["hid_2", "hid_3"]].rename(
-                            columns={"hid_2": "hid_1", "hid_3": "hid_2"}
-                        ),
-                    ]
-                )
-
-            # print(f"Time to concat: {time.time() - start_time}")
-
-            doublet_edges = doublet_edges.drop_duplicates()
-            graph.edge_index = torch.tensor(doublet_edges.values.T, dtype=torch.long)
-            y, truth_map = utils.graph_intersection(
-                graph.edge_index.to(device),
-                graph.track_edges.to(device),
-                return_y_pred=True,
-                return_truth_to_pred=True,
-            )
-            graph.edge_y = y.cpu()
-            graph.track_to_edge_map = truth_map.cpu()
-
-            # print(f"Time to get y: {time.time() - start_time}")
-
-            # TODO: Graph name file??
+            graph = self.build_graph(graph, truth)
             torch.save(graph, os.path.join(output_dir, f"event{graph.event_id}.pyg"))
-            # print(f"Time to save graph: {time.time() - start_time}")
+
+    def build_graph(self, graph, truth):
+        """
+        Build the graph for the data.
+        """
+
+        hits = cudf.from_pandas(truth.copy()) if self.gpu_available else truth.copy()
+
+        hits = self.get_hit_features(hits)
+        merged_hits_1 = hits.merge(
+            self.MM_1, how="inner", left_on="mid", right_on="mid_2"
+        ).to_pandas()  # .drop(columns="mid")
+        merged_hits_2 = hits.merge(
+            self.MM_2, how="inner", left_on="mid", right_on="mid_2"
+        ).to_pandas()  # .drop(columns="mid")
+
+        doublet_edges_1 = self.get_doublet_edges(
+            hits, merged_hits_1, "mid", "mid_1", first_doublet=True
+        )
+        doublet_edges_1 = doublet_edges_1[
+            [
+                "hid_1",
+                "hid_2",
+                "mid_1",
+                "mid_2",
+                "mid_3",
+                "x_1",
+                "x_2",
+                "y_1",
+                "y_2",
+                "r_1",
+                "r_2",
+                "z_1",
+                "z_2",
+            ]
+        ]
+
+        doublet_edges_2 = self.get_doublet_edges(
+            hits, merged_hits_2, "mid", "mid_3", first_doublet=False
+        )
+        doublet_edges_2 = doublet_edges_2[
+            [
+                "hid_1",
+                "hid_2",
+                "mid_1",
+                "mid_2",
+                "mid_3",
+                "x_2",
+                "y_2",
+                "r_2",
+                "z_2",
+            ]
+        ].rename(
+            columns={
+                "hid_1": "hid_2",
+                "hid_2": "hid_3",
+                "x_2": "x_3",
+                "y_2": "y_3",
+                "r_2": "r_3",
+                "z_2": "z_3",
+            }
+        )
+        doublet_edges_2 = doublet_edges_2.merge(
+            self.MM_triplet,
+            how="inner",
+            left_on=["mid_1", "mid_2", "mid_3"],
+            right_on=["mid_1", "mid_2", "mid_3"],
+        )
+
+        triplet_edges = doublet_edges_1.merge(
+            doublet_edges_2,
+            how="inner",
+            left_on=["mid_1", "hid_2", "mid_3"],
+            right_on=["mid_1", "hid_2", "mid_3"],
+            suffixes=("_1", "_2"),
+        )
+        triplet_edges = self.apply_triplet_cuts(triplet_edges)
+
+        if self.gpu_available:
+            doublet_edges = cudf.concat(
+                [
+                    triplet_edges[["hid_1", "hid_2"]],
+                    triplet_edges[["hid_2", "hid_3"]].rename(
+                        columns={"hid_2": "hid_1", "hid_3": "hid_2"}
+                    ),
+                ]
+            )
+            doublet_edges = doublet_edges.to_pandas()
+        else:
+            doublet_edges = pd.concat(
+                [
+                    triplet_edges[["hid_1", "hid_2"]],
+                    triplet_edges[["hid_2", "hid_3"]].rename(
+                        columns={"hid_2": "hid_1", "hid_3": "hid_2"}
+                    ),
+                ]
+            )
+
+        doublet_edges = doublet_edges.drop_duplicates()
+        graph.edge_index = torch.tensor(doublet_edges.values.T, dtype=torch.long)
+        y, truth_map = utils.graph_intersection(
+            graph.edge_index.to(device),
+            graph.track_edges.to(device),
+            return_y_pred=True,
+            return_truth_to_pred=True,
+        )
+        graph.edge_y = y.cpu()
+        graph.track_to_edge_map = truth_map.cpu()
+
+        return graph
 
     def get_hit_features(self, hits):
         hits = hits.rename(columns={"hit_id": "hid", "module_id": "mid"})

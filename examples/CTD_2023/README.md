@@ -20,7 +20,7 @@ user.jstark:GNN4Itk_v2__mc15_14TeV.600012.PhPy8EG_A14_ttbar_hdamp258p75_nonallha
 ## Setup
 
 Assuming the ACORN requirements have been installed, the only other requirements are the data files and model files. 
-The data can be download to a data directory `MY_DATA_DIR``. This is around 2.3Gb, so ensure you download to a location with sufficient space. Define this dir with:
+The data can be download to a data directory `MY_DATA_DIR`. This is around 370Gb(!), so ensure you download to a location with sufficient space. Define this dir with:
 
 ```bash
 data_dir=MY_DATA_DIR
@@ -122,7 +122,7 @@ Inference will:
 The CTD_2023 Module Map can be found here : 
 
 ```bash
-/eos/user/s/scaillou/CTD_2023/model_store/module_map/Mtriplet_1GeV_3hits_noE__merged__sorted.txt
+/eos/user/s/scaillou/CTD_2023/model_store/module_map/MMtriplet_1GeV_3hits_noE__merged__sorted.txt
 ```
 
 Please copy the Module Map in :

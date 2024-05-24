@@ -106,9 +106,7 @@ class EventReader:
         os.makedirs(output_dir, exist_ok=True)
 
         # Build CSV files, optionally with multiprocessing
-        max_workers = (
-            self.config["max_workers"] if "max_workers" in self.config else None
-        )
+        max_workers = self.config.get("max_workers", 1)
         if max_workers != 1:
             process_map(
                 partial(self._build_single_csv, output_dir=output_dir),
@@ -307,69 +305,79 @@ class EventReader:
         return hits
 
     def get_pixel_regions_index(self, hits):
-        pixel_regions_index = pd.Index([])
-        for region_id, desc in self.config["region_labels"].items():
-            if desc["hardware"] == "PIXEL":
-                pixel_regions_index = pixel_regions_index.append(
-                    hits.index[hits.hit_region == region_id]
-                )
+        pixel_regions_index = hits.hit_hardware == "PIXEL"
         return pixel_regions_index
 
     def _add_handengineered_features(self, hits):
+        # Assert that the necessary columns are present in the hits dataframe
+        requested_features = self.config["feature_sets"]["hit_features"]
+
+        # Ensure basic geometric features are calculated if configured
+        if "hit_r" in requested_features:
+            if not all(col in hits.columns for col in ["hit_x", "hit_y"]):
+                raise ValueError(
+                    "Missing coordinates for calculating 'hit_r'. Required: 'hit_x', 'hit_y'."
+                )
+            hits["hit_r"] = np.sqrt(hits["hit_x"] ** 2 + hits["hit_y"] ** 2)
+        if "hit_phi" in requested_features:
+            if not all(col in hits.columns for col in ["hit_x", "hit_y"]):
+                raise ValueError(
+                    "Missing coordinates for calculating 'phi'. Required: 'hit_x', 'hit_y'."
+                )
+            hits["hit_phi"] = np.arctan2(hits["hit_y"], hits["hit_x"])
+        if "hit_eta" in requested_features:
+            if not all(col in hits.columns for col in ["hit_x", "hit_y", "hit_z"]):
+                raise ValueError(
+                    "Missing coordinates for calculating 'eta'. Required: 'hit_x', 'hit_y', 'hit_z'."
+                )
+            hits["hit_eta"] = self.calc_eta(hits["hit_r"], hits["hit_z"])
+
+        # Calculate cluster features if the respective coordinates are available
+        for i in [1, 2]:  # For each cluster
+            cluster_prefix = f"hit_cluster_{i}_"
+            for feature in ["r", "phi", "eta"]:
+                if f"{cluster_prefix}{feature}" in requested_features:
+                    required_coords = (
+                        ["x", "y"] if feature != "eta" else ["x", "y", "z"]
+                    )
+                    available_coords = [
+                        coord
+                        for coord in required_coords
+                        if f"{cluster_prefix}{coord}" in hits.columns
+                    ]
+                    if len(available_coords) != len(required_coords):
+                        raise ValueError(
+                            f"Missing coordinates for calculating '{cluster_prefix}{feature}'. Required: {', '.join(required_coords)}."
+                        )
+
+                    # Calculate 'r' and 'phi' if both 'x' and 'y' are available
+                    if feature in ["r", "phi"]:
+                        hits[f"{cluster_prefix}r"] = np.sqrt(
+                            hits[f"{cluster_prefix}x"] ** 2
+                            + hits[f"{cluster_prefix}y"] ** 2
+                        )
+                        hits[f"{cluster_prefix}phi"] = np.arctan2(
+                            hits[f"{cluster_prefix}y"], hits[f"{cluster_prefix}x"]
+                        )
+
+                    # Calculate 'eta' if 'z' is also available
+                    if feature == "eta":
+                        hits[f"{cluster_prefix}eta"] = self.calc_eta(
+                            hits[f"{cluster_prefix}r"], hits[f"{cluster_prefix}z"]
+                        )
+
+        # Apply pixel region adjustments if applicable
         pixel_regions_idx = self.get_pixel_regions_index(hits)
-        assert all(
-            col in hits.columns
-            for col in [
-                "hit_x",
-                "hit_y",
-                "hit_z",
-                "hit_cluster_x_1",
-                "hit_cluster_y_1",
-                "hit_cluster_z_1",
-                "hit_cluster_x_2",
-                "hit_cluster_y_2",
-                "hit_cluster_z_2",
-            ]
-        ), "Need to add (x,y,z) features"
-        if "hit_r" in self.config["feature_sets"]["hit_features"]:
-            hit_r = np.sqrt(hits.hit_x**2 + hits.hit_y**2)
-            hits = hits.assign(hit_r=hit_r)
-        if "hit_phi" in self.config["feature_sets"]["hit_features"]:
-            hit_phi = np.arctan2(hits.hit_y, hits.hit_x)
-            hits = hits.assign(hit_phi=hit_phi)
-        if "hit_eta" in self.config["feature_sets"]["hit_features"]:
-            hit_eta = self.calc_eta(
-                hit_r, hits.hit_z
-            )  # TODO check if r is defined (same for clusters, below)
-            hits = hits.assign(hit_eta=hit_eta)
-        if "hit_cluster_r_1" in self.config["feature_sets"]["hit_features"]:
-            hit_cluster_r_1 = np.sqrt(
-                hits.hit_cluster_x_1**2 + hits.hit_cluster_y_1**2
-            )
-            hit_cluster_r_1.loc[pixel_regions_idx] = hit_r.loc[pixel_regions_idx]
-            hits = hits.assign(hit_cluster_r_1=hit_cluster_r_1)
-        if "hit_cluster_phi_1" in self.config["feature_sets"]["hit_features"]:
-            hit_cluster_phi_1 = np.arctan2(hits.hit_cluster_y_1, hits.hit_cluster_x_1)
-            hit_cluster_phi_1.loc[pixel_regions_idx] = hit_phi.loc[pixel_regions_idx]
-            hits = hits.assign(hit_cluster_phi_1=hit_cluster_phi_1)
-        if "hit_cluster_eta_1" in self.config["feature_sets"]["hit_features"]:
-            hit_cluster_eta_1 = self.calc_eta(hit_cluster_r_1, hits.hit_cluster_z_1)
-            hit_cluster_eta_1.loc[pixel_regions_idx] = hit_eta.loc[pixel_regions_idx]
-            hits = hits.assign(hit_cluster_eta_1=hit_cluster_eta_1)
-        if "hit_cluster_r_2" in self.config["feature_sets"]["hit_features"]:
-            hit_cluster_r_2 = np.sqrt(
-                hits.hit_cluster_x_2**2 + hits.hit_cluster_y_2**2
-            )
-            hit_cluster_r_2.loc[pixel_regions_idx] = hit_r.loc[pixel_regions_idx]
-            hits = hits.assign(hit_cluster_r_2=hit_cluster_r_2)
-        if "hit_cluster_phi_2" in self.config["feature_sets"]["hit_features"]:
-            hit_cluster_phi_2 = np.arctan2(hits.hit_cluster_y_2, hits.hit_cluster_x_2)
-            hit_cluster_phi_2.loc[pixel_regions_idx] = hit_phi.loc[pixel_regions_idx]
-            hits = hits.assign(hit_cluster_phi_2=hit_cluster_phi_2)
-        if "hit_cluster_eta_2" in self.config["feature_sets"]["hit_features"]:
-            hit_cluster_eta_2 = self.calc_eta(hit_cluster_r_2, hits.hit_cluster_z_2)
-            hit_cluster_eta_2.loc[pixel_regions_idx] = hit_eta.loc[pixel_regions_idx]
-            hits = hits.assign(hit_cluster_eta_2=hit_cluster_eta_2)
+        for feature in ["r", "phi", "eta"]:
+            for i in [1, 2]:
+                cluster_prefix = f"hit_cluster_{i}_"
+                if (
+                    f"{cluster_prefix}{feature}" in hits.columns
+                    and feature in hits.columns
+                ):
+                    hits.loc[
+                        pixel_regions_idx, f"{cluster_prefix}{feature}"
+                    ] = hits.loc[pixel_regions_idx, feature]
 
         return hits
 
@@ -502,8 +510,7 @@ class EventReader:
 
         return secondary_clusters
 
-    @staticmethod
-    def remap_edges(track_edges, track_features, hits):
+    def remap_edges(self, track_edges, track_features, hits):
         """
         Here we do two things:
         1. Remove duplicate hits from the hit list (since a hit is a node and therefore only exists once), and remap the corresponding truth track edge indices
@@ -532,7 +539,12 @@ class EventReader:
 
         # This test imposes a limit to how we simplify the graph: We don't allow shared EDGES (i.e. two different particles can share a hit, but not an edge between the same two hits). We want to ensure these are in a tiny minority
         n_shared_edges = track_edges.shape[1] - unique_track_edges.shape[1]
-        assert n_shared_edges < 50, "The number of shared EDGES is unusually high!"
+        if n_shared_edges > 50:
+            self.log.warning(
+                f"WARNING : high number of shared EDGES ({n_shared_edges} shared edges for {track_edges.shape[1]} edges in total)"
+            )
+
+        assert n_shared_edges < 100, "Too many shared edges!"
 
         return unique_track_edges, track_features, hits
 

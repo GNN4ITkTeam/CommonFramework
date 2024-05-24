@@ -102,6 +102,7 @@ class Filter(EdgeClassifierStage, FilterMixin):
         hparams["batchnorm"] = (
             False if "batchnorm" not in hparams else hparams["batchnorm"]
         )
+        hparams["track_running_stats"] = hparams.get("track_running_stats", False)
 
         # Setup input network
         # Construct the MLP architecture
@@ -112,6 +113,7 @@ class Filter(EdgeClassifierStage, FilterMixin):
             batch_norm=hparams["batchnorm"],
             output_activation=None,
             hidden_activation=hparams["hidden_activation"],
+            track_running_stats=hparams["track_running_stats"],
         )
 
     def forward(self, batch):
@@ -229,6 +231,7 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
         hparams["batchnorm"] = (
             False if "batchnorm" not in hparams else hparams["batchnorm"]
         )
+        hparams["track_running_stats"] = hparams.get("track_running_stats", False)
 
         self.net = make_mlp(
             hparams["hidden"] * 2,
@@ -237,6 +240,7 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
             batch_norm=hparams["batchnorm"],
             output_activation=None,
             hidden_activation=hparams["hidden_activation"],
+            track_running_stats=hparams["track_running_stats"],
         )
 
         self.gnn = GCNEncoder(self.hparams["gnn_config"])

@@ -15,6 +15,7 @@
 import logging
 from typing import Optional, Tuple, Union
 
+import uproot
 
 import torch.nn as nn
 import torch
@@ -37,6 +38,22 @@ if not torch.cuda.is_available():
 
 
 # ---------------------------- Dataset Processing -------------------------
+def load_module_map_uproot(filename):
+    """
+    Load in the module map from root file into a dataframe
+    """
+    with uproot.open(f"{filename}:TreeModuleTriplet") as tree:
+        df = tree.arrays(library="pd")
+        df = df.rename(
+            columns={
+                "Module1": "mid_1",
+                "Module2": "mid_2",
+                "Module3": "mid_3",
+                "Occurence": "occurence",
+            }
+        )
+        return df
+
 
 # ---------------------------- Edge Building ------------------------------
 

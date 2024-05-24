@@ -39,6 +39,8 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import cuml
 
+from acorn.utils.version_utils import get_pyg_data_keys
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 from acorn.utils import (
@@ -215,8 +217,8 @@ class NodeEncodingStage(LightningModule):
                         "conditions"
                     ].items():
                         assert (
-                            condition_key in batch.keys
-                        ), f"Condition key {condition_key} not found in event keys {batch.keys}"
+                            condition_key in get_pyg_data_keys(batch)
+                        ), f"Condition key {condition_key} not found in event keys {get_pyg_data_keys(batch)}"
 
                         condition_lambda = get_condition_lambda(
                             condition_key, condition_val
@@ -1143,12 +1145,12 @@ class GraphDataset(Dataset):
         """
 
         if self.hparams.get("hard_cuts") or (
-            self.hparams.get("phi_segmented") and self.data_name == "trainset"
+            self.hparams.get("phi_segmented") and self.stage == "fit" #self.data_name == "trainset"
         ):
             hard_cut_finished = False
             while not hard_cut_finished:
                 hard_cuts = self.hparams.get("hard_cuts", {})
-                if self.hparams.get("phi_segmented") and self.data_name == "trainset":
+                if self.hparams.get("phi_segmented") and self.stage == "fit": #self.data_name == "trainset":
                     graph_fraction = self.hparams.get("graph_fraction", 0.1)
                     phi_low = math.pi * (2 * random.random() - 1)
                     phi_high = phi_low + math.pi * 2 * graph_fraction
@@ -1175,7 +1177,7 @@ class GraphDataset(Dataset):
         """
 
         if not hasattr(event, "num_nodes") or event.num_nodes is None:
-            assert "hit_x" in event.keys, "No node features found in event"
+            assert "hit_x" in get_pyg_data_keys(event), "No node features found in event"
             event.num_nodes = event.hit_x.shape[0]
 
     def scale_features(self, event):
@@ -1192,7 +1194,7 @@ class GraphDataset(Dataset):
                 self.hparams["node_scales"], list
             ), "Feature scaling must be a list of ints or floats"
             for i, feature in enumerate(self.hparams["node_features"]):
-                assert feature in event.keys, f"Feature {feature} not found in event"
+                assert feature in get_pyg_data_keys(event), f"Feature {feature} not found in event"
                 event[feature] = event[feature] / self.hparams["node_scales"][i]
 
     def unscale_features(self, event):
@@ -1209,7 +1211,7 @@ class GraphDataset(Dataset):
                 self.hparams["node_scales"], list
             ), "Feature scaling must be a list of ints or floats"
             for i, feature in enumerate(self.hparams["node_features"]):
-                assert feature in event.keys, f"Feature {feature} not found in event"
+                assert feature in get_pyg_data_keys(event), f"Feature {feature} not found in event"
                 event[feature] = event[feature] * self.hparams["node_scales"][i]
 
     def handle_edge_list(self, event):

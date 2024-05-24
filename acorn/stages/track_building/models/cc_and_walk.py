@@ -19,6 +19,7 @@ import torch
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from functools import partial
+from time import process_time
 
 from . import cc_and_walk_utils
 
@@ -62,6 +63,7 @@ class CCandWalk(TrackBuildingStage):
                 desc=f"Reconstructing tracks for {data_name} data",
             )
         else:
+
             for event in tqdm(
                 dataset, desc=f"Reconstructing tracks for {data_name} data"
             ):
@@ -72,7 +74,7 @@ class CCandWalk(TrackBuildingStage):
         Build tracks for one event from connected components + walkthrough
         """
         os.sched_setaffinity(0, range(1000))
-
+        start_time = process_time()
         all_trks = dict()
 
         if self.hparams.get("on_true_graph", False):
@@ -112,6 +114,7 @@ class CCandWalk(TrackBuildingStage):
         d = d[d.track_id >= 0]
         # Make a dataframe of list of hits (one row = one list of hits, ie one track)
         tracks = d.groupby("track_id")["hit_id"].apply(list)
+        graph.time_taken = process_time() - start_time
         os.makedirs(
             os.path.join(
                 self.hparams["stage_dir"], os.path.basename(output_dir) + "_tracks"

@@ -27,6 +27,7 @@ from class_resolver import ClassResolver
 
 from acorn.stages.track_building.utils import rearrange_by_distance
 from acorn.utils import eval_utils
+from acorn.utils.version_utils import get_pyg_data_keys
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -81,7 +82,9 @@ class EdgeClassifierStage(LightningModule):
         if stage in ["fit", "predict"]:
             self.load_data(stage, self.hparams[input_dir], preprocess)
             self.test_data(stage)
-            torch.set_float32_matmul_precision("medium" if stage == "fit" else "high")
+            torch.set_float32_matmul_precision(
+                "medium" if stage == "fit" else "highest"
+            )
         elif stage == "test":
             # during test stage, allow the possibility of
             if not self.hparams.get("reprocess_classifier"):
@@ -89,7 +92,7 @@ class EdgeClassifierStage(LightningModule):
                 input_dir = "stage_dir"
                 preprocess = False
             self.load_data(stage, self.hparams[input_dir], preprocess)
-            torch.set_float32_matmul_precision("high")
+            torch.set_float32_matmul_precision("highest")
         try:
             print("Defining figures of merit")
             self.logger.experiment.define_metric("val_loss", summary="min")
@@ -684,7 +687,7 @@ class GraphDataset(Dataset):
         if (
             "input_cut" in self.hparams.keys()
             and self.hparams["input_cut"]
-            and "edge_scores" in event.keys
+            and "edge_scores" in get_pyg_data_keys(event)
         ):
             # Apply a score cut to the event
             self.apply_score_cut(event, self.hparams["input_cut"])
@@ -710,7 +713,7 @@ class GraphDataset(Dataset):
         )
 
         # Concat all edge-like features together
-        for key in event.keys:
+        for key in get_pyg_data_keys(event):
             if key in {"track_to_edge_map", "edge_index", "track_edges"}:
                 continue
             if not isinstance(event[key], torch.Tensor) or not event[key].shape:
@@ -751,7 +754,9 @@ class GraphDataset(Dataset):
                 self.hparams["node_scales"], list
             ), "Feature scaling must be a list of ints or floats"
             for i, feature in enumerate(self.hparams["node_features"]):
-                assert feature in event.keys, f"Feature {feature} not found in event"
+                assert feature in get_pyg_data_keys(
+                    event
+                ), f"Feature {feature} not found in event"
                 event[feature] = event[feature] / self.hparams["node_scales"][i]
 
         return event
@@ -770,7 +775,9 @@ class GraphDataset(Dataset):
                 self.hparams["node_scales"], list
             ), "Feature scaling must be a list of ints or floats"
             for i, feature in enumerate(self.hparams["node_features"]):
-                assert feature in event.keys, f"Feature {feature} not found in event"
+                assert feature in get_pyg_data_keys(
+                    event
+                ), f"Feature {feature} not found in event"
                 event[feature] = event[feature] * self.hparams["node_scales"][i]
         return event
 
@@ -779,7 +786,7 @@ class GraphDataset(Dataset):
         Apply a score cut to the event. This is used for the evaluation stage.
         """
         passing_edges_mask = event.edge_scores >= score_cut
-        for key in event.keys:
+        for key in get_pyg_data_keys(event):
             if (
                 isinstance(event[key], torch.Tensor)
                 and get_variable_type(key) == "edge-like"
@@ -913,7 +920,7 @@ class GraphMultiDataset(Dataset):
         if (
             "input_cut" in self.hparams.keys()
             and self.hparams["input_cut"]
-            and "edge_scores" in event.keys
+            and "edge_scores" in get_pyg_data_keys(event)
         ):
             # Apply a score cut to the event
             self.apply_score_cut(event, self.hparams["input_cut"])
@@ -939,7 +946,7 @@ class GraphMultiDataset(Dataset):
         )
 
         # Concat all edge-like features together
-        for key in event.keys:
+        for key in get_pyg_data_keys(event):
             if key in {"track_to_edge_map", "edge_index", "track_edges"}:
                 continue
             if not isinstance(event[key], torch.Tensor) or not event[key].shape:
@@ -980,7 +987,7 @@ class GraphMultiDataset(Dataset):
                 self.hparams["node_scales"], list
             ), "Feature scaling must be a list of ints or floats"
             for i, feature in enumerate(self.hparams["node_features"]):
-                assert feature in event.keys, f"Feature {feature} not found in event"
+                assert feature in get_pyg_data_keys(event), f"Feature {feature} not found in event"
                 event[feature] = event[feature] / self.hparams["node_scales"][i]
 
         return event
@@ -999,7 +1006,7 @@ class GraphMultiDataset(Dataset):
                 self.hparams["node_scales"], list
             ), "Feature scaling must be a list of ints or floats"
             for i, feature in enumerate(self.hparams["node_features"]):
-                assert feature in event.keys, f"Feature {feature} not found in event"
+                assert feature in get_pyg_data_keys(event), f"Feature {feature} not found in event"
                 event[feature] = event[feature] * self.hparams["node_scales"][i]
         return event
 
@@ -1008,7 +1015,7 @@ class GraphMultiDataset(Dataset):
         Apply a score cut to the event. This is used for the evaluation stage.
         """
         passing_edges_mask = event.edge_scores >= score_cut
-        for key in event.keys:
+        for key in get_pyg_data_keys(event):
             if (
                 isinstance(event[key], torch.Tensor)
                 and get_variable_type(key) == "edge-like"

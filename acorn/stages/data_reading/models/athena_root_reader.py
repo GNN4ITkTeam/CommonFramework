@@ -49,6 +49,9 @@ class AthenaRootReader(EventReader):
         self.evtsmap = {}
 
         for dataset_name, evt_list_fname in input_sets.items():
+            self.log.info(
+                f"Using events listed in {evt_list_fname} for {dataset_name} sample"
+            )
             with open(evt_list_fname) as evt_list_file:
                 for line in evt_list_file:
                     # we ignore the run number
@@ -127,7 +130,11 @@ class AthenaRootReader(EventReader):
             return
 
         # Determine which root file and wich TTree entry to read given the event number to be processed
-        filename = self.config["input_dir"] + "/" + self.evtsmap[event]["fname"]
+        # In case we use files on grid local disk (with xrootd), we provide the full file name (base name otherwise)
+        if self.config["input_dir"] == "XROOTD":
+            filename = self.evtsmap[event]["fname"]
+        else:
+            filename = self.config["input_dir"] + "/" + self.evtsmap[event]["fname"]
         entry = self.evtsmap[event]["entry"]
 
         # From the TTree extract numpy arrays of interesting TBranches, only for the desired event number

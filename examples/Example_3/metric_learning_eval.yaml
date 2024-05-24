@@ -6,15 +6,15 @@ stage_dir: MY_DATA_DIR/Example_3/metric_learning/ # A directory to be created th
 project: CF_Example_3_MetricLearning # Used in logging
 
 # Dataset parameters
-data_split: [80, 10, 10] # Number of [training, validation, testing] examples
+data_split: [0, 10, 0] # Number of [training, validation, testing] examples
 
 # Evaluation parameters
-target_tracks: 
-  pt: [1., .inf]
+target_tracks:
+  pt: [1000., .inf]
   nhits: [3., .inf]
 
 # Plotting parameters
 plots:
-  graph_construction_efficiency: 
+  graph_construction_efficiency:
     title: "Metric Learning Edge-wise Efficiency"
-    pt_units: GeV
+    pt_units: MeV

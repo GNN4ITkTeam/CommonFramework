@@ -3,7 +3,12 @@ import torch
 from torch.utils.checkpoint import checkpoint
 from torch_scatter import scatter_add, scatter_mean, scatter_max
 from torch_geometric.nn import aggr, HeteroConv, MessagePassing
-from torch_geometric.nn.conv.hgt_conv import group
+import torch_geometric
+
+if torch_geometric.__version__ < "2.4.0":
+    from torch_geometric.nn.conv.hgt_conv import group
+else:
+    from torch_geometric.nn.conv.hetero_conv import group
 
 from acorn.utils import make_mlp
 
@@ -52,6 +57,7 @@ class EdgeUpdater(torch.nn.Module):
         output_activation=None,
         layernorm=False,
         batchnorm=False,
+        track_running_stats=False,
         hidden_dropout=0,
         region_ids=[],
         hetero_level=4,
@@ -75,6 +81,7 @@ class EdgeUpdater(torch.nn.Module):
             output_activation=output_activation,
             hidden_activation=hidden_activation,
             hidden_dropout=hidden_dropout,
+            track_running_stats=track_running_stats,
         )
 
     def forward(self, x, edge_index, edge, *args, **kwargs):
@@ -191,6 +198,7 @@ class NodeUpdater(MessagePassing):
             output_activation=hparams["output_activation"],
             hidden_activation=hparams["hidden_activation"],
             hidden_dropout=hparams.get("hidden_dropout", 0),
+            track_running_stats=hparams["track_running_stats"],
         )
 
     def message(self, edge, src_edge):

@@ -18,7 +18,8 @@ import os
 from ..graph_construction_stage import GraphConstructionStage
 
 from pytorch_lightning import LightningModule
-from torch_geometric.data import DataLoader, Dataset
+from torch_geometric.data import Dataset
+from torch_geometric.loader import DataLoader
 import torch
 import torch.nn.functional as F
 
@@ -30,6 +31,7 @@ from acorn.utils import (
     handle_hard_node_cuts,
     handle_weighting,
 )
+from acorn.utils.version_utils import get_pyg_data_keys
 
 
 class MetricLearning(GraphConstructionStage, LightningModule):
@@ -314,11 +316,13 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         self, batch, embedding, weights=None, pred_edges=None, truth=None
     ):
         if pred_edges is None:
-            assert "edge_index" in batch.keys, "Must provide pred_edges if not in batch"
+            assert "edge_index" in get_pyg_data_keys(
+                batch
+            ), "Must provide pred_edges if not in batch"
             pred_edges = batch.edge_index
 
         if truth is None:
-            assert "edge_y" in batch.keys, "Must provide truth if not in batch"
+            assert "edge_y" in get_pyg_data_keys(batch), "Must provide truth if not in batch"
             truth = batch.edge_y
 
         if weights is None:
@@ -608,7 +612,7 @@ class GraphDataset(Dataset):
         """
 
         if not hasattr(event, "num_nodes"):
-            assert "hit_x" in event.keys, "No node features found in event"
+            assert "hit_x" in get_pyg_data_keys(event), "No node features found in event"
             event.num_nodes = event.hit_x.shape[0]
 
     def scale_features(self, event):
@@ -625,7 +629,9 @@ class GraphDataset(Dataset):
                 self.hparams["node_scales"], list
             ), "Feature scaling must be a list of ints or floats"
             for i, feature in enumerate(self.hparams["node_features"]):
-                assert feature in event.keys, f"Feature {feature} not found in event"
+                assert feature in get_pyg_data_keys(
+                    event
+                ), f"Feature {feature} not found in event"
                 event[feature] = event[feature] / self.hparams["node_scales"][i]
 
     def unscale_features(self, event):
@@ -642,7 +648,9 @@ class GraphDataset(Dataset):
                 self.hparams["node_scales"], list
             ), "Feature scaling must be a list of ints or floats"
             for i, feature in enumerate(self.hparams["node_features"]):
-                assert feature in event.keys, f"Feature {feature} not found in event"
+                assert feature in get_pyg_data_keys(
+                    event
+                ), f"Feature {feature} not found in event"
                 event[feature] = event[feature] * self.hparams["node_scales"][i]
 
     def handle_edge_list(self, event):

@@ -13,7 +13,7 @@ This repository contains the framework used for developing, testing and presenti
 
 Related work can be found here:
 1. https://arxiv.org/abs/2103.06995
-2. https://indico.cern.ch/event/948465/contributions/4323753/https://doi.org/10.1051/epjconf/202125103047
+2. https://www.epj-conferences.org/articles/epjconf/abs/2021/05/epjconf_chep2021_03047/epjconf_chep2021_03047.html
 3. https://cds.cern.ch/record/2815578?ln=en.
 
 **This repository is still under development and may be subject to breaking changes.**
@@ -26,16 +26,59 @@ To get started, run the setup commands (Install instructions section below), the
 
 **IMPORTANT! Please use the `dev` branch to run all Examples: it is the latest version and is fully supported!**
 
-To install ACORN, assuming GPU capability, run
+To install ACORN, assuming GPU capability with **cuda version >= 12.2**, run the following commands. 
 
-```
-git checkout dev
-conda env create -f gpu_environment.yml
-conda activate acorn
+```bash
+git clone --recurse-submodules ssh://git@gitlab.cern.ch:7999/gnn4itkteam/acorn.git && cd acorn
+conda create --name acorn python=3.10 && conda activate acorn
+pip install torch==2.1.0 && pip install --no-cache-dir -r requirements.txt
 pip install -e .
 ```
 
----
+### Advanced Installation & Troubleshooting
+
+To check if the installation is successful, run `python check_acorn.py`. If you see (approximately) the following output, you are good to go!
+```text
+python interpreter:  path-to-conda-env/bin/python
+torch:  2.1.1+cu121
+torch cuda:  True
+torch cuda device count:  1
+torch cuda device name:  NVIDIA A100-PCIE-40GB
+torch cuda device capability:  (8, 0)
+torch distributed     : True
+pytorch_lightning:  2.1.2
+pyg:  2.4.0
+frnn found
+cugraph:  23.12.00
+cudf:  23.12.01
+torch_scatter:  2.1.2
+Test scatter_max in cuda.
+out: tensor([[0, 0, 4, 3, 2, 0],
+        [2, 4, 3, 0, 0, 0]], device='cuda:0')
+argmax: tensor([[5, 5, 3, 4, 0, 1],
+        [1, 4, 3, 5, 5, 5]], device='cuda:0')
+```
+
+-----
+
+For NERSC Perlmutter HPC users, the default `cudatoolkit` is 11.7 as of writing (12/13/2023). Please switch it to 12.2 by running `module load cudatoolkit/12.2`, then run the following commands.
+
+-----
+
+It is optional to install `FRNN` for faster (~3x) GPU nearest neighbor search. To do so, run
+```bash
+pip install git+https://github.com/asnaylor/prefix_sum.git
+pip install git+https://github.com/xju2/FRNN.git
+```
+
+**Note: If you got this error message:**
+```bash
+error: command /usr/bin/gcc failed with exit code 1 
+```
+**It might be necessary to go into the installation script of FRNN and change the cpp flag from c++14 to c++17**
+
+-----
+
 **IMPORTANT! On December 2, 2023 a major refactoring of the code was merged on `dev`**
 
 If you have previously installed a version of 'acorn' (formerly known as 'gnn4itk_cf' or GNN4ITK CommonFramework) prior to December 2, 2023, it's important to update your setup. Follow the steps below:
@@ -56,9 +99,6 @@ The new setup introduces the following changes:
 - Renames the conda environment from `gnn4itk` to `acorn`
 - Updates the command line to use `acorn [train|infer|eval]`
 - Old commands `g4i-train`, `g4i-infer`, and `g4i-eval` remain available for backward compatibility.
-
----
-
 
 ## Framework Structure & Examples
 

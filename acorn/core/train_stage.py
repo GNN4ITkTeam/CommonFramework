@@ -34,8 +34,7 @@ from pytorch_lightning import LightningModule
 from .core_utils import (
     str_to_class,
     get_trainer,
-    find_latest_checkpoint,
-    get_default_root_dir,
+    get_stage_module,
 )
 
 
@@ -49,11 +48,25 @@ from .core_utils import (
     default=None,
     help="Pass a default rootdir for saving model checkpoint",
 )
-def main(config_file, checkpoint, sweep, checkpoint_resume_dir):
+@click.option(
+    "--load_only_model_parameters",
+    default=False,
+    type=bool,
+    help="Load only model parameters from checkpoint instead of the full training states",
+)
+def main(
+    config_file, checkpoint, sweep, checkpoint_resume_dir, load_only_model_parameters
+):
     """
     Main function to train a stage. Separate the main and train_stage functions to allow for testing.
     """
-    train(config_file, checkpoint, sweep, checkpoint_resume_dir)
+    train(
+        config_file,
+        checkpoint,
+        sweep,
+        checkpoint_resume_dir,
+        load_only_model_parameters,
+    )
 
 
 # Refactoring to allow for auto-resume and manual resume of training
@@ -61,7 +74,13 @@ def main(config_file, checkpoint, sweep, checkpoint_resume_dir):
 # 2. First check if the module is a lightning module
 
 
-def train(config_file, checkpoint=None, sweep=False, checkpoint_resume_dir=None):
+def train(
+    config_file,
+    checkpoint=None,
+    sweep=False,
+    checkpoint_resume_dir=None,
+    load_only_model_parameters=False,
+):
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -94,6 +113,7 @@ def train(config_file, checkpoint=None, sweep=False, checkpoint_resume_dir=None)
             stage_module_class,
             checkpoint=checkpoint,
             checkpoint_resume_dir=checkpoint_resume_dir,
+            load_only_model_parameters=load_only_model_parameters,
         )
     else:
         stage_module = stage_module_class(config)
@@ -102,33 +122,23 @@ def train(config_file, checkpoint=None, sweep=False, checkpoint_resume_dir=None)
 
 
 def lightning_train(
-    config, stage_module_class, checkpoint=None, checkpoint_resume_dir=None
+    config,
+    stage_module_class,
+    checkpoint=None,
+    checkpoint_resume_dir=None,
+    load_only_model_parameters=False,
 ):
-    stage_module = stage_module_class(config)
-
-    default_root_dir = get_default_root_dir()
-    checkpoint_path = checkpoint
-
-    if checkpoint_resume_dir is not None:
-        if not os.path.exists(checkpoint_resume_dir):
-            raise Exception(
-                f"Checkpoint resume directory {checkpoint_resume_dir} does not exist."
-            )
-        if not find_latest_checkpoint(checkpoint_resume_dir, "*.ckpt"):
-            raise Exception(
-                "No checkpoint found in checkpoint resume directory"
-                f" {checkpoint_resume_dir}."
-            )
-        default_root_dir = checkpoint_resume_dir
-
-    # if default_root_dir contains checkpoint, use latest checkpoint as starting point, ignore the input checkpoint_path
-    if default_root_dir is not None and find_latest_checkpoint(
-        default_root_dir, "*.ckpt"
-    ):
-        checkpoint_path = find_latest_checkpoint(default_root_dir, "*.ckpt")
-
+    stage_module, ckpt_config, default_root_dir, checkpoint = get_stage_module(
+        config,
+        stage_module_class,
+        checkpoint_path=checkpoint,
+        checkpoint_resume_dir=checkpoint_resume_dir,
+    )
     trainer = get_trainer(config, default_root_dir)
-    trainer.fit(stage_module, ckpt_path=checkpoint_path)
+    if load_only_model_parameters:
+        trainer.fit(stage_module)
+    else:
+        trainer.fit(stage_module, ckpt_path=checkpoint)
 
 
 if __name__ == "__main__":
