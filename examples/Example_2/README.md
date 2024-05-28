@@ -64,7 +64,7 @@ acorn infer gnn_infer.yaml
 
 **5a.** (Optional) We can examine the performance of the GNN, by printing some efficiency plots:
 ```bash
-acorn infer gnn_infer.yaml
+acorn eval gnn_eval.yaml
 ```
 
 **6.** Finally, we produce track candidates from the scored graphs:
