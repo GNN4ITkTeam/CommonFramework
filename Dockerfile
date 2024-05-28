@@ -11,13 +11,6 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update
 RUN apt-get install -y git h5utils wget vim g++
 
-# update python pip
-# RUN python -m pip install --upgrade pip
-# RUN python --version
-# RUN python -m pip --version
-
-# RUN pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
-
 # copy and install package
 COPY . .
-RUN source activate $CONDA_ENV_NAME  && python -m pip install -e .
+RUN source activate gnn4itk && python -m pip install -e .
