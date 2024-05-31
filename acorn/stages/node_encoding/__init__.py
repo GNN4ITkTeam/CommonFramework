@@ -13,7 +13,9 @@
 # limitations under the License.
 
 from .models.gnn_metric_learning import GNNMetricLearning
+from .models.object_condensation import ObjectCondensation
 
 __all__ = [
     "GNNMetricLearning",
+    "ObjectCondensation",
 ]

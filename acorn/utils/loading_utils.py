@@ -230,7 +230,7 @@ def handle_hard_node_cuts(
     if edges:
         edge_mask = node_mask[event.edge_index]
         edge_mask = edge_mask[0] & edge_mask[1]
-        for feature in event.keys:
+        for feature in get_pyg_data_keys(event):
             if feature == "edge_index":
                 event.edge_index = event.edge_index.T[edge_mask].T
                 event.edge_index = node_lookup[event.edge_index]

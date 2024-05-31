@@ -48,6 +48,7 @@ from acorn.utils import (
     eval_utils,
     load_datafiles_in_dir,
     handle_hard_node_cuts,
+    handle_edge_features,
 )
 
 from atlasify import atlasify
@@ -1146,6 +1147,10 @@ class GraphDataset(Dataset):
             self.scale_features(event)
         if "hit_module_index" in event:
             event["hit_module_id"] = event.pop("hit_module_index")
+        if self.hparams.get("edge_features") is not None:
+            event = self.add_edge_features(
+                event
+            )  # scaling must be done before adding features
 
     def apply_hard_cuts(self, event):
         """
@@ -1229,6 +1234,14 @@ class GraphDataset(Dataset):
         TODO
         """
         pass
+
+    def add_edge_features(self, event):
+        if "edge_features" in self.hparams.keys():
+            assert isinstance(
+                self.hparams["edge_features"], list
+            ), "Edge features must be a list of strings"
+            handle_edge_features(event, self.hparams["edge_features"])
+        return event
 
 
 class PreGraphDataset(GraphDataset):

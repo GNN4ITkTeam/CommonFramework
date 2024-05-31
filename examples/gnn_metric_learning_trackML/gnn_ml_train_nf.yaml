@@ -2,7 +2,7 @@
 stage: node_encoding
 model: GNNMetricLearning
 input_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/trackml_gnnml_feature_store
-stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/trackml_gnnml_layernorm
+stage_dir: /global/cfs/cdirs/m2616/data/GNN4ITK/trackml_gnnml_nf
 project: gnnml_trackml # Used in logging
 accelerator: cuda
 devices: 4
@@ -68,6 +68,11 @@ knn_loss: 10
 knn_val: 10
 margin: 1
 cu_knn: True
+
+node_filter: True
+node_filter_hiden: 128
+n_node_filter_layers: 1
+node_filter_cut: [0.1, 0.1, 0.1, 0.1]
 
 # Training parameters
 warmup: 10

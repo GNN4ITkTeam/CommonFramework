@@ -154,21 +154,25 @@ class GNNMetricLearning(NodeEncodingStage):
 
         ppe.cuda.use_torch_mempool_in_cupy()
 
-    def cu_knn_graph(self, x, k, loop=False, cosine=False):
+    def cu_knn_graph(self, x, k, loop=False, cosine=False, r=None):
         if not loop:
             k += 1
         with cupy.cuda.Device(self.device.index):
             x_cu = cupy.from_dlpack(x.detach())
             knn = NearestNeighbors(n_neighbors=k)
             knn.fit(x_cu)
-            _, graph_idxs = knn.kneighbors(x_cu)
+            d, graph_idxs = knn.kneighbors(x_cu)
             graph_idxs = torch.from_dlpack(graph_idxs)
+            if r:
+                d = torch.from_dlpack(d)
         ind = (
             torch.arange(graph_idxs.shape[0], device=self.device)
             .unsqueeze(1)
             .expand(graph_idxs.shape)
         )
         graph = torch.stack([graph_idxs.flatten(), ind.flatten()], dim=0)
+        if r:
+            graph = graph[:, d.flatten() <= r]
         if not loop:
             return graph[:, graph[0] != graph[1]]
         else:
@@ -178,8 +182,6 @@ class GNNMetricLearning(NodeEncodingStage):
         x = self.node_decoders[0 if self.hparams["recurrent"] else i](x).detach()
         if self.hparams["embedding_norm"]:
             x = F.normalize(x)
-        if self.hparams.get("node_filter"):
-            node_score = self.node_filters[0 if self.hparams["recurrent"] else i](x)
 
         k = (
             self.hparams["knn_train"]
@@ -188,7 +190,7 @@ class GNNMetricLearning(NodeEncodingStage):
         )
 
         if self.hparams.get("cu_knn"):
-            return self.cu_knn_graph(x, k=k, cosine=False, loop=False)
+            return self.cu_knn_graph(x, k=k, cosine=False, loop=False, r=self.hparams.get("r_max"))
         else:
             return knn_graph(x, k=k, cosine=False, loop=False)
 
@@ -205,11 +207,27 @@ class GNNMetricLearning(NodeEncodingStage):
         else:
             v = self.node_encoder(x)
             x = self.node_network_0(v)
+        if self.hparams.get("node_filter"):
+            filter_node_list = torch.arange(len(x), device=self.device)
 
         batch.knn_time = 0
 
         # Loop over iterations of edge and node networks
         for i in range(self.hparams["n_iters"]):
+            # node filter
+            if self.hparams.get("node_filter"):
+                if self.hparams.get("checkpoint", False):
+                    node_score = checkpoint(
+                        self.node_filters[0 if self.hparams["recurrent"] else i],
+                        x,
+                        use_reentrant=False,
+                    )
+                else:
+                    node_score = self.node_filters[0 if self.hparams["recurrent"] else i](x)
+                node_mask = (node_score > self.hparams["node_filter_cut"][i]).flatten()
+                x = x[node_mask]
+                v = v[node_mask]
+                filter_node_list = filter_node_list[node_mask]
             # KNN
             knn_start = time.time()
             if self.hparams.get("checkpoint", False):
@@ -224,7 +242,8 @@ class GNNMetricLearning(NodeEncodingStage):
             knn_end = time.time()
             # print("kNN time: ", knn_end - knn_start)
             batch.knn_time += knn_end - knn_start
-            x = v
+            if self.hparams.get("recycle_node_representation", True):
+                x = v
             # gat_start = time.time()
             if self.hparams.get("checkpoint", False):
                 x = checkpoint(self.gat, x, start, end, i, use_reentrant=False)
@@ -238,9 +257,11 @@ class GNNMetricLearning(NodeEncodingStage):
         else:
             x = self.node_decoders[-1](x)
         if self.hparams["embedding_norm"]:
-            return F.normalize(x)
+            x = F.normalize(x)
+        if self.hparams.get("node_filter"):
+            return x, filter_node_list
         else:
-            x
+            return x
 
     def gat(self, x, start, end, i):
         e = None
@@ -313,6 +334,8 @@ class GNNMetricLearning(NodeEncodingStage):
             edges = knn_graph(
                 batch.hit_embedding.detach(), k=k, cosine=False, loop=False
             )
+        if self.hparams.get("node_filter"):
+            edges = batch.filter_node_list[edges]
         y = self.get_target(batch, edges)
         w = self.get_weight(batch, edges, y)
         tp = torch.sum(y == 1)
@@ -322,7 +345,7 @@ class GNNMetricLearning(NodeEncodingStage):
     def random_loss(self, batch):
         edges = torch.randint(
             0,
-            batch.hit_embedding.shape[0],
+            batch.hit_r.shape[0],
             (2, self.hparams["randomisation"]),
             device=self.device,
         )
@@ -386,6 +409,14 @@ class GNNMetricLearning(NodeEncodingStage):
         return w
 
     def get_distances(self, batch, edges):
+        # batch.filter_node_list
+        if self.hparams.get("node_filter"):
+            res = torch.full((edges.shape[1],), 2., device=self.device)
+            node_map = torch.full((batch.filter_node_list.max() + 1, ), -1, device=self.device)
+            node_map[batch.filter_node_list] = torch.arange(len(batch.filter_node_list), device=self.device)
+            edge_mask = torch.isin(edges, batch.filter_node_list).all(dim=0)
+            # filter_edges = edges.T[edge_mask].T
+            edges = node_map[edges.T[edge_mask].T]
         reference = batch.hit_embedding[edges[1]]
         neighbors = batch.hit_embedding[edges[0]]
 
@@ -398,11 +429,20 @@ class GNNMetricLearning(NodeEncodingStage):
             ]
             d = torch.cat(d)
 
-        return torch.sqrt(d + 1e-12)
+        d = torch.sqrt(d + 1e-12)
+
+        if self.hparams.get("node_filter"):
+            res[edge_mask] = d
+        else:
+            res = d
+        return res
 
     def training_step(self, batch, batch_idx):
 
-        batch.hit_embedding = self(batch)
+        if self.hparams.get("node_filter"):
+            batch.hit_embedding, batch.filter_node_list = self(batch)
+        else:
+            batch.hit_embedding = self(batch)
 
         signal_loss = self.signal_loss(batch)
         knn_loss, tp, n_edges, target_tp = self.knn_loss(
@@ -427,7 +467,10 @@ class GNNMetricLearning(NodeEncodingStage):
         """
         Step to evaluate the model's performance
         """
-        batch.hit_embedding = self(batch)
+        if self.hparams.get("node_filter"):
+            batch.hit_embedding, batch.filter_node_list = self(batch)
+        else:
+            batch.hit_embedding = self(batch)
 
         signal_loss = self.signal_loss(batch)
         knn_loss, _tp, _n_edges, _target_tp = self.knn_loss(
@@ -509,9 +552,10 @@ class GNNMetricLearning(NodeEncodingStage):
         ):
             return
 
-        embedding = self(batch)
-
-        batch.hit_embedding = embedding
+        if self.hparams.get("node_filter"):
+            batch.hit_embedding, batch.filter_node_list = self(batch)
+        else:
+            batch.hit_embedding = self(batch)
 
         dataset.unscale_features(batch)
 

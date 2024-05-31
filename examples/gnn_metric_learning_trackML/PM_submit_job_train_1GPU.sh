@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#SBATCH -A m2616_g -q regular
+#SBATCH -A m2616 -q regular
 #SBATCH -C gpu&hbm80g
 #SBATCH -t 12:00:00
 #SBATCH -N 1
-#SBATCH --ntasks-per-node=4
+#SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-task=1
 #SBATCH -c 32
 #SBATCH -o logs/%x-%j.out
