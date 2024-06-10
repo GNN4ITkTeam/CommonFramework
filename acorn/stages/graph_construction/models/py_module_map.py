@@ -38,7 +38,6 @@ class PyModuleMap(GraphConstructionStage):
         Initialise the PyModuleMap - a python implementation of the Triplet Module Map.
         """
         self.hparams = hparams
-        self.use_pyg = True
         self.use_csv = True
         self.gpu_available = torch.cuda.is_available()
         if self.gpu_available:
@@ -242,6 +241,11 @@ class PyModuleMap(GraphConstructionStage):
 
         doublet_edges = doublet_edges.drop_duplicates()
         graph.edge_index = torch.tensor(doublet_edges.values.T, dtype=torch.long)
+        if not torch.equal(
+            graph.hit_id, torch.arange(graph.hit_id.size(0), device=graph.hit_id.device)
+        ):
+            # We need to re-index the edge index since there are missing nodes
+            self.reindex_edge_index(graph)
         y, truth_map = utils.graph_intersection(
             graph.edge_index.to(device),
             graph.track_edges.to(device),
@@ -252,6 +256,17 @@ class PyModuleMap(GraphConstructionStage):
         graph.truth_map = truth_map.cpu()
 
         return graph
+
+    def reindex_edge_index(self, graph):
+        """
+        Reindex the edge index to account for missing nodes.
+        Missing nodes are likely due to a hard cut, and are not a problem.
+        """
+        hit_id_to_vector_index = torch.full(
+            (graph.hit_id.max() + 1,), -1, dtype=torch.long
+        )
+        hit_id_to_vector_index[graph.hit_id] = torch.arange(graph.hit_id.size(0))
+        graph.edge_index = hit_id_to_vector_index[graph.edge_index]
 
     def get_hit_features(self, hits):
         hits = hits.rename(columns={"hit_id": "hid", "module_id": "mid"})

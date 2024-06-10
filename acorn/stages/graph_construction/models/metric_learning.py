@@ -18,7 +18,6 @@ import os
 from ..graph_construction_stage import GraphConstructionStage
 
 from pytorch_lightning import LightningModule
-from torch_geometric.data import Dataset
 from torch_geometric.loader import DataLoader
 import torch
 import torch.nn.functional as F
@@ -26,11 +25,7 @@ import torch.nn.functional as F
 # Local imports
 from .utils import make_mlp, build_edges, graph_intersection
 from ..utils import build_signal_edges  # handle_weighting
-from acorn.utils import (
-    load_datafiles_in_dir,
-    handle_hard_node_cuts,
-    handle_weighting,
-)
+from acorn.utils import handle_weighting
 from acorn.utils.version_utils import get_pyg_data_keys
 
 
@@ -52,8 +47,6 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             layer_norm=True,
         )
 
-        self.dataset_class = GraphDataset
-        self.use_pyg = True
         self.save_hyperparameters(hparams)
 
     def forward(self, x):
@@ -527,124 +520,3 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         random_flip = torch.randint(2, (event.edge_index.shape[1],), dtype=torch.bool)
         event.edge_index[:, random_flip] = event.edge_index[:, random_flip].flip(0)
-
-
-class GraphDataset(Dataset):
-    """
-    The custom default GNN dataset to load graphs off the disk
-    """
-
-    def __init__(
-        self,
-        input_dir,
-        data_name=None,
-        num_events=None,
-        stage="fit",
-        hparams=None,
-        transform=None,
-        pre_transform=None,
-        pre_filter=None,
-        **kwargs,
-    ):
-        super().__init__(input_dir, transform, pre_transform, pre_filter)
-
-        self.input_dir = input_dir
-        self.data_name = data_name
-        self.hparams = hparams
-        self.num_events = num_events
-        self.stage = stage
-
-        self.input_paths = load_datafiles_in_dir(
-            self.input_dir, self.data_name, self.num_events
-        )
-        self.input_paths.sort()  # We sort here for reproducibility
-
-    def len(self):
-        return len(self.input_paths)
-
-    def get(self, idx):
-        event_path = self.input_paths[idx]
-        event = torch.load(event_path, map_location=torch.device("cpu"))
-        self.preprocess_event(event)
-
-        return event
-
-    def preprocess_event(self, event):
-        """
-        Process event before it is used in training and validation loops
-        """
-
-        self.cleaning_and_tests(event)
-        self.apply_hard_cuts(event)
-        # self.remove_split_cluster_truth(event) TODO: Should handle this at some point
-        self.scale_features(event)
-
-    def apply_hard_cuts(self, event):
-        """
-        Apply hard cuts to the event. This is implemented by
-        1. Finding which true edges are from tracks that pass the hard cut.
-        2. Pruning the input graph to only include nodes that are connected to these edges.
-        """
-
-        if (
-            self.hparams is not None
-            and "hard_cuts" in self.hparams.keys()
-            and self.hparams["hard_cuts"]
-        ):
-            assert isinstance(
-                self.hparams["hard_cuts"], dict
-            ), "Hard cuts must be a dictionary"
-            handle_hard_node_cuts(event, self.hparams["hard_cuts"])
-
-    def cleaning_and_tests(self, event):
-        """
-        Ensure that data is clean and has the correct shape
-        """
-
-        if not hasattr(event, "num_nodes"):
-            assert "x" in get_pyg_data_keys(event), "No node features found in event"
-            event.num_nodes = event.x.shape[0]
-
-    def scale_features(self, event):
-        """
-        Handle feature scaling for the event
-        """
-
-        if (
-            self.hparams is not None
-            and "node_scales" in self.hparams.keys()
-            and "node_features" in self.hparams.keys()
-        ):
-            assert isinstance(
-                self.hparams["node_scales"], list
-            ), "Feature scaling must be a list of ints or floats"
-            for i, feature in enumerate(self.hparams["node_features"]):
-                assert feature in get_pyg_data_keys(
-                    event
-                ), f"Feature {feature} not found in event"
-                event[feature] = event[feature] / self.hparams["node_scales"][i]
-
-    def unscale_features(self, event):
-        """
-        Unscale features when doing prediction
-        """
-
-        if (
-            self.hparams is not None
-            and "node_scales" in self.hparams.keys()
-            and "node_features" in self.hparams.keys()
-        ):
-            assert isinstance(
-                self.hparams["node_scales"], list
-            ), "Feature scaling must be a list of ints or floats"
-            for i, feature in enumerate(self.hparams["node_features"]):
-                assert feature in get_pyg_data_keys(
-                    event
-                ), f"Feature {feature} not found in event"
-                event[feature] = event[feature] * self.hparams["node_scales"][i]
-
-    def handle_edge_list(self, event):
-        """
-        TODO
-        """
-        pass
