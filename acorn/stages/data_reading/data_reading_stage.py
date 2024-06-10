@@ -320,7 +320,7 @@ class EventReader:
                     ]
                     if len(available_coords) != len(required_coords):
                         raise ValueError(
-                            f"Missing coordinates for calculating '{cluster_prefix}{feature}{cluster_postfix}'. Required: {', '.join(required_coords)}."
+                            f"Missing coordinates for calculating 'cluster_{feature}_{i}'. Required: {', '.join(required_coords)}."
                         )
 
                     # Calculate 'r' and 'phi' if both 'x' and 'y' are available
