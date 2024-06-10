@@ -5,7 +5,7 @@ from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint
 
 from .utils import make_mlp
-from .metric_learning import MetricLearning, GraphDataset
+from .metric_learning import MetricLearning
 
 
 class GravNetMetricLearning(MetricLearning):
@@ -45,8 +45,6 @@ class GravNetMetricLearning(MetricLearning):
             layer_norm=hparams["layernorm"],
         )
 
-        self.dataset_class = GraphDataset
-        self.use_pyg = True
         self.save_hyperparameters(hparams)
 
     def forward(self, x):

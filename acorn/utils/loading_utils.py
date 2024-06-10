@@ -13,12 +13,13 @@
 # limitations under the License.
 
 import os
-from typing import List
+from typing import List, Union
 import warnings
 import torch
 import logging
-from torch_geometric.data import Data
+from torch_geometric.data import Data as PygData
 from pathlib import Path
+import pandas as pd
 
 from .mapping_utils import get_condition_lambda, map_tensor_handler, remap_from_mask
 from .version_utils import get_pyg_data_keys
@@ -95,7 +96,7 @@ def convert_to_latest_pyg_format(event):
     """
     Convert the data to the latest PyG format.
     """
-    return Data.from_dict(event.__dict__)
+    return PygData.from_dict(event.__dict__)
 
 
 def handle_weighting(event, weighting_config):
@@ -128,40 +129,22 @@ def handle_weighting(event, weighting_config):
     return weights
 
 
-def handle_hard_cuts(event, hard_cuts_config):
-    true_track_mask = torch.ones_like(event.truth_map, dtype=torch.bool)
-
-    for condition_key, condition_val in hard_cuts_config.items():
-        assert condition_key in get_pyg_data_keys(
-            event
-        ), f"Condition key {condition_key} not found in event keys {get_pyg_data_keys(event)}"
-        condition_lambda = get_condition_lambda(condition_key, condition_val)
-        value_mask = condition_lambda(event)
-        true_track_mask = true_track_mask * value_mask
-
-    graph_mask = torch.isin(
-        event.edge_index, event.track_edges[:, true_track_mask]
-    ).all(0)
-    remap_from_mask(event, graph_mask)
-
-    num_edges = event.edge_index.shape[1]
-    for edge_key in get_pyg_data_keys(event):
-        if (
-            isinstance(event[edge_key], torch.Tensor)
-            and num_edges in event[edge_key].shape
-        ):
-            event[edge_key] = event[edge_key][..., graph_mask]
-
-    num_track_edges = event.track_edges.shape[1]
-    for track_feature in get_pyg_data_keys(event):
-        if (
-            isinstance(event[track_feature], torch.Tensor)
-            and num_track_edges in event[track_feature].shape
-        ):
-            event[track_feature] = event[track_feature][..., true_track_mask]
+def handle_hard_node_cuts(
+    event: Union[PygData, pd.DataFrame], hard_cuts_config: dict, passing_hit_ids=None
+):
+    """
+    Given set of cut config, remove nodes that do not pass the cuts.
+    Remap the track_edges to the new node list.
+    """
+    if isinstance(event, PygData):
+        return handle_hard_node_cuts_pyg(event, hard_cuts_config)
+    elif isinstance(event, pd.DataFrame):
+        return handle_hard_node_cuts_pandas(event, hard_cuts_config, passing_hit_ids)
+    else:
+        raise ValueError(f"Data type {type(event)} not recognised.")
 
 
-def handle_hard_node_cuts(event, hard_cuts_config):
+def handle_hard_node_cuts_pyg(event: PygData, hard_cuts_config: dict):
     """
     Given set of cut config, remove nodes that do not pass the cuts.
     Remap the track_edges to the new node list.
@@ -194,7 +177,6 @@ def handle_hard_node_cuts(event, hard_cuts_config):
         f" {node_mask.shape[0]}"
     )
 
-    # TODO: Refactor the below to use the remap_from_mask function
     num_nodes = event.num_nodes
     for feature in get_pyg_data_keys(event):
         if (
@@ -217,6 +199,84 @@ def handle_hard_node_cuts(event, hard_cuts_config):
 
     event.track_edges = node_lookup[event.track_edges]
     event.num_nodes = node_mask.sum()
+
+    return event
+
+
+def handle_hard_node_cuts_pandas(
+    event: pd.DataFrame, hard_cuts_config: dict, passing_hit_ids=None
+):
+    """
+    Given set of cut config, remove nodes that do not pass the cuts.
+    If passing_hit_ids is provided, only the hits with the given ids will be kept.
+    """
+
+    if passing_hit_ids is not None:
+        event = event[event.hit_id.isin(passing_hit_ids)]
+        return event
+
+    # Create a temporary DataFrame with the same structure as the PyTorch event
+    temp_event = {
+        col: torch.tensor(event[col].values)
+        for col in event.columns
+        if pd.api.types.is_numeric_dtype(event[col])
+        or pd.api.types.is_bool_dtype(event[col])
+    }
+
+    # Initialize the mask with all True values
+    value_mask = torch.ones(len(event), dtype=torch.bool)
+
+    for condition_key, condition_val in hard_cuts_config.items():
+        assert (
+            condition_key in event.columns
+        ), f"Condition key {condition_key} not found in event keys {event.columns}"
+        condition_lambda = get_condition_lambda(condition_key, condition_val)
+
+        # Apply the condition lambda to the temporary event and update the mask
+        value_mask &= condition_lambda(temp_event)
+
+    # Convert the mask back to a Pandas-compatible format
+    value_mask = value_mask.numpy().astype(bool)
+
+    event = event[value_mask]
+
+    return event
+
+
+def handle_hard_cuts(event: PygData, hard_cuts_config: dict):
+    """
+    Given set of cut config, remove edges that do not pass the cuts.
+    """
+    true_track_mask = torch.ones_like(event.truth_map, dtype=torch.bool)
+
+    for condition_key, condition_val in hard_cuts_config.items():
+        assert condition_key in get_pyg_data_keys(
+            event
+        ), f"Condition key {condition_key} not found in event keys {get_pyg_data_keys(event)}"
+        condition_lambda = get_condition_lambda(condition_key, condition_val)
+        value_mask = condition_lambda(event)
+        true_track_mask = true_track_mask * value_mask
+
+    graph_mask = torch.isin(
+        event.edge_index, event.track_edges[:, true_track_mask]
+    ).all(0)
+    remap_from_mask(event, graph_mask)
+
+    num_edges = event.edge_index.shape[1]
+    for edge_key in get_pyg_data_keys(event):
+        if (
+            isinstance(event[edge_key], torch.Tensor)
+            and num_edges in event[edge_key].shape
+        ):
+            event[edge_key] = event[edge_key][..., graph_mask]
+
+    num_track_edges = event.track_edges.shape[1]
+    for track_feature in get_pyg_data_keys(event):
+        if (
+            isinstance(event[track_feature], torch.Tensor)
+            and num_track_edges in event[track_feature].shape
+        ):
+            event[track_feature] = event[track_feature][..., true_track_mask]
 
 
 def reset_angle(angles):
