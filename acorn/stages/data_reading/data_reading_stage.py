@@ -308,50 +308,46 @@ class EventReader:
 
         # Calculate cluster features if the respective coordinates are available
         for i in [1, 2]:  # For each cluster
-            cluster_prefix = f"cluster_{i}_"
             for feature in ["r", "phi", "eta"]:
-                if f"{cluster_prefix}{feature}" in requested_features:
+                if f"cluster_{feature}_{i}" in requested_features:
                     required_coords = (
                         ["x", "y"] if feature != "eta" else ["x", "y", "z"]
                     )
                     available_coords = [
                         coord
                         for coord in required_coords
-                        if f"{cluster_prefix}{coord}" in hits.columns
+                        if f"cluster_{coord}_{i}" in hits.columns
                     ]
                     if len(available_coords) != len(required_coords):
                         raise ValueError(
-                            f"Missing coordinates for calculating '{cluster_prefix}{feature}'. Required: {', '.join(required_coords)}."
+                            f"Missing coordinates for calculating '{cluster_prefix}{feature}{cluster_postfix}'. Required: {', '.join(required_coords)}."
                         )
 
                     # Calculate 'r' and 'phi' if both 'x' and 'y' are available
                     if feature in ["r", "phi"]:
-                        hits[f"{cluster_prefix}r"] = np.sqrt(
-                            hits[f"{cluster_prefix}x"] ** 2
-                            + hits[f"{cluster_prefix}y"] ** 2
+                        hits[f"cluster_r_{i}"] = np.sqrt(
+                            hits[f"cluster_x_{i}"] ** 2 + hits[f"cluster_y_{i}"] ** 2
                         )
-                        hits[f"{cluster_prefix}phi"] = np.arctan2(
-                            hits[f"{cluster_prefix}y"], hits[f"{cluster_prefix}x"]
+                        hits[f"cluster_phi_{i}"] = np.arctan2(
+                            hits[f"cluster_y_{i}"],
+                            hits[f"cluster_x_{i}"],
                         )
 
                     # Calculate 'eta' if 'z' is also available
                     if feature == "eta":
-                        hits[f"{cluster_prefix}eta"] = self.calc_eta(
-                            hits[f"{cluster_prefix}r"], hits[f"{cluster_prefix}z"]
+                        hits[f"cluster_eta_{i}"] = self.calc_eta(
+                            hits[f"cluster_r_{i}"],
+                            hits[f"cluster_z_{i}"],
                         )
 
         # Apply pixel region adjustments if applicable
         pixel_regions_idx = self.get_pixel_regions_index(hits)
         for feature in ["r", "phi", "eta"]:
             for i in [1, 2]:
-                cluster_prefix = f"cluster_{i}_"
-                if (
-                    f"{cluster_prefix}{feature}" in hits.columns
-                    and feature in hits.columns
-                ):
-                    hits.loc[
-                        pixel_regions_idx, f"{cluster_prefix}{feature}"
-                    ] = hits.loc[pixel_regions_idx, feature]
+                if f"cluster_{feature}_{i}" in hits.columns and feature in hits.columns:
+                    hits.loc[pixel_regions_idx, f"cluster_{feature}_{i}"] = hits.loc[
+                        pixel_regions_idx, feature
+                    ]
 
         return hits
 

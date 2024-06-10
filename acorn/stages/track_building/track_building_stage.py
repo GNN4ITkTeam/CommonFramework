@@ -243,7 +243,6 @@ class TrackBuildingStage:
         os.makedirs(self.hparams["stage_dir"], exist_ok=True)
 
         for var, varconf in plot_config["variables"].items():
-
             save_path = os.path.join(
                 self.hparams["stage_dir"],
                 f"track_reconstruction_eff_vs_{var}_{self.hparams['matching_style']}.png",

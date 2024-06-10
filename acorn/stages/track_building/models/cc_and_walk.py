@@ -63,7 +63,6 @@ class CCandWalk(TrackBuildingStage):
                 desc=f"Reconstructing tracks for {data_name} data",
             )
         else:
-
             for event in tqdm(
                 dataset, desc=f"Reconstructing tracks for {data_name} data"
             ):
