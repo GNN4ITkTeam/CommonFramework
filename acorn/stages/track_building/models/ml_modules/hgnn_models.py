@@ -71,7 +71,6 @@ class InteractionGNNBlock(nn.Module):
         self.layers = nn.ModuleList(layers)
 
     def forward(self, node_attr, graph):
-
         nodes = self.node_encoder(node_attr)
         edges = self.edge_encoder(torch.cat([nodes[graph[0]], nodes[graph[1]]], dim=1))
 
@@ -150,7 +149,6 @@ class HierarchicalGNNBlock(nn.Module):
         self.layers = nn.ModuleList(layers)
 
     def forward(self, nodes, edges, semb, graph, bgraph, bweights, sgraph, sweights):
-
         # Initialize supernode & edges by aggregating node features. Normalizing with 1-norm to improve training stability
         snodes = scatter_add(
             (F.normalize(nodes, p=2)[bgraph[0]]) * bweights,
@@ -259,7 +257,6 @@ class Pooling(nn.Module):
         return valid_mask, idxs
 
     def forward(self, nodes, graph, cluster=None):
-
         emb = self.node_encoder(nodes)
 
         if self.use_prebuilt:

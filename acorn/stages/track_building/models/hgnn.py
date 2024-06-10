@@ -121,7 +121,6 @@ class HierarchicalGNN(MLTrackBuildingStage):
         return bgraph, logits, emb, emb_logits
 
     def loss_function(self, batch, bgraph, logits, emb, emb_logits, prefix="train"):
-
         loss_weight = 1 - np.sin(
             np.clip(
                 (self.trainer.global_step - self.hparams["pretraining_steps"])
@@ -294,7 +293,6 @@ class HierarchicalGNN(MLTrackBuildingStage):
         self.build_track(batch, output_dir, track_dir)
 
     def build_track(self, batch, output_dir, track_dir):
-
         start_time = process_time()
 
         bgraph, logits, _, _ = self(batch.partial_event)

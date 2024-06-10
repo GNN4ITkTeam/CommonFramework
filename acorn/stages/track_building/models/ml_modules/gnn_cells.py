@@ -98,7 +98,6 @@ class InteractionGNNCell(nn.Module):
         return edges
 
     def forward(self, nodes, edges, graph):
-
         nodes = self.node_update(nodes, edges, graph)
         edges = self.edge_update(nodes, edges, graph)
 
