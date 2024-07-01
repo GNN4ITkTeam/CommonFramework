@@ -14,8 +14,12 @@
 
 from .models.gnn_metric_learning import GNNMetricLearning
 from .models.object_condensation import ObjectCondensation
+from .models.object_condensation_2 import ObjectCondensation2
+from .models.transfer_object_condensation import TransferedObjectCondensation
 
 __all__ = [
     "GNNMetricLearning",
     "ObjectCondensation",
+    "ObjectCondensation2",
+    "TransferedObjectCondensation",
 ]
