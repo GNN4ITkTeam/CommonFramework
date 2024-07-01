@@ -142,7 +142,9 @@ class AthenaRootReader(EventReader):
         if self.config["input_dir"] == "XROOTD":
             filename = self.evtsmap[event]["fname"]
         else:
-            filename = self.config["input_dir"] + "/" + self.evtsmap[event]["fname"]
+            fname = os.path.basename(self.evtsmap[event]["fname"])
+            filename = os.path.join(self.config["input_dir"], fname)
+
         entry = self.evtsmap[event]["entry"]
 
         # From the TTree extract numpy arrays of interesting TBranches, only for the desired event number
@@ -163,6 +165,11 @@ class AthenaRootReader(EventReader):
                 self.log.info(
                     "You are running on file older than v5, the +1 shift in cluster indices will be corrected"
                 )
+                # Also remove SPisOverlap from spacepoint_branch_names and truth_col_order
+                if "SPisOverlap" in athena_root_utils.spacepoint_branch_names:
+                    athena_root_utils.spacepoint_branch_names.remove("SPisOverlap")
+                if "SPisOverlap" in athena_root_utils.truth_col_order:
+                    athena_root_utils.truth_col_order.remove("SPisOverlap")
 
             if "SPisOverlap" not in tree.keys() and self.config.get("overlap_sp_cut"):
                 raise ValueError(
