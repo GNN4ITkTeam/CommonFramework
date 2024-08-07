@@ -19,6 +19,7 @@ import torch
 import logging
 from torch_geometric.data import Data
 from pathlib import Path
+from enum import Enum
 
 from .mapping_utils import (
     get_condition_lambda,
@@ -164,6 +165,13 @@ def handle_hard_cuts(event, hard_cuts_config):
             event[track_feature] = event[track_feature][..., true_track_mask]
 
 
+class NodeCountStatus(Enum):
+    UNINIT = 0
+    UNDER = 1
+    OVER = 2
+    GOOD = 3
+
+
 def handle_hard_node_cuts(
     event, hard_cuts_config, min_nodes=0, max_nodes=None, edges=False, tracks=False
 ):
@@ -196,9 +204,9 @@ def handle_hard_node_cuts(
         node_mask = node_mask * node_val_mask
 
     if node_mask.sum() < min_nodes:
-        return False
+        return NodeCountStatus.UNDER
     if max_nodes and node_mask.sum() > max_nodes:
-        return False
+        return NodeCountStatus.OVER
 
     logging.info(
         f"Masking the following number of nodes with the HARD CUT: {node_mask.sum()} /"
@@ -240,7 +248,7 @@ def handle_hard_node_cuts(
             ):
                 event[feature] = event[feature][edge_mask]
 
-    return True
+    return NodeCountStatus.GOOD
 
 
 def reset_angle(angles):
