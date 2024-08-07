@@ -32,7 +32,7 @@ def get_condition_lambda(condition_key, condition_val):
         ),
         "within": lambda event: (condition_val[1][0] <= event[condition_key].float())
         & (event[condition_key].float() <= condition_val[1][1]),
-        "not_within": lambda event: not (
+        "not_within": lambda event: ~(
             (condition_val[1][0] <= event[condition_key].float())
             & (event[condition_key].float() <= condition_val[1][1])
         ),

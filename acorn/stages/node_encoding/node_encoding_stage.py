@@ -48,6 +48,7 @@ from acorn.utils import (
     eval_utils,
     load_datafiles_in_dir,
     handle_hard_node_cuts,
+    NodeCountStatus,
     handle_edge_features,
 )
 
@@ -1162,24 +1163,47 @@ class GraphDataset(Dataset):
         if self.hparams.get("hard_cuts") or (
             self.hparams.get("phi_segmented") and self.stage == "fit" #self.data_name == "trainset"
         ):
-            hard_cut_finished = False
-            while not hard_cut_finished:
-                hard_cuts = self.hparams.get("hard_cuts", {})
-                if self.hparams.get("phi_segmented") and self.stage == "fit": #self.data_name == "trainset":
-                    graph_fraction = self.hparams.get("graph_fraction", 0.1)
-                    phi_low = math.pi * (2 * random.random() - 1)
-                    phi_high = phi_low + math.pi * 2 * graph_fraction
-                    phi_high %= math.pi * 2
-                    if phi_high > phi_low:
-                        hard_cuts["hit_phi"] = [phi_low, phi_high]
-                    else:
-                        hard_cuts["hit_phi"] = ["not_within", [phi_high, phi_low]]
-                hard_cut_finished = handle_hard_node_cuts(
-                    event,
-                    hard_cuts,
-                    self.hparams.get("min_nodes", 20),
-                    self.hparams.get("max_nodes"),
-                )
+            hard_cut_finished = NodeCountStatus.UNINIT
+            
+            graph_fraction = self.hparams.get("graph_fraction", 0.1)
+            
+            # If search range changes by less than 1 degree (~ 0.02 rad), give up
+            graph_adjustment_tol = self.hparams.get("graph_adjustment_tol", 0.02)
+            
+            phi_mid = math.pi * 2 * random.random()
+            
+            phi_width_low = 0
+            phi_width_high = math.pi * 2
+            phi_width = math.pi * 2 * graph_fraction
+                
+            while hard_cut_finished != NodeCountStatus.GOOD and phi_width_high - phi_width_low >= graph_adjustment_tol:
+                hard_cuts = self.hparams.get("hard_cuts", {}) # TODO: Is this needed in the loop?
+                
+                phi_low = phi_mid - phi_width/2
+                phi_high = phi_mid + phi_width/2
+                
+                phi_low %= math.pi * 2 - math.pi
+                phi_high %= math.pi * 2 - math.pi
+                
+                if phi_low < phi_high:
+                    phi_range = [phi_low, phi_high]
+                else:
+                    phi_range = ["not_within", [phi_high, phi_low]]
+                
+                if self.hparams.get("phi_segmented") and self.stage == "fit":
+                    hard_cuts["hit_phi"] = phi_range
+                    
+                min_nodes = self.hparams.get("min_nodes", 20)
+                max_nodes = self.hparams.get("max_nodes")
+                
+                hard_cut_finished = handle_hard_node_cuts(event, hard_cuts, min_nodes, max_nodes)
+            
+                if hard_cut_finished == NodeCountStatus.UNDER: # Grow
+                    phi_width_low = phi_width
+                elif hard_cut_finished == NodeCountStatus.OVER: # Shrink
+                    phi_width_high = phi_width
+                    
+                phi_width = (phi_width_low + phi_width_high)/2
 
             uni, inv_idx, count = torch.unique(
                 event.hit_particle_id, return_counts=True, return_inverse=True
