@@ -1182,7 +1182,7 @@ class GraphDataset(Dataset):
                 phi_low = phi_mid - phi_width / 2
                 phi_high = phi_mid + phi_width / 2
 
-                # phi_low = (phi_low + math.pi) % (math.pi * 2) - math.pi # phi_low should already be in the range so doesn't need to be adjusted
+                phi_low = (phi_low + math.pi) % (math.pi * 2) - math.pi
                 phi_high = (phi_high + math.pi) % (math.pi * 2) - math.pi
                 # Another way to adjust phi_high (might be better)
                 # if phi_high > math.pi:
