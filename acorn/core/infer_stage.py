@@ -86,8 +86,7 @@ def lightning_infer(config, stage_module, checkpoint=None):
     print(f"Loading checkpoint: {checkpoint_path}")
 
     stage_module = stage_module.load_from_checkpoint(checkpoint_path)
-    stage_module._hparams.update(config)
-    print(stage_module.hparams["node_features"])
+    stage_module._hparams = {**stage_module._hparams, **config}
 
     # setup stage
     stage_module.setup(stage="predict")
