@@ -9,11 +9,10 @@ click
 lightning==2.1.2
 pytest
 pytest-cov
-torch-geometric==2.5.3
--f https://data.pyg.org/whl/torch-2.3.0+cu121.html
+torch-geometric==2.4.0
+-f https://data.pyg.org/whl/torch-2.1.0+cu121.html
 torch-scatter
 torch-cluster
-torch-sparse
 uproot
 class-resolver
 --extra-index-url https://pypi.nvidia.com
