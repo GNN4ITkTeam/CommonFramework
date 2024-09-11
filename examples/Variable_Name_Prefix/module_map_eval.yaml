@@ -1,0 +1,27 @@
+# CommonFramework configuration
+stage: graph_construction
+model: PyModuleMap
+input_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/feature_store/
+stage_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map/
+
+# Dataset parameters
+data_split: [0, 1000, 0] # Number of [training, validation, testing] examples
+
+variable_with_prefix: true # Set to true to use the new naming scheme (with prefix to indicate the variable type)
+add_variable_name_prefix: false # Set to true to convert old pyg files to using the new naming scheme (with prefix to indicate the variable type). Only needed when the input pyg files are without the name prefix.
+
+# Evaluation parameters
+target_tracks:
+  track_particle_pt: [1000, .inf]
+  track_particle_nhits: [3, .inf]
+  track_particle_primary: True
+  track_particle_pdgId: [not_in, [11, -11]]
+  track_particle_radius: [0., 260.]
+  track_particle_eta: [-4., 4.]
+  track_redundant_split_edges: False
+
+# Plotting parameters
+plots:
+  graph_construction_efficiency:
+    title: Module Map Edge-wise Efficiency
+    pt_units: MeV

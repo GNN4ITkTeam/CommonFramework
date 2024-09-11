@@ -22,6 +22,7 @@ from functools import partial
 from time import process_time
 
 from . import cc_and_walk_utils
+from acorn.utils.loading_utils import remove_variable_name_prefix
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -77,14 +78,14 @@ class CCandWalk(TrackBuildingStage):
         all_trks = dict()
 
         if self.hparams.get("on_true_graph", False):
-            score_name = "y"
+            score_name = "edge_y"
             threshold = 0
         else:
-            score_name = "scores"
+            score_name = "edge_scores"
             threshold = self.hparams["score_cut_cc"]
 
         # Remove cycles by pointing all edges outwards (necessary for topo-sort)
-        R = graph.r**2 + graph.z**2
+        R = graph.hit_r**2 + graph.hit_z**2
         graph = cc_and_walk_utils.remove_cycles(graph)
 
         # remove low-scoring edges
@@ -135,4 +136,6 @@ class CCandWalk(TrackBuildingStage):
                 )
             )
 
+        if not self.hparams.get("variable_with_prefix"):
+            graph = remove_variable_name_prefix(graph)
         torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))

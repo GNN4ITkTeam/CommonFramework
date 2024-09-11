@@ -29,6 +29,7 @@ from acorn.stages.track_building.track_building_stage import (
     GraphDataset,
     TrackBuildingStage,
 )
+from acorn.utils.loading_utils import remove_variable_name_prefix
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -78,12 +79,12 @@ class ConnectedComponents(TrackBuildingStage):
         elif on_true_graph_edges:
             edges = graph.edge_index[:, graph.y]
         else:
-            edge_mask = graph.scores > score_cut
+            edge_mask = graph.edge_scores > score_cut
             edges = graph.edge_index[:, edge_mask]
 
         # Get number of nodes
-        if hasattr(graph, "x"):
-            num_nodes = graph.x.size(0)
+        if hasattr(graph, "hit_x"):
+            num_nodes = graph.hit_x.size(0)
         else:
             num_nodes = graph.edge_index.max().item() + 1
 
@@ -101,7 +102,7 @@ class ConnectedComponents(TrackBuildingStage):
         # get labels. isolated nodes get -1 as label
         labels = (torch.ones(num_nodes) * -1).long()
         labels[mask] = torch.from_numpy(candidate_labels).long()
-        graph.labels = labels
+        graph.edge_track_labels = labels
         graph.time_taken = process_time() - start_time
 
         return graph
@@ -124,7 +125,7 @@ class ConnectedComponents(TrackBuildingStage):
         # Make a dataframe from pyg graph
         d = utils.load_reconstruction_df(graph)
         # include distance from origin to sort hits
-        d["r2"] = (graph.r**2 + graph.z**2).cpu().numpy()
+        d["r2"] = (graph.hit_r**2 + graph.hit_z**2).cpu().numpy()
         # Keep only hit_id associtated to a tracks (label >= 0, not -1), sort by track_id and r2
         d = d[d.track_id >= 0].sort_values(["track_id", "r2"])
         # Make a dataframe of list of hits (one row = one list of hits, ie one track)
@@ -149,6 +150,8 @@ class ConnectedComponents(TrackBuildingStage):
                     for t in tracks.values
                 )
             )
+        if not self.hparams.get("variable_with_prefix"):
+            graph = remove_variable_name_prefix(graph)
         torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
 
     def build_tracks(self, dataset: GraphDataset, data_name: str):

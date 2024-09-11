@@ -29,7 +29,9 @@ class FilterMixin:
         Samples all the true signal edges, and a number of fake edges equal to the number of true signal edges times the ratio.
         Then combines those edges and shuffles them.
         """
-        sample_signal_true = torch.where(batch.y.bool() & (batch.weights > 0))[0]
+        sample_signal_true = torch.where(
+            batch.edge_y.bool() & (batch.edge_weights > 0)
+        )[0]
         num_signal_true = sample_signal_true.shape[0]
         sample_hard_negatives, sample_easy_negatives = self.get_negatives(
             batch, scores, num_signal_true, ratio
@@ -40,8 +42,8 @@ class FilterMixin:
         )
         sample_combined = sample_combined[torch.randperm(sample_combined.shape[0])]
         batch.edge_index = batch.edge_index[:, sample_combined]
-        batch.y = batch.y[sample_combined]
-        batch.weights = batch.weights[sample_combined]
+        batch.edge_y = batch.edge_y[sample_combined]
+        batch.edge_weights = batch.edge_weights[sample_combined]
 
         return batch
 
@@ -50,7 +52,9 @@ class FilterMixin:
         Samples a number of 'hard' and 'easy' negatives, where hard negatives are those with a score above the edge_cut, and easy negatives are those with a score below the edge_cut.
         The number of hard and easy negatives is equal to the number of true signal edges times the ratio.
         """
-        negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
+        negative_mask = ((batch.edge_y == 0) & (batch.edge_weights != 0)) | (
+            batch.edge_weights < 0
+        )
         sample_negatives = torch.where(negative_mask)[0]
         sample_hard_negatives = torch.where(negative_mask)[0][
             scores[negative_mask] > self.hparams["edge_cut"]
@@ -162,9 +166,9 @@ class Filter(EdgeClassifierStage, FilterMixin):
         loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
         scores = torch.sigmoid(output)
-        batch.scores = scores
-        all_truth = batch.y.bool()
-        target_truth = (batch.weights > 0) & all_truth
+        batch.edge_scores = scores
+        all_truth = batch.edge_y.bool()
+        target_truth = (batch.edge_weights > 0) & all_truth
 
         return {
             "loss": loss,
@@ -313,10 +317,10 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
             output, batch, self.hparams.get("loss_balance")
         )
 
-        batch.scores = torch.sigmoid(output)
+        batch.edge_scores = torch.sigmoid(output)
 
-        all_truth = batch.y.bool()
-        target_truth = (batch.weights > 0) & all_truth
+        all_truth = batch.edge_y.bool()
+        target_truth = (batch.edge_weights > 0) & all_truth
 
         return {
             "loss": loss,

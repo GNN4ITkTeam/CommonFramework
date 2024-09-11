@@ -33,11 +33,11 @@ def load_reconstruction_df(graph):
     else:
         hit_id = torch.arange(graph.num_nodes)
     pids = torch.zeros(hit_id.shape[0], dtype=torch.int64)
-    pids[graph.track_edges[0]] = graph.particle_id
-    pids[graph.track_edges[1]] = graph.particle_id
+    pids[graph.track_edges[0]] = graph.track_particle_id
+    pids[graph.track_edges[1]] = graph.track_particle_id
 
     return pd.DataFrame(
-        {"hit_id": hit_id, "track_id": graph.labels, "particle_id": pids}
+        {"hit_id": hit_id, "track_id": graph.edge_track_labels, "particle_id": pids}
     )
 
 
@@ -46,7 +46,11 @@ def load_particles_df(graph, sel_conf: dict):
     # Get the particle dataframe
 
     # By default have only particle pt
-    cols = {"particle_id": graph.particle_id, "pt": graph.pt}
+    cols = {
+        "particle_id": graph.track_particle_id,
+        "pt": graph.track_particle_pt,
+        "eta": graph.track_particle_eta,
+    }
 
     # Add more variable if needed for th fiducial selection
     for var in sel_conf:
@@ -231,7 +235,7 @@ def plot_eff(
         else:
             x_bins = 20
     elif var == "eta":
-        x = particles.eta_particle.values
+        x = particles.eta.values
         if "x_bins" in varconf:
             x_bins = varconf["x_bins"]
         elif "x_lim" in varconf:
@@ -287,10 +291,10 @@ def plot_eff(
 
 
 def rearrange_by_distance(event, edge_index):
-    assert "r" in get_pyg_data_keys(event) and "z" in get_pyg_data_keys(
+    assert "hit_r" in get_pyg_data_keys(event) and "hit_z" in get_pyg_data_keys(
         event
     ), "event must contain r and z"
-    distance = event.r**2 + event.z**2
+    distance = event.hit_r**2 + event.hit_z**2
 
     # flip edges that are pointing inward
     edge_mask = distance[edge_index[0]] > distance[edge_index[1]]

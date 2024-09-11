@@ -32,6 +32,8 @@ class AthenaReader(EventReader):
 
         self.log.info("Using AthenaReader to read events")
 
+        if self.config.get("skip_csv_conversion"):
+            return
         input_dir = self.config["input_dir"]
         self.raw_events = self.get_file_names(
             input_dir, filename_terms=["clusters", "particles", "spacepoints"]

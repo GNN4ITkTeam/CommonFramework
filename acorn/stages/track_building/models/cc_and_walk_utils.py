@@ -26,7 +26,7 @@ def remove_cycles(graph):
     Remove cycles from the graph, simply by pointing all edges outwards
     """
 
-    R = graph.r**2 + graph.z**2
+    R = graph.hit_r**2 + graph.hit_z**2
     edge_flip_mask = R[graph.edge_index[0]] > R[graph.edge_index[1]]
     graph.edge_index[:, edge_flip_mask] = graph.edge_index[:, edge_flip_mask].flip(0)
 
@@ -313,7 +313,7 @@ def add_track_labels(graph, all_trks):
     hit_id_df.fillna(-1, inplace=True)
     track_id_tensor = torch.from_numpy(hit_id_df.track_id.values).long()
 
-    graph.labels = track_id_tensor
+    graph.edge_track_labels = track_id_tensor
     graph.reco_method = reco_method
 
 

@@ -16,6 +16,7 @@ import torch
 from torch_scatter import scatter
 from torch_geometric.data import Data
 from acorn.utils.version_utils import get_pyg_data_keys
+from enum import Enum
 
 
 def get_condition_lambda(condition_key, condition_val):
@@ -50,10 +51,28 @@ def get_condition_lambda(condition_key, condition_val):
         raise ValueError(f"Condition {condition_val} not recognised")
 
 
+class VariableType(Enum):
+    NODE_LIKE = "node-like"
+    EDGE_LIKE = "edge-like"
+    TRACK_LIKE = "track-like"
+    OTHER = "other"
+
+
+def get_variable_type(variable_name: str):
+    if variable_name.startswith("hit_"):
+        return VariableType.NODE_LIKE
+    elif variable_name.startswith("edge_"):
+        return VariableType.EDGE_LIKE
+    elif variable_name.startswith("track_"):
+        return VariableType.TRACK_LIKE
+    else:
+        return VariableType.OTHER
+
+
 def map_tensor_handler(
     input_tensor: torch.Tensor,
-    output_type: str,
-    input_type: str = None,
+    output_type: VariableType,
+    input_type: VariableType,
     truth_map: torch.Tensor = None,
     edge_index: torch.Tensor = None,
     track_edges: torch.Tensor = None,
@@ -112,10 +131,6 @@ node_to_edge /               \ node_to_track
         num_track_edges = track_edges.shape[1]
     if num_edges is None and edge_index is not None:
         num_edges = edge_index.shape[1]
-    if input_type is None:
-        input_type, input_tensor = infer_input_type(
-            input_tensor, num_nodes, num_edges, num_track_edges
-        )
     if input_type == output_type:
         return input_tensor
 
@@ -130,53 +145,17 @@ node_to_edge /               \ node_to_track
     }
 
     mapping_functions = {
-        ("node-like", "edge-like"): map_nodes_to_edges,
-        ("edge-like", "node-like"): map_edges_to_nodes,
-        ("node-like", "track-like"): map_nodes_to_tracks,
-        ("track-like", "node-like"): map_tracks_to_nodes,
-        ("edge-like", "track-like"): map_edges_to_tracks,
-        ("track-like", "edge-like"): map_tracks_to_edges,
+        (VariableType.NODE_LIKE, VariableType.EDGE_LIKE): map_nodes_to_edges,
+        (VariableType.EDGE_LIKE, VariableType.NODE_LIKE): map_edges_to_nodes,
+        (VariableType.NODE_LIKE, VariableType.TRACK_LIKE): map_nodes_to_tracks,
+        (VariableType.TRACK_LIKE, VariableType.NODE_LIKE): map_tracks_to_nodes,
+        (VariableType.EDGE_LIKE, VariableType.TRACK_LIKE): map_edges_to_tracks,
+        (VariableType.TRACK_LIKE, VariableType.EDGE_LIKE): map_tracks_to_edges,
     }
     if (input_type, output_type) not in mapping_functions:
         raise ValueError(f"Mapping from {input_type} to {output_type} not supported")
 
     return mapping_functions[(input_type, output_type)](input_tensor, **input_args)
-
-
-# Returns string and tensor
-def infer_input_type(
-    input_tensor: torch.Tensor,
-    num_nodes: int = None,
-    num_edges: int = None,
-    num_track_edges: int = None,
-) -> (str, torch.Tensor):
-    """
-    Infers the type of the input tensor based on its shape and the provided number of nodes, edges, and track edges.
-
-    Args:
-        input_tensor (torch.Tensor): The tensor whose type needs to be inferred.
-        num_nodes (int, optional): Number of nodes in the graph.
-        num_edges (int, optional): Number of edges in the graph.
-        num_track_edges (int, optional): Number of track edges in the graph.
-
-    Returns:
-        str: The inferred type of the input tensor. One of ["node-like", "edge-like", "track-like"].
-    """
-
-    NODE_LIKE = "node-like"
-    EDGE_LIKE = "edge-like"
-    TRACK_LIKE = "track-like"
-
-    if num_nodes is not None and input_tensor.shape[0] == num_nodes:
-        return NODE_LIKE, input_tensor
-    elif num_edges is not None and num_edges in input_tensor.shape:
-        return EDGE_LIKE, input_tensor
-    elif num_track_edges is not None and num_track_edges in input_tensor.shape:
-        return TRACK_LIKE, input_tensor
-    elif num_track_edges is not None and num_track_edges // 2 in input_tensor.shape:
-        return TRACK_LIKE, torch.cat([input_tensor, input_tensor], dim=0)
-    else:
-        raise ValueError("Unable to infer the type of the input tensor.")
 
 
 def map_nodes_to_edges(
@@ -285,6 +264,8 @@ def map_tracks_to_edges(
     edgelike_output = torch.zeros(
         num_edges, dtype=tracklike_input.dtype, device=tracklike_input.device
     )
+    if num_edges == 0:
+        return edgelike_output
     edgelike_output[truth_map[truth_map >= 0]] = tracklike_input[truth_map >= 0]
     edgelike_output[truth_map[truth_map == -1]] = float("nan")
     return edgelike_output
@@ -307,16 +288,16 @@ def remap_from_mask(event, edge_mask):
     """
 
     truth_map_to_edges = torch.ones(edge_mask.shape[0], dtype=torch.long) * -1
-    truth_map_to_edges[event.truth_map[event.truth_map >= 0]] = torch.arange(
-        event.truth_map.shape[0]
-    )[event.truth_map >= 0]
+    truth_map_to_edges[
+        event.track_to_edge_map[event.track_to_edge_map >= 0]
+    ] = torch.arange(event.track_to_edge_map.shape[0])[event.track_to_edge_map >= 0]
     truth_map_to_edges = truth_map_to_edges[edge_mask]
 
-    new_map = torch.ones(event.truth_map.shape[0], dtype=torch.long) * -1
+    new_map = torch.ones(event.track_to_edge_map.shape[0], dtype=torch.long) * -1
     new_map[truth_map_to_edges[truth_map_to_edges >= 0]] = torch.arange(
         truth_map_to_edges.shape[0]
     )[truth_map_to_edges >= 0]
-    event.truth_map = new_map.to(event.truth_map.device)
+    event.track_to_edge_map = new_map.to(event.track_to_edge_map.device)
 
 
 def map_to_edges(event):
@@ -380,7 +361,7 @@ def get_directed_prediction(event: Data, edge_pred, edge_index):
     for key in get_pyg_data_keys(event):
         if not isinstance(event[key], torch.Tensor) or not event[key].shape:
             continue
-        if event[key].shape[0] == num_edges:
+        if get_variable_type(key) == VariableType.EDGE_LIKE and key != "edge_index":
             event[key] = event[key][inner_sorted_indices][outter_sorted_indices].view(
                 2, -1
             )[0]

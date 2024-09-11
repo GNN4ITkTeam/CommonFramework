@@ -32,6 +32,7 @@ from pytorch_lightning import LightningModule
 import torch
 
 from .core_utils import str_to_class, find_latest_checkpoint
+from acorn.utils.loading_utils import add_variable_name_prefix_in_config
 
 
 @click.command()
@@ -64,6 +65,8 @@ def evaluate(config_file, verbose=None, checkpoint=None, dataset="valset"):
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
+    if not config.get("variable_with_prefix"):
+        config = add_variable_name_prefix_in_config(config)
 
     # load stage
     stage = config["stage"]

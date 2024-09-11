@@ -14,8 +14,23 @@ common_config = {
     "detector_path": "test_acts_reader/detectors.csv",
     "data_split": [1, 0, 0],
     "feature_sets": {
-        "hit_features": ["hit_id", "x", "y", "z", "r", "phi", "eta", "region"],
-        "track_features": ["particle_id", "pt", "radius", "nhits", "particle_eta"],
+        "hit_features": [
+            "hit_id",
+            "hit_x",
+            "hit_y",
+            "hit_z",
+            "hit_r",
+            "hit_phi",
+            "hit_eta",
+            "hit_region",
+        ],
+        "track_features": [
+            "track_particle_id",
+            "track_particle_pt",
+            "track_particle_radius",
+            "track_particle_nhits",
+            "track_particle_eta",
+        ],
     },
     "max_workers": 1,
     "region_labels": {
