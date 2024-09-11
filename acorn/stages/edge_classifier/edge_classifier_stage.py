@@ -28,6 +28,10 @@ from class_resolver import ClassResolver
 from acorn.stages.track_building.utils import rearrange_by_distance
 from acorn.utils import eval_utils
 from acorn.utils.version_utils import get_pyg_data_keys
+from acorn.utils.loading_utils import (
+    add_variable_name_prefix,
+    remove_variable_name_prefix,
+)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -40,6 +44,8 @@ from acorn.utils import (
     handle_edge_features,
     get_optimizers,
     get_condition_lambda,
+    get_variable_type,
+    VariableType,
 )
 from acorn.stages.graph_construction.models.utils import graph_intersection
 
@@ -60,9 +66,6 @@ class EdgeClassifierStage(LightningModule):
         self.dataset_resolver = ClassResolver(
             [
                 GraphDataset,
-                HeteroGraphDataset,
-                DirectedHeteroGraphDataset,
-                HeteroGraphDatasetWithNode,
             ],
             base=Dataset,
             default=GraphDataset,
@@ -134,18 +137,20 @@ class EdgeClassifierStage(LightningModule):
         """
         Test the data to ensure it is of the right format and loaded correctly.
         """
-        required_features = ["x", "edge_index", "track_edges", "truth_map", "y"]
+        required_features = [
+            "hit_x",
+            "edge_index",
+            "track_edges",
+            "track_to_edge_map",
+            "edge_y",
+        ]
         optional_features = [
-            "particle_id",
-            "nhits",
-            "primary",
-            "pdgId",
-            "ghost",
-            "shared",
-            "module_id",
-            "region",
-            "hit_id",
-            "pt",
+            "track_particle_id",
+            "track_particle_nhits",
+            "track_particle_primary",
+            "track_particle_pdgId",
+            "hit_region",
+            "track_particle_pt",
         ]
         run_data_tests(
             [
@@ -247,11 +252,11 @@ class EdgeClassifierStage(LightningModule):
         with the `weighting` config option.
         """
 
-        assert hasattr(batch, "y"), (
+        assert hasattr(batch, "edge_y"), (
             "The batch does not have a truth label. Please ensure the batch has a `y`"
             " attribute."
         )
-        assert hasattr(batch, "weights"), (
+        assert hasattr(batch, "edge_weights"), (
             "The batch does not have a weighting label. Please ensure the batch"
             " weighting is handled in preprocessing."
         )
@@ -262,20 +267,22 @@ class EdgeClassifierStage(LightningModule):
             )
             balance = "proportional"
 
-        negative_mask = ((batch.y == 0) & (batch.weights != 0)) | (batch.weights < 0)
+        negative_mask = ((batch.edge_y == 0) & (batch.edge_weights != 0)) | (
+            batch.edge_weights < 0
+        )
 
         negative_loss = F.binary_cross_entropy_with_logits(
             output[negative_mask],
             torch.zeros_like(output[negative_mask]),
-            weight=batch.weights[negative_mask].abs(),
+            weight=batch.edge_weights[negative_mask].abs(),
             reduction="sum",
         )
 
-        positive_mask = (batch.y == 1) & (batch.weights > 0)
+        positive_mask = (batch.edge_y == 1) & (batch.edge_weights > 0)
         positive_loss = F.binary_cross_entropy_with_logits(
             output[positive_mask],
             torch.ones_like(output[positive_mask]),
-            weight=batch.weights[positive_mask].abs(),
+            weight=batch.edge_weights[positive_mask].abs(),
             reduction="sum",
         )
 
@@ -300,10 +307,10 @@ class EdgeClassifierStage(LightningModule):
         loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
         scores = torch.sigmoid(output)
-        batch.scores = scores.detach()
+        batch.edge_scores = scores.detach()
 
-        all_truth = batch.y.bool()
-        target_truth = (batch.weights > 0) & all_truth
+        all_truth = batch.edge_y.bool()
+        target_truth = (batch.edge_weights > 0) & all_truth
 
         return {
             "loss": loss,
@@ -451,7 +458,7 @@ class EdgeClassifierStage(LightningModule):
         ) and self.hparams.get("skip_existing"):
             return
         if batch.edge_index.shape[1] == 0:
-            batch.scores = torch.tensor([], device=self.device)
+            batch.edge_scores = torch.tensor([], device=self.device)
         else:
             eval_dict = self.shared_evaluation(batch, batch_idx)
             batch = eval_dict["batch"]
@@ -461,7 +468,7 @@ class EdgeClassifierStage(LightningModule):
         event = dataset.unscale_features(event)
 
         event.config.append(self.hparams)
-        event.truth_map = graph_intersection(
+        event.track_to_edge_map = graph_intersection(
             event.edge_index,
             event.track_edges,
             return_y_pred=False,
@@ -474,6 +481,8 @@ class EdgeClassifierStage(LightningModule):
         event_id = (
             event.event_id[0] if isinstance(event.event_id, list) else event.event_id
         )
+        if not self.hparams.get("variable_with_prefix"):
+            event = remove_variable_name_prefix(event)
         torch.save(
             event.cpu(),
             os.path.join(self.hparams["stage_dir"], datatype, f"event{event_id}.pyg"),
@@ -509,41 +518,41 @@ class EdgeClassifierStage(LightningModule):
         """
         Apply a score cut to the event. This is used for the evaluation stage.
         """
-        passing_edges_mask = event.scores >= score_cut
+        passing_edges_mask = event.edge_scores >= score_cut
 
         # flip edge direction if points inward
         event.edge_index = rearrange_by_distance(event, event.edge_index)
         event.track_edges = rearrange_by_distance(event, event.track_edges)
 
-        event.graph_truth_map = graph_intersection(
+        event.track_to_edge_map = graph_intersection(
             event.edge_index,
             event.track_edges,
             return_y_pred=False,
             return_y_truth=False,
             return_truth_to_pred=True,
         )
-        event.truth_map = graph_intersection(
+        event.track_to_passing_edge_map = graph_intersection(
             event.edge_index[:, passing_edges_mask],
             event.track_edges,
             return_y_pred=False,
             return_truth_to_pred=True,
         )
-        event.pred = passing_edges_mask
+        event.edge_pred = passing_edges_mask
 
     def apply_target_conditions(self, event, target_tracks):
         """
         Apply the target conditions to the event. This is used for the evaluation stage.
         Target_tracks is a list of dictionaries, each of which contains the conditions to be applied to the event.
         """
-        passing_tracks = torch.ones(event.truth_map.shape[0], dtype=torch.bool).to(
-            self.device
-        )
+        passing_tracks = torch.ones(
+            event.track_to_passing_edge_map.shape[0], dtype=torch.bool
+        ).to(self.device)
 
         for condition_key, condition_val in target_tracks.items():
             condition_lambda = get_condition_lambda(condition_key, condition_val)
             passing_tracks = passing_tracks.to(self.device) * condition_lambda(event)
 
-        event.target_mask = passing_tracks
+        event.track_target_mask = passing_tracks
 
 
 class GraphDataset(Dataset):
@@ -588,6 +597,10 @@ class GraphDataset(Dataset):
         event = torch.load(event_path, map_location=torch.device("cpu"))
         # convert DataBatch to Data instance because some transformations don't work on DataBatch
         event = Data(**event.to_dict())
+        if (not self.hparams.get("variable_with_prefix")) or self.hparams.get(
+            "add_variable_name_prefix"
+        ):
+            event = add_variable_name_prefix(event)
         if not self.preprocess:
             return event
         event = self.preprocess_event(event)
@@ -636,18 +649,18 @@ class GraphDataset(Dataset):
         Construct the weighting for the event
         """
 
-        assert event.y.shape[0] == event.edge_index.shape[1], (
+        assert event.edge_y.shape[0] == event.edge_index.shape[1], (
             f"Input graph has {event.edge_index.shape[1]} edges, but"
-            f" {event.y.shape[0]} truth labels"
+            f" {event.edge_y.shape[0]} truth labels"
         )
 
         if self.hparams is not None and "weighting" in self.hparams.keys():
             assert isinstance(self.hparams["weighting"], list) & isinstance(
                 self.hparams["weighting"][0], dict
             ), "Weighting must be a list of dictionaries"
-            event.weights = handle_weighting(event, self.hparams["weighting"])
+            event.edge_weights = handle_weighting(event, self.hparams["weighting"])
         else:
-            event.weights = torch.ones_like(event.y, dtype=torch.float32)
+            event.edge_weights = torch.ones_like(event.edge_y, dtype=torch.float32)
 
         return event
 
@@ -655,7 +668,7 @@ class GraphDataset(Dataset):
         if (
             "input_cut" in self.hparams.keys()
             and self.hparams["input_cut"]
-            and "scores" in event.keys()
+            and "edge_scores" in get_pyg_data_keys(event)
         ):
             # Apply a score cut to the event
             self.apply_score_cut(event, self.hparams["input_cut"])
@@ -676,26 +689,30 @@ class GraphDataset(Dataset):
             [event.edge_index, event.edge_index.flip(0)], dim=1
         )
         # event.edge_index, unique_edge_indices = torch.unique(event.edge_index, dim=1, return_inverse=True)
-        num_track_edges = event.track_edges.shape[1]
         event.track_edges = torch.cat(
             [event.track_edges, event.track_edges.flip(0)], dim=1
         )
 
-        # Concat all edge-like features together
+        # Concat all edge-like and track-like features together
         for key in get_pyg_data_keys(event):
-            if key == "truth_map":
+            if key in {"track_to_edge_map", "edge_index", "track_edges"}:
                 continue
             if not isinstance(event[key], torch.Tensor) or not event[key].shape:
                 continue
-            if event[key].shape[0] == num_edges:
-                event[key] = torch.cat([event[key], event[key]], dim=0)
-            elif event[key].shape[0] == num_track_edges:
+            if get_variable_type(key) in {
+                VariableType.EDGE_LIKE,
+                VariableType.TRACK_LIKE,
+            }:
                 event[key] = torch.cat([event[key], event[key]], dim=0)
 
         # handle truth_map separately
-        truth_map = event.truth_map.clone()
-        truth_map[truth_map >= 0] = truth_map[truth_map >= 0] + num_edges
-        event.truth_map = torch.cat([event.truth_map, truth_map], dim=0)
+        track_to_edge_map = event.track_to_edge_map.clone()
+        track_to_edge_map[track_to_edge_map >= 0] = (
+            track_to_edge_map[track_to_edge_map >= 0] + num_edges
+        )
+        event.track_to_edge_map = torch.cat(
+            [event.track_to_edge_map, track_to_edge_map], dim=0
+        )
 
         return event
 
@@ -752,16 +769,11 @@ class GraphDataset(Dataset):
         """
         Apply a score cut to the event. This is used for the evaluation stage.
         """
-        passing_edges_mask = event.scores >= score_cut
-        num_edges = event.edge_index.shape[1]
+        passing_edges_mask = event.edge_scores >= score_cut
         for key in get_pyg_data_keys(event):
             if (
                 isinstance(event[key], torch.Tensor)
-                and event[key].shape
-                and (
-                    event[key].shape[0] == num_edges
-                    or event[key].shape[-1] == num_edges
-                )
+                and get_variable_type(key) == VariableType.EDGE_LIKE
             ):
                 event[key] = event[key][..., passing_edges_mask]
 

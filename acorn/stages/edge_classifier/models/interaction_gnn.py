@@ -556,7 +556,9 @@ class InteractionGNN2(EdgeClassifierStage):
         ).float()
 
         # Same features on the 3 channels in the STRIP ENDCAP TODO: Process it in previous stage
-        mask = torch.logical_or(batch.region == 2, batch.region == 6).reshape(-1)
+        mask = torch.logical_or(batch.hit_region == 2, batch.hit_region == 6).reshape(
+            -1
+        )
         x[mask] = torch.cat([x[mask, 0:4], x[mask, 0:4], x[mask, 0:4]], dim=1)
         # print(x[:, 8:12])
 

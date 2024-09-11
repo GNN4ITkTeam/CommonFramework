@@ -60,7 +60,14 @@ def build_truth_bgraph(
     truth_info["pid"] = pid
 
     # build attribute arrays
-    for attr_name in ["pt", "eta_particle", "radius", "nhits", "pdgId", "primary"]:
+    for attr_name in [
+        "track_particle_pt",
+        "track_particle_eta",
+        "track_particle_radius",
+        "track_particle_nhits",
+        "track_particle_pdgId",
+        "track_particle_primary",
+    ]:
         truth_info[attr_name] = torch.scatter(
             torch.zeros(num_particles, dtype=event[attr_name].dtype),
             0,
@@ -167,7 +174,9 @@ def match_bgraphs(
     overlaps = (truth_bgraph.T @ pred_bgraph).tocoo()
 
     num_overlaps = overlaps.data
-    eff = torch.as_tensor(num_overlaps) / truth_info["nhits"][overlaps.row]
+    eff = (
+        torch.as_tensor(num_overlaps) / truth_info["track_particle_nhits"][overlaps.row]
+    )
     pur = torch.as_tensor(num_overlaps) / pred_info["track_size"][overlaps.col]
 
     matching = torch.stack(
@@ -216,12 +225,12 @@ def evaluate_tracking(
             "efficiency": eff,
             "purity": pur,
             "pid": truth_info["original_pid"][matching[0]],
-            "pt": truth_info["pt"][matching[0]],
-            "eta_particle": truth_info["eta_particle"][matching[0]],
-            "radius": truth_info["radius"][matching[0]],
-            "nhits": truth_info["nhits"][matching[0]],
-            "pdgId": truth_info["pdgId"][matching[0]],
-            "primary": truth_info["primary"][matching[0]],
+            "pt": truth_info["track_particle_pt"][matching[0]],
+            "eta_particle": truth_info["track_particle_eta"][matching[0]],
+            "radius": truth_info["track_particle_radius"][matching[0]],
+            "nhits": truth_info["track_particle_nhits"][matching[0]],
+            "pdgId": truth_info["track_particle_pdgId"][matching[0]],
+            "primary": truth_info["track_particle_primary"][matching[0]],
             "is_signal": truth_info["is_signal"][matching[0]],
             "track_id": pred_info["original_track_id"][matching[1]],
             "track_size": pred_info["track_size"][matching[1]],
@@ -231,12 +240,12 @@ def evaluate_tracking(
     truth_df = pd.DataFrame(
         {
             "pid": truth_info["original_pid"],
-            "pt": truth_info["pt"],
-            "eta_particle": truth_info["eta_particle"],
-            "radius": truth_info["radius"],
-            "nhits": truth_info["nhits"],
-            "pdgId": truth_info["pdgId"],
-            "primary": truth_info["primary"],
+            "pt": truth_info["track_particle_pt"],
+            "eta_particle": truth_info["track_particle_eta"],
+            "radius": truth_info["track_particle_radius"],
+            "nhits": truth_info["track_particle_nhits"],
+            "pdgId": truth_info["track_particle_pdgId"],
+            "primary": truth_info["track_particle_primary"],
             "is_signal": truth_info["is_signal"],
         }
     )

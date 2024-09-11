@@ -36,6 +36,7 @@ from .core_utils import (
     get_trainer,
     get_stage_module,
 )
+from acorn.utils.loading_utils import add_variable_name_prefix_in_config
 
 
 @click.command()
@@ -84,6 +85,8 @@ def train(
     # load config
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
+    if not config.get("variable_with_prefix"):
+        config = add_variable_name_prefix_in_config(config)
 
     # allows to use wandb.ai sweep functionality
     # only does wandb when explicitly set log_wandb: true in config
@@ -91,6 +94,7 @@ def train(
     if wandb is not None and config.get("log_wandb", True) and sweep:
         wandb.init(
             project=config["project"],
+            entity=config.get("entity", None),
             # track hyperparameters and run metadata
             config=config,
         )

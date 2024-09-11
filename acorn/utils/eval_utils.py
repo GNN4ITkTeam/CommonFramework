@@ -36,13 +36,19 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
         if "target_tracks" in config:
             lightning_module.apply_target_conditions(event, config["target_tracks"])
         else:
-            event.target_mask = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
+            event.track_target_mask = torch.ones(
+                event.track_to_edge_map.shape[0], dtype=torch.bool
+            )
 
         event = event.cpu()
-        all_y_truth.append((event.truth_map[event.target_mask] >= 0).cpu())
-        all_pt.append((event.pt[event.target_mask].cpu()))
+        all_y_truth.append(
+            (event.track_to_edge_map[event.track_target_mask] >= 0).cpu()
+        )
+        all_pt.append((event.track_particle_pt[event.track_target_mask].cpu()))
 
-        all_eta.append((event.eta[event.track_edges[:, event.target_mask][0]].cpu()))
+        all_eta.append(
+            (event.hit_eta[event.track_edges[:, event.track_target_mask][0]].cpu())
+        )
         graph_size.append(event.edge_index.size(1))
 
     #  TODO: Handle different pT units!
@@ -138,32 +144,36 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
     for event in tqdm(dataset):
         event = event.to(lightning_module.device)
 
-        # Need to apply score cut and remap the truth_map
+        # Need to apply score cut and remap the track_to_edge_map
         if "score_cut" in config:
             lightning_module.apply_score_cut(event, config["score_cut"])
         if "target_tracks" in config:
             lightning_module.apply_target_conditions(event, config["target_tracks"])
         else:
-            event.target_mask = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
+            event.track_target_mask = torch.ones(
+                event.track_to_passing_edge_map.shape[0], dtype=torch.bool
+            )
 
         # get all target true positives
-        true_positive.append((event.truth_map[event.target_mask] > -1).cpu())
+        true_positive.append(
+            (event.track_to_passing_edge_map[event.track_target_mask] > -1).cpu()
+        )
 
         # get all target pt. Length = number of target true. This includes ALL truth edges in the event,
         # even those not included in the input graph. We MUST filter them out to isolate the inefficiency from model.
         # Otherwise, we are plotting cumilative edge efficiency.
-        target_pt.append(event.pt[event.target_mask].cpu())
+        target_pt.append(event.track_particle_pt[event.track_target_mask].cpu())
 
         # similarly for target eta
-        target_eta.append(event.eta[event.track_edges[0, event.target_mask]])
+        target_eta.append(event.hit_eta[event.track_edges[0, event.track_target_mask]])
 
         # get all edges passing edge cut
-        if "scores" in get_pyg_data_keys(event):
-            pred.append((event.scores >= config["score_cut"]).cpu())
+        if "edge_scores" in get_pyg_data_keys(event):
+            pred.append((event.edge_scores >= config["score_cut"]).cpu())
         else:
-            pred.append(event.y.cpu())
+            pred.append(event.edge_y.cpu())
         # get a boolean array answer the question is this target edge in input graph
-        graph_truth.append((event.graph_truth_map[event.target_mask] > -1))
+        graph_truth.append((event.track_to_edge_map[event.track_target_mask] > -1))
 
     # concat all target pt and eta
     target_pt = torch.cat(target_pt).cpu().numpy()
@@ -294,17 +304,17 @@ def graph_roc_curve(lightning_module, plot_config, config):
 
     for event in tqdm(dataset):
         event = event.to(lightning_module.device)
-        # Need to apply score cut and remap the truth_map
-        if "weights" in get_pyg_data_keys(event):
-            target_y = event.weights.bool() & event.y.bool()
-            mask = event.weights > 0
+        # Need to apply score cut and remap the track_to_edge_map
+        if "edge_weights" in get_pyg_data_keys(event):
+            target_y = event.edge_weights.bool() & event.edge_y.bool()
+            mask = event.edge_weights > 0
         else:
-            target_y = event.y.bool()
+            target_y = event.edge_y.bool()
             mask = torch.ones_like(target_y).bool().to(target_y.device)
 
         all_y_truth.append(target_y)
-        all_scores.append(event.scores)
-        masked_scores.append(event.scores[mask])
+        all_scores.append(event.edge_scores)
+        masked_scores.append(event.edge_scores[mask])
         masked_y_truth.append(target_y[mask])
         masks.append(mask)
 
@@ -463,7 +473,7 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
     else:
         print("No track selection criteria found, accepting all tracks.")
 
-    target = {"z": torch.empty(0), "r": torch.empty(0)}
+    target = {"hit_z": torch.empty(0), "hit_r": torch.empty(0)}
     all_target = target.copy()
     true_positive = target.copy()
     input_graph_size, graph_size, n_graphs = (0, 0, 0)
@@ -474,17 +484,19 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
     for event in tqdm(dataset):
         event = event.to(lightning_module.device)
 
-        # Need to apply score cut and remap the truth_map
+        # Need to apply score cut and remap the track_to_edge_map
         if "score_cut" in config:
             lightning_module.apply_score_cut(event, config["score_cut"])
         if "target_tracks" in config:
             lightning_module.apply_target_conditions(event, config["target_tracks"])
         else:
-            event.target_mask = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
+            event.track_target_mask = torch.ones(
+                event.track_to_passing_edge_map.shape[0], dtype=torch.bool
+            )
 
         # scale r and z
-        event.r /= 1000
-        event.z /= 1000
+        event.hit_r /= 1000
+        event.hit_z /= 1000
 
         # flip edges that point inward if not undirected, since if undirected is True, lightning_module.apply_score_cut takes care of this
         event.edge_index = rearrange_by_distance(event, event.edge_index)
@@ -493,11 +505,11 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
 
         # indices of all target edges present in the input graph
         target_edges = event.track_edges[
-            :, event.target_mask & (event.graph_truth_map > -1)
+            :, event.track_target_mask & (event.track_to_edge_map > -1)
         ]
 
         # indices of all target edges (may or may not be present in the input graph)
-        all_target_edges = event.track_edges[:, event.target_mask]
+        all_target_edges = event.track_edges[:, event.track_target_mask]
 
         # get target z r
         for key, item in target.items():
@@ -507,19 +519,23 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
 
         # indices of all true positive target edges
         target_true_positive_edges = event.track_edges[
-            :, event.target_mask & (event.truth_map > -1)
+            :, event.track_target_mask & (event.track_to_passing_edge_map > -1)
         ]
-        for key in ["r", "z"]:
+        for key in ["hit_r", "hit_z"]:
             true_positive[key] = torch.cat(
                 [true_positive[key], event[key][target_true_positive_edges[0]]], dim=0
             )
 
         input_graph_size += event.edge_index.size(1)
-        graph_size += event.pred.sum().numpy()
+        graph_size += event.edge_pred.sum().numpy()
         n_graphs += 1
 
     fig, ax = plot_efficiency_rz(
-        target["z"], target["r"], true_positive["z"], true_positive["r"], plot_config
+        target["hit_z"],
+        target["hit_r"],
+        true_positive["hit_z"],
+        true_positive["hit_r"],
+        plot_config,
     )
     # Save the plot
     atlasify(
@@ -528,15 +544,15 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
         r" \bar{t}$ and soft interactions) " + "\n"
         r"$p_T > 1$ GeV, $ | \eta | < 4$ " + "\n"
         "Graph Construction Efficiency:"
-        f" {(target['z'].shape[0] / all_target['z'].shape[0]):.4f}, Input graph size:"
+        f" {(target['hit_z'].shape[0] / all_target['hit_z'].shape[0]):.4f}, Input graph size:"
         f" {input_graph_size / n_graphs: .2e} \n"
         r"Edge score cut: "
         + str(config["score_cut"])
         + f", Mean graph size: {graph_size / n_graphs :.2e} \n"
         "Signal Efficiency:"
-        f" {true_positive['z'].shape[0] / target['z'].shape[0] :.4f} \n"
+        f" {true_positive['hit_z'].shape[0] / target['hit_z'].shape[0] :.4f} \n"
         "Cumulative signal efficiency:"
-        f" {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}"
+        f" {true_positive['hit_z'].shape[0] / all_target['hit_z'].shape[0]: .4f}"
         + "\n"
         + f"Evaluated on {dataset.len()} events in {dataset_name}",
     )
@@ -550,10 +566,10 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
     plt.close()
 
     fig, ax = plot_efficiency_rz(
-        all_target["z"],
-        all_target["r"],
-        true_positive["z"],
-        true_positive["r"],
+        all_target["hit_z"],
+        all_target["hit_r"],
+        true_positive["hit_z"],
+        true_positive["hit_r"],
         plot_config,
     )
     # Save the plot
@@ -563,15 +579,15 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
         r" \bar{t}$ and soft interactions) " + "\n"
         r"$p_T > 1$ GeV, $ | \eta | < 4$ " + "\n"
         "Graph Construction Efficiency:"
-        f" {(target['z'].shape[0] / all_target['z'].shape[0]):.4f}, Input graph size:"
+        f" {(target['hit_z'].shape[0] / all_target['hit_z'].shape[0]):.4f}, Input graph size:"
         f" {input_graph_size / n_graphs: .2e} \n"
         r"Edge score cut: "
         + str(config["score_cut"])
         + f", Mean graph size: {graph_size / n_graphs :.2e} \n"
         "Signal Efficiency:"
-        f" {true_positive['z'].shape[0] / target['z'].shape[0] :.4f} \n"
+        f" {true_positive['hit_z'].shape[0] / target['hit_z'].shape[0] :.4f} \n"
         "Cumulative signal efficiency:"
-        f" {true_positive['z'].shape[0] / all_target['z'].shape[0]: .4f}"
+        f" {true_positive['hit_z'].shape[0] / all_target['hit_z'].shape[0]: .4f}"
         + "\n"
         + f"Evaluated on {dataset.len()} events in {dataset_name}",
     )
@@ -605,7 +621,7 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
         print("No track selection criteria found, accepting all tracks.")
 
     true_positive = {
-        key: torch.empty(0).to(lightning_module.device) for key in ["z", "r"]
+        key: torch.empty(0).to(lightning_module.device) for key in ["hit_z", "hit_r"]
     }
     target_true_positive = true_positive.copy()
 
@@ -617,17 +633,19 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
 
     for event in tqdm(dataset):
         event = event.to(lightning_module.device)
-        # Need to apply score cut and remap the truth_map
+        # Need to apply score cut and remap the track_to_edge_map
         if "score_cut" in config:
             lightning_module.apply_score_cut(event, config["score_cut"])
         if "target_tracks" in config:
             lightning_module.apply_target_conditions(event, config["target_tracks"])
         else:
-            event.target_mask = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
+            event.track_target_mask = torch.ones(
+                event.track_to_edge_map.shape[0], dtype=torch.bool
+            )
 
         # scale r and z
-        event.r /= 1000
-        event.z /= 1000
+        event.hit_r /= 1000
+        event.hit_z /= 1000
 
         # flip edges that point inward if not undirected, since if undirected is True, lightning_module.apply_score_cut takes care of this
         event.edge_index = rearrange_by_distance(event, event.edge_index)
@@ -636,22 +654,24 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
 
         # target true positive edge indices, used as numerator of target purity and purity
         target_true_positive_edges = event.track_edges[
-            :, event.target_mask & (event.truth_map > -1)
+            :, event.track_target_mask & (event.track_to_passing_edge_map > -1)
         ]
 
         # true positive edge indices, used as numerator of total purity
-        true_positive_edges = event.track_edges[:, (event.truth_map > -1)]
+        true_positive_edges = event.track_edges[
+            :, (event.track_to_passing_edge_map > -1)
+        ]
 
         # all positive edges, used as denominator of total and target purity
-        positive_edges = event.edge_index[:, event.pred]
+        positive_edges = event.edge_index[:, event.edge_pred]
 
         # masked positive edge indices, including true positive target edges and all false positive edges
-        fake_positive_edges = event.edge_index[:, event.pred & (event.y == 0)]
+        fake_positive_edges = event.edge_index[:, event.edge_pred & (event.edge_y == 0)]
         masked_positive_edges = torch.cat(
             [target_true_positive_edges, fake_positive_edges], dim=1
         )
 
-        for key in ["r", "z"]:
+        for key in ["hit_r", "hit_z"]:
             target_true_positive[key] = torch.cat(
                 [
                     target_true_positive[key].float(),
@@ -688,10 +708,10 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
         ["total_purity", "target_purity", "masked_purity"],
     ):
         fig, ax = plot_efficiency_rz(
-            denominator["z"].cpu(),
-            denominator["r"].cpu(),
-            numerator["z"].cpu(),
-            numerator["r"].cpu(),
+            denominator["hit_z"].cpu(),
+            denominator["hit_r"].cpu(),
+            numerator["hit_z"].cpu(),
+            numerator["hit_r"].cpu(),
             plot_config,
         )
         # Save the plot
@@ -705,7 +725,7 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
             + "\n"
             + purity_definition_label[suffix]
             + ": "
-            + f"{numerator['z'].size(0) / denominator['z'].size(0) : .5f}"
+            + f"{numerator['hit_z'].size(0) / denominator['hit_z'].size(0) : .5f}"
             + "\n"
             + f"Evaluated on {dataset.len()} events in {dataset_name}",
         )

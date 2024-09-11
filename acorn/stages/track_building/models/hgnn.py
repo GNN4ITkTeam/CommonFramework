@@ -32,6 +32,7 @@ from acorn.stages.track_building.models.ml_modules.hgnn_models import (
     HierarchicalGNNBlock,
 )
 from acorn.stages.track_building.models.ml_modules.gnn_cells import find_neighbors
+from acorn.utils.loading_utils import remove_variable_name_prefix
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -316,12 +317,14 @@ class HierarchicalGNN(MLTrackBuildingStage):
         )
         _, idx = np.unique(bgraph[0], return_index=True)
         filtered_bgraph = bgraph[:, idx]
-        track_id_tensor = -torch.ones(batch.full_event.x.shape[0], dtype=torch.long)
+        track_id_tensor = -torch.ones(batch.full_event.hit_x.shape[0], dtype=torch.long)
         track_id_tensor[filtered_bgraph[0]] = torch.as_tensor(filtered_bgraph[1]).long()
-        batch.full_event.labels = track_id_tensor
+        batch.full_event.edge_track_labels = track_id_tensor
 
         batch.full_event.time_taken = process_time() - start_time + batch.time_taken
 
+        if not self.hparams.get("variable_with_prefix"):
+            batch.full_event = remove_variable_name_prefix(batch.full_event)
         torch.save(batch.full_event, output_dir)
 
         tracks = (

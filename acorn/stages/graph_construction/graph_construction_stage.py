@@ -37,6 +37,8 @@ import pandas as pd
 from tqdm import tqdm
 import warnings
 
+from acorn.utils.loading_utils import add_variable_name_prefix
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 from acorn.utils import (
@@ -107,16 +109,14 @@ class GraphConstructionStage:
         """
         Test the data to ensure it is of the right format and loaded correctly.
         """
-        required_features = ["x", "track_edges"]
+        required_features = ["hit_x", "track_edges"]
         optional_features = [
-            "pid",
-            "n_hits",
-            "primary",
-            "pdg_id",
-            "ghost",
-            "shared",
-            "module_id",
-            "region_id",
+            "track_particle_pid",
+            "track_particle_n_hits",
+            "track_particle_primary",
+            "track_particle_pdg_id",
+            "hit_module_id",
+            "hit_region_id",
             "hit_id",
         ]
 
@@ -187,7 +187,7 @@ class GraphConstructionStage:
         node_r, node_z, node_regions = [], [], []
 
         for event in tqdm(self.testset):
-            edge_truth.append(event.y)
+            edge_truth.append(event.edge_y)
             edge_regions.append(
                 event.x_region[event.edge_index[0]]
             )  # Assign region depending on first node in edge
@@ -220,15 +220,15 @@ class GraphConstructionStage:
         Apply the target conditions to the event. This is used for the evaluation stage.
         Target_tracks is a list of dictionaries, each of which contains the conditions to be applied to the event.
         """
-        passing_tracks = torch.ones(event.truth_map.shape[0], dtype=torch.bool).to(
-            self.device
-        )
+        passing_tracks = torch.ones(
+            event.track_to_edge_map.shape[0], dtype=torch.bool
+        ).to(self.device)
 
         for condition_key, condition_val in target_tracks.items():
             condition_lambda = get_condition_lambda(condition_key, condition_val)
             passing_tracks = passing_tracks * condition_lambda(event).to(self.device)
 
-        event.target_mask = passing_tracks
+        event.track_target_mask = passing_tracks
 
 
 class EventDataset(Dataset):
@@ -295,6 +295,10 @@ class EventDataset(Dataset):
 
     def preprocess_graph(self, graph):
         """Preprocess the PyG graph before returning it."""
+        if (not self.hparams.get("variable_with_prefix")) or self.hparams.get(
+            "add_variable_name_prefix"
+        ):
+            graph = add_variable_name_prefix(graph)
         self.cleaning_and_tests(graph)
         graph = self.apply_hard_cuts(graph)
         self.scale_features(graph)
@@ -381,8 +385,10 @@ class EventDataset(Dataset):
         """
 
         if not hasattr(graph, "num_nodes"):
-            assert "x" in get_pyg_data_keys(graph), "No node features found in graph"
-            graph.num_nodes = graph.x.shape[0]
+            assert "hit_x" in get_pyg_data_keys(
+                graph
+            ), "No node features found in graph"
+            graph.num_nodes = graph.hit_x.shape[0]
 
     def scale_features(self, graph):
         """

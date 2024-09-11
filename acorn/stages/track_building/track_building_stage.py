@@ -40,6 +40,7 @@ from acorn.utils import (
     handle_weighting,
 )
 from . import utils
+from acorn.utils.loading_utils import add_variable_name_prefix
 
 
 class TrackBuildingStage:
@@ -89,20 +90,23 @@ class TrackBuildingStage:
         """
         Test the data to ensure it is of the right format and loaded correctly.
         """
-        required_features = ["x", "edge_index", "track_edges", "truth_map", "y"]
+        required_features = [
+            "hit_x",
+            "edge_index",
+            "track_edges",
+            "track_to_edge_map",
+            "edge_y",
+        ]
         optional_features = [
-            "particle_id",
-            "nhits",
-            "primary",
-            "pdgId",
-            "ghost",
-            "shared",
-            "module_id",
-            "region",
+            "track_particle_id",
+            "track_particle_nhits",
+            "track_particle_primary",
+            "track_particle_pdgId",
+            "hit_region",
             "hit_id",
-            "pt",
-            "radius",
-            "eta_particle",
+            "track_particle_pt",
+            "track_particle_radius",
+            "track_particle_eta",
         ]
 
         # Test only non empty data set
@@ -265,7 +269,7 @@ class TrackBuildingStage:
         Apply the target conditions to the event. This is used for the evaluation stage.
         Target_tracks is a list of dictionaries, each of which contains the conditions to be applied to the event.
         """
-        passing_tracks = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
+        passing_tracks = torch.ones(event.track_to_edge_map.shape[0], dtype=torch.bool)
 
         for key, values in target_tracks.items():
             if isinstance(values, list):
@@ -353,7 +357,10 @@ class GraphDataset(Dataset):
         """
         Process event before it is used in training and validation loops
         """
-
+        if (not self.hparams.get("variable_with_prefix")) or self.hparams.get(
+            "add_variable_name_prefix"
+        ):
+            event = add_variable_name_prefix(event)
         self.apply_hard_cuts(event)
         self.construct_weighting(event)
         self.handle_edge_list(event)
@@ -380,18 +387,18 @@ class GraphDataset(Dataset):
         Construct the weighting for the event
         """
 
-        assert event.y.shape[0] == event.edge_index.shape[1], (
+        assert event.edge_y.shape[0] == event.edge_index.shape[1], (
             f"Input graph has {event.edge_index.shape[1]} edges, but"
-            f" {event.y.shape[0]} truth labels"
+            f" {event.edge_y.shape[0]} truth labels"
         )
 
         if self.hparams is not None and "weighting" in self.hparams.keys():
             assert isinstance(self.hparams["weighting"], list) & isinstance(
                 self.hparams["weighting"][0], dict
             ), "Weighting must be a list of dictionaries"
-            event.weights = handle_weighting(event, self.hparams["weighting"])
+            event.edge_weights = handle_weighting(event, self.hparams["weighting"])
         else:
-            event.weights = torch.ones_like(event.y, dtype=torch.float32)
+            event.edge_weights = torch.ones_like(event.edge_y, dtype=torch.float32)
 
     def handle_edge_list(self, event):
         """

@@ -31,10 +31,13 @@ def test_data_load():
     4. Missing directory
     """
     from acorn.stages.edge_classifier import InteractionGNN
+    from acorn.utils.loading_utils import add_variable_name_prefix_in_config
 
     # load test_gnn_config.yaml
     with open("stages/edge_classifier/test_gnn_config.yaml", "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
+    if not config.get("variable_with_prefix"):
+        config = add_variable_name_prefix_in_config(config)
 
     # Test 1
     config["data_split"] = [1, 1, 1]
