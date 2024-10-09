@@ -1074,13 +1074,14 @@ class NodeEncodingStage(LightningModule):
         knn_ts = np.array(knn_ts)
 
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.plot(ns, ts + dbscan_ts, "o", label="Total")
-        ax.plot(ns, ts - knn_ts, "o", label="Graph attention")
-        ax.plot(ns, knn_ts, "o", label="KNN")
-        ax.plot(ns, dbscan_ts, "o", label="DBScan")
+        ax.scatter(ns, ts + dbscan_ts, s=2, label="Total", color="black")
+        ax.scatter(ns, ts - knn_ts, s=2, label="Graph attention")
+        ax.scatter(ns, knn_ts, s=2, label="KNN")
+        ax.scatter(ns, dbscan_ts, s=2, label="DBScan")
         ax.set_xlabel("Number of spacepoints", ha="right", x=0.95, fontsize=14)
         ax.set_ylabel("Inference time per event [s]", ha="right", y=0.95, fontsize=14)
-        ax.set_ylim([0, 0.45])
+        ax.set_xlim([76000, 156000])
+        ax.set_ylim([0, 2])
         plt.tight_layout()
 
         # Save the plot
@@ -1176,6 +1177,9 @@ class GraphDataset(Dataset):
             phi_width_high = math.pi * 2
             phi_width = math.pi * 2 * graph_fraction
 
+            min_nodes = self.hparams.get("min_nodes", 20)
+            max_nodes = self.hparams.get("max_nodes")
+
             while hard_cut_finished != NodeCountStatus.GOOD and phi_width_high - phi_width_low >= graph_adjustment_tol:
                 hard_cuts = self.hparams.get("hard_cuts", {})  # TODO: Is this needed in the loop?
 
@@ -1196,9 +1200,6 @@ class GraphDataset(Dataset):
                 if self.hparams.get("phi_segmented") and self.stage == "fit":
                     hard_cuts["hit_phi"] = phi_range
 
-                min_nodes = self.hparams.get("min_nodes", 20)
-                max_nodes = self.hparams.get("max_nodes")
-
                 hard_cut_finished = handle_hard_node_cuts(event, hard_cuts, min_nodes, max_nodes)
 
                 if hard_cut_finished != NodeCountStatus.GOOD:
@@ -1207,6 +1208,8 @@ class GraphDataset(Dataset):
                             phi_width_low = phi_width
                         elif hard_cut_finished == NodeCountStatus.OVER:  # Shrink
                             phi_width_high = phi_width
+                            if self.hparams.get("max_possible_width"):
+                                min_nodes = max_nodes * 0.95
                         phi_width = (phi_width_low + phi_width_high) / 2
                     elif self.hparams.get("graph_fraction_adjustment_method") == "resample":
                         phi_mid = math.pi * 2 * random.random()
@@ -1221,9 +1224,9 @@ class GraphDataset(Dataset):
         Ensure that data is clean and has the correct shape
         """
 
-        if not hasattr(event, "num_nodes") or event.num_nodes is None:
+        if "num_nodes" not in get_pyg_data_keys(event) or event.num_nodes is None:
             assert "hit_x" in get_pyg_data_keys(event), "No node features found in event"
-            event.num_nodes = event.hit_x.shape[0]
+            event.num_nodes = event.hit_id.shape[0]
 
     def scale_features(self, event):
         """
