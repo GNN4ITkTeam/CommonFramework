@@ -140,6 +140,54 @@ def plot_efficiency_rz(
     return fig, ax
 
 
+def plot_efficiency_2D(
+    target_x: torch.Tensor,
+    target_y: torch.Tensor,
+    true_positive_x: torch.Tensor,
+    true_positive_y: torch.Tensor,
+    plot_config: dict,
+    x_name: str,
+    y_name: str,
+):
+
+    x_nbins = plot_config.get("nbins", {}).get(x_name, 100)
+    y_nbins = plot_config.get("nbins", {}).get(y_name, 100)
+
+    x_range = plot_config.get("range", {}).get(x_name, [-3, 3])
+    y_range = plot_config.get("range", {}).get(y_name, [0, 1])
+
+    x_bins = np.linspace(x_range[0], x_range[1], x_nbins, endpoint=True)
+    y_bins = np.linspace(y_range[0], y_range[1], y_nbins, endpoint=True)
+
+    fig, ax = plt.subplots(
+        1, 1, figsize=plot_config.get("fig_size", {}).get(x_name, (12, 6))
+    )
+    true_hist, _, _ = np.histogram2d(
+        target_x.numpy(),
+        target_y.numpy(),
+        bins=[x_bins, y_bins],
+    )
+    true_positive_hist, x_edges, y_edges = np.histogram2d(
+        true_positive_x.numpy(), true_positive_y.numpy(), bins=[x_bins, y_bins]
+    )
+
+    eff = true_positive_hist / true_hist
+
+    c = ax.pcolormesh(
+        x_bins,
+        y_bins,
+        eff.T,
+        cmap="jet_r",
+        vmin=plot_config.get("vmin", 0.9),
+        vmax=plot_config.get("vmax", 1),
+    )
+    fig.colorbar(c, ax=ax)
+    ax.set_xlabel(plot_config.get("label", {}).get(x_name, "'x' [unit]"))
+    ax.set_ylabel(plot_config.get("label", {}).get(y_name, "'y' [unit]"))
+
+    return fig, ax
+
+
 def plot_1d_histogram(
     hist, bins, err, xlabel, ylabel, ylim, label, canvas=None, logx=False
 ):
