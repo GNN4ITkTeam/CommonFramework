@@ -2,6 +2,7 @@ from atlasify import atlasify
 import os
 from matplotlib import pyplot as plt
 import numpy as np
+import pandas as pd
 from pytorch_lightning import LightningModule
 from sklearn.metrics import auc, roc_curve
 import torch
@@ -15,8 +16,56 @@ from acorn.utils.plotting_utils import (
     plot_eff_pur_region,
     plot_efficiency_rz,
     plot_score_histogram,
+    plot_efficiency_2D,
 )
 from acorn.utils.version_utils import get_pyg_data_keys
+from acorn.stages.graph_construction.models.utils import graph_intersection
+
+
+def dump_edges(event, config):
+    src, dst = event.track_edges
+    df = pd.DataFrame()
+    df["truth_map_bool"] = event.truth_map[event.target_mask] >= 0
+    df["radius"] = event.radius[event.target_mask]
+    df["pt"] = event.pt[event.target_mask]
+    df["eta_particle"] = event.eta_particle[event.target_mask]
+    df["pdgId"] = event.pdgId[event.target_mask]
+    df["primary"] = event.primary[event.target_mask]
+    df["particle_id"] = event.particle_id[event.target_mask]
+    df["hit_id_src"] = event.hit_id[src[event.target_mask]]
+    df["hit_id_dst"] = event.hit_id[dst[event.target_mask]]
+
+    # delta_eta = hits.eta_1 - hits.eta_2
+    delta_eta = event.eta[src[event.target_mask]] - event.eta[dst[event.target_mask]]
+    df["deta"] = delta_eta
+
+    # delta_phi = hits.phi_2 - hits.phi_1
+    # delta_phi = self.reset_angle(delta_phi)
+    delta_phi = event.phi[dst[event.target_mask]] - event.phi[src[event.target_mask]]
+    # Reset angles
+    delta_phi[delta_phi > np.pi] = delta_phi[delta_phi > np.pi] - 2 * np.pi
+    delta_phi[delta_phi < -np.pi] = delta_phi[delta_phi < -np.pi] + 2 * np.pi
+    df["dphi"] = delta_phi
+
+    # delta_z = hits.z_2 - hits.z_1
+    # delta_r = hits.r_2 - hits.r_1
+    # z0 = hits.z_1 - (hits.r_1 * delta_z / delta_r)
+
+    delta_z = event.z[dst[event.target_mask]] - event.z[src[event.target_mask]]
+    delta_r = event.r[dst[event.target_mask]] - event.r[src[event.target_mask]]
+    z0 = event.z[src[event.target_mask]] - (
+        event.r[src[event.target_mask]] * delta_z / delta_r
+    )
+    z0[delta_r == 0] = 0
+    df["z0"] = z0
+
+    phi_slope = delta_phi / delta_r
+    phi_slope[delta_r == 0] = 0
+    df["phi_slope"] = phi_slope
+
+    df.to_csv(
+        os.path.join(config["stage_dir"], f"dump_track_edges_event{event.event_id}.csv")
+    )
 
 
 def graph_construction_efficiency(lightning_module, plot_config, config):
@@ -50,6 +99,9 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
             (event.hit_eta[event.track_edges[:, event.track_target_mask][0]].cpu())
         )
         graph_size.append(event.edge_index.size(1))
+
+        if plot_config.get("dump_edges", False):
+            dump_edges(event, config)
 
     #  TODO: Handle different pT units!
     all_pt = torch.cat(all_pt).cpu().numpy()
@@ -119,6 +171,105 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
             "Finish plotting. Find the plot at"
             f' {os.path.join(config["stage_dir"], filename)}'
         )
+
+
+def graph_construction_efficiency_2D(lightning_module, plot_config: dict, config: dict):
+    """_summary_
+
+    Args:
+        plot_config (dict): any plotting config
+        config (dict): config
+
+    Plot graph construction efficiency efficiency against (r,z) or (x,y)
+    """
+    vars = plot_config.get("vars")
+
+    print(f"Plotting graph construction efficiency as a function of {vars})")
+    print(f"Using  events from {config['dataset']}")
+
+    if "target_tracks" in config:
+        print(f"Track selection criteria: \n{yaml.dump(config.get('target_tracks'))}")
+    else:
+        print("No track selection criteria found, accepting all tracks.")
+
+    target = dict()
+    for x, y in vars:
+        target[x] = torch.empty(0)
+        target[y] = torch.empty(0)
+    all_target = target.copy()
+    graph_size, n_graphs = (0, 0)
+
+    dataset_name = config["dataset"]
+    dataset = getattr(lightning_module, dataset_name)
+
+    for event in tqdm(dataset):
+        event = event.to(lightning_module.device)
+
+        if "target_tracks" in config:
+            lightning_module.apply_target_conditions(event, config["target_tracks"])
+        else:
+            event.target_mask = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
+
+        # mm -> m scaling
+        for v in ["x", "z", "r"]:
+            if v in target:
+                event[v] /= 1000
+
+        if "y_hit" in target:
+            # y of SP is missing because it is overwritting by the true/fake boolean
+            event.y_hit = event.r * np.sin(event.phi)
+
+        # flip edges that point inward if not undirected, since if undirected is True, lightning_module.apply_score_cut takes care of this
+        event.edge_index = rearrange_by_distance(event, event.edge_index)
+        event.track_edges = rearrange_by_distance(event, event.track_edges)
+        event = event.cpu()
+
+        # indices of all target edges present in the input graph
+        graph_truth_map = graph_intersection(
+            event.edge_index,
+            event.track_edges,
+            return_y_pred=False,
+            return_y_truth=False,
+            return_truth_to_pred=True,
+        )
+        target_edges = event.track_edges[:, event.target_mask & (graph_truth_map > -1)]
+
+        # indices of all target edges (may or may not be present in the input graph)
+        all_target_edges = event.track_edges[:, event.target_mask]
+
+        # get target z r
+        for key, item in target.items():
+            target[key] = torch.cat([item, event[key][target_edges[0]]], dim=0)
+        for key, item in all_target.items():
+            all_target[key] = torch.cat([item, event[key][all_target_edges[0]]], dim=0)
+
+        graph_size += event.edge_index.size(1)
+        n_graphs += 1
+
+    for x, y in vars:
+        fig, ax = plot_efficiency_2D(
+            all_target[x], all_target[y], target[x], target[y], plot_config, x, y
+        )
+
+        # Save the plot
+        atlasify(
+            "Internal",
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+            r" \bar{t}$ and soft interactions " + "\n"
+            r"$p_T > 1$ GeV, $ | \eta | < 4$ " + "\n"
+            "Graph Construction Efficiency:"
+            f" {(target[x].shape[0] / all_target[x].shape[0]):.4f}, "
+            + f"Mean graph size: {graph_size / n_graphs :.2e} \n"
+            + f"Evaluated on {dataset.len()} events in {dataset_name}",
+        )
+        plt.tight_layout()
+        save_dir = os.path.join(
+            config["stage_dir"],
+            f"{plot_config.get('filename', f'graph_construction_edgewise_efficiency_{x}{y}')}.png",
+        )
+        fig.savefig(save_dir)
+        print(f"Finish plotting. Find the plot at {save_dir}")
+        plt.close()
 
 
 def graph_scoring_efficiency(lightning_module, plot_config, config):
