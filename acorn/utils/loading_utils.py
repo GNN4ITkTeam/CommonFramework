@@ -515,3 +515,13 @@ def add_variable_name_prefix_in_config(config):
                     "hard_cuts"
                 ].pop(key)
     return config
+
+
+def infer_num_nodes(graph):
+    """
+    Ensure the num_nodes is set properly
+    """
+
+    if "num_nodes" not in get_pyg_data_keys(graph) or graph.num_nodes is None:
+        assert "hit_id" in get_pyg_data_keys(graph), "No node features found in graph"
+        graph.num_nodes = graph.hit_id.shape[0]

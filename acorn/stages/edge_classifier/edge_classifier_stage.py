@@ -31,6 +31,7 @@ from acorn.utils.version_utils import get_pyg_data_keys
 from acorn.utils.loading_utils import (
     add_variable_name_prefix,
     remove_variable_name_prefix,
+    infer_num_nodes,
 )
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -615,6 +616,7 @@ class GraphDataset(Dataset):
         """
         Process event before it is used in training and validation loops
         """
+        infer_num_nodes(event)
         event = self.apply_hard_cuts(event)
         event = self.construct_weighting(event)
         event = self.handle_edge_list(event)
@@ -890,6 +892,7 @@ class HeteroGraphDataset(GraphDataset, HeteroGraphMixin):
     def preprocess_event(self, event):
         if self.hparams.get("undirected"):
             event = self.to_undirected(event)
+        infer_num_nodes(event)
         event = self.apply_hard_cuts(event)
         event = self.construct_weighting(event)
         event = self.handle_edge_list(event)
