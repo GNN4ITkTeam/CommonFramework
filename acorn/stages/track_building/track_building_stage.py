@@ -40,7 +40,7 @@ from acorn.utils import (
     handle_weighting,
 )
 from . import utils
-from acorn.utils.loading_utils import add_variable_name_prefix
+from acorn.utils.loading_utils import add_variable_name_prefix, infer_num_nodes
 
 
 class TrackBuildingStage:
@@ -361,6 +361,7 @@ class GraphDataset(Dataset):
             "add_variable_name_prefix"
         ):
             event = add_variable_name_prefix(event)
+        infer_num_nodes(event)
         self.apply_hard_cuts(event)
         self.construct_weighting(event)
         self.handle_edge_list(event)

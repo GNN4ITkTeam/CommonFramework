@@ -37,7 +37,7 @@ import pandas as pd
 from tqdm import tqdm
 import warnings
 
-from acorn.utils.loading_utils import add_variable_name_prefix
+from acorn.utils.loading_utils import add_variable_name_prefix, infer_num_nodes
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -299,7 +299,7 @@ class EventDataset(Dataset):
             "add_variable_name_prefix"
         ):
             graph = add_variable_name_prefix(graph)
-        self.cleaning_and_tests(graph)
+        infer_num_nodes(graph)
         graph = self.apply_hard_cuts(graph)
         self.scale_features(graph)
         return graph
@@ -378,17 +378,6 @@ class EventDataset(Dataset):
             )
 
         return event
-
-    def cleaning_and_tests(self, graph):
-        """
-        Ensure that data is clean and has the correct shape
-        """
-
-        if not hasattr(graph, "num_nodes"):
-            assert "hit_x" in get_pyg_data_keys(
-                graph
-            ), "No node features found in graph"
-            graph.num_nodes = graph.hit_x.shape[0]
 
     def scale_features(self, graph):
         """
