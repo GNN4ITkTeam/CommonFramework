@@ -6,5 +6,9 @@ stage_dir: MY_DATA_DIR/Example_1/module_map/ # A directory to be created that wi
 
 # Dataset parameters
 data_split: [80, 10, 10] # Number of [training, validation, testing] examples
-module_map_path: MY_DATA_DIR/Example_1/example_1_module_map.csv
+module_map:
+  path: MY_DATA_DIR/Example_1/example_1_module_map.csv
+  method: minmax # can be [minmax, meanrms, hybrid]
+  tolerance: 0.
+
 batch_size: 2000000
