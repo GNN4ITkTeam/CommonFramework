@@ -7,6 +7,8 @@ project: gnnml_ttbar # Used in logging
 gpus: 4
 nodes: 1
 precision: 16
+accelerator: cuda
+devices: 4
 
 # Dataset parameters
 data_split: [2000, 400, 200] # Number of [training, validation, testing] examples
