@@ -27,7 +27,7 @@ from .utils import make_mlp, build_edges, graph_intersection
 from ..utils import build_signal_edges  # handle_weighting
 from acorn.utils import handle_weighting
 from acorn.utils.version_utils import get_pyg_data_keys
-from acorn.utils.loading_utils import remove_variable_name_prefix
+from acorn.utils.loading_utils import remove_variable_name_prefix_in_pyg
 
 
 class MetricLearning(GraphConstructionStage, LightningModule):
@@ -506,7 +506,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             event.event_id[0] if isinstance(event.event_id, list) else event.event_id
         )
         if not self.hparams.get("variable_with_prefix"):
-            event = remove_variable_name_prefix(event)
+            event = remove_variable_name_prefix_in_pyg(event)
         torch.save(
             event.cpu(),
             os.path.join(self.hparams["stage_dir"], datatype, f"event{event_id}.pyg"),

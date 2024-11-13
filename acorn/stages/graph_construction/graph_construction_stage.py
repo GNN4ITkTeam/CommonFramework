@@ -37,7 +37,7 @@ import pandas as pd
 from tqdm import tqdm
 import warnings
 
-from acorn.utils.loading_utils import add_variable_name_prefix, infer_num_nodes
+from acorn.utils.loading_utils import add_variable_name_prefix_in_pyg, infer_num_nodes
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -296,9 +296,9 @@ class EventDataset(Dataset):
     def preprocess_graph(self, graph):
         """Preprocess the PyG graph before returning it."""
         if (not self.hparams.get("variable_with_prefix")) or self.hparams.get(
-            "add_variable_name_prefix"
+            "add_variable_name_prefix_in_pyg"
         ):
-            graph = add_variable_name_prefix(graph)
+            graph = add_variable_name_prefix_in_pyg(graph)
         infer_num_nodes(graph)
         graph = self.apply_hard_cuts(graph)
         self.scale_features(graph)

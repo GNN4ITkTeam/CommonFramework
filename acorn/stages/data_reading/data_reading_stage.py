@@ -30,7 +30,7 @@ import warnings
 import logging
 
 from acorn.utils.loading_utils import (
-    remove_variable_name_prefix,
+    remove_variable_name_prefix_in_pyg,
     variable_name_prefix_map,
 )
 
@@ -216,7 +216,7 @@ class EventReader:
         Save the PyG constructed graph
         """
         if not self.config.get("variable_with_prefix"):
-            graph = remove_variable_name_prefix(graph)
+            graph = remove_variable_name_prefix_in_pyg(graph)
         torch.save(graph, os.path.join(output_dir, f"event{event_id}-graph.pyg"))
 
     @staticmethod

@@ -8,7 +8,8 @@ stage_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map/
 data_split: [0, 1000, 0] # Number of [training, validation, testing] examples
 
 variable_with_prefix: true # Set to true to use the new naming scheme (with prefix to indicate the variable type)
-add_variable_name_prefix: false # Set to true to convert old pyg files to using the new naming scheme (with prefix to indicate the variable type). Only needed when the input pyg files are without the name prefix.
+add_variable_name_prefix_in_pyg: false # Set to true to convert old pyg files to using the new naming scheme (with prefix to indicate the variable type). Only needed when the input pyg files are without the name prefix.
+add_variable_name_prefix_in_ckpt: false # Set to true to convert old ckpt to using the new naming scheme (with prefix to indicate the variable type). Only needed when the input ckpt files are without the name prefix.
 
 # Evaluation parameters
 target_tracks:
