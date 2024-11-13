@@ -137,6 +137,12 @@ def lightning_train(
         checkpoint_path=checkpoint,
         checkpoint_resume_dir=checkpoint_resume_dir,
     )
+    if (not config.get("variable_with_prefix")) or config.get(
+        "add_variable_name_prefix_in_ckpt"
+    ):
+        stage_module._hparams = add_variable_name_prefix_in_config(
+            stage_module._hparams
+        )
     trainer = get_trainer(config, default_root_dir)
     if load_only_model_parameters:
         trainer.fit(stage_module)

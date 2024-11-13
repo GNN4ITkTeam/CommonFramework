@@ -12,4 +12,5 @@ batch_size: 2000000
 max_workers: 16
 
 variable_with_prefix: true # Set to true to use the new naming scheme (with prefix to indicate the variable type)
-add_variable_name_prefix: false # Set to true to convert old pyg files to using the new naming scheme (with prefix to indicate the variable type). Only needed when the input pyg files are without the name prefix.
+add_variable_name_prefix_in_pyg: false # Set to true to convert old pyg files to using the new naming scheme (with prefix to indicate the variable type). Only needed when the input pyg files are without the name prefix.
+add_variable_name_prefix_in_ckpt: false # Set to true to convert old ckpt to using the new naming scheme (with prefix to indicate the variable type). Only needed when the input ckpt files are without the name prefix.

@@ -440,14 +440,14 @@ variable_name_prefix_map = {
 }
 
 
-def add_variable_name_prefix(graph):
+def add_variable_name_prefix_in_pyg(graph):
     for key in get_pyg_data_keys(graph):
         if key in variable_name_prefix_map:
             graph[variable_name_prefix_map[key]] = graph.pop(key)
     return graph
 
 
-def remove_variable_name_prefix(graph):
+def remove_variable_name_prefix_in_pyg(graph):
     reverse_variable_name_prefix_map = {
         v: k for k, v in variable_name_prefix_map.items()
     }

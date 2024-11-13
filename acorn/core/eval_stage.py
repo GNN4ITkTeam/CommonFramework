@@ -89,7 +89,9 @@ def evaluate(config_file, verbose=None, checkpoint=None, dataset="valset"):
         )["hyper_parameters"]
         config = {**checkpoint_config, **config}
 
-    if not config.get("variable_with_prefix"):
+    if (not config.get("variable_with_prefix")) or config.get(
+        "add_variable_name_prefix_in_ckpt"
+    ):
         config = add_variable_name_prefix_in_config(config)
 
     stage_module.evaluate(config)

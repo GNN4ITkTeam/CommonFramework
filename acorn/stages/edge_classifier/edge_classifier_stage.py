@@ -29,8 +29,8 @@ from acorn.stages.track_building.utils import rearrange_by_distance
 from acorn.utils import eval_utils
 from acorn.utils.version_utils import get_pyg_data_keys
 from acorn.utils.loading_utils import (
-    add_variable_name_prefix,
-    remove_variable_name_prefix,
+    add_variable_name_prefix_in_pyg,
+    remove_variable_name_prefix_in_pyg,
     infer_num_nodes,
 )
 
@@ -483,7 +483,7 @@ class EdgeClassifierStage(LightningModule):
             event.event_id[0] if isinstance(event.event_id, list) else event.event_id
         )
         if not self.hparams.get("variable_with_prefix"):
-            event = remove_variable_name_prefix(event)
+            event = remove_variable_name_prefix_in_pyg(event)
         torch.save(
             event.cpu(),
             os.path.join(self.hparams["stage_dir"], datatype, f"event{event_id}.pyg"),
@@ -599,9 +599,9 @@ class GraphDataset(Dataset):
         # convert DataBatch to Data instance because some transformations don't work on DataBatch
         event = Data(**event.to_dict())
         if (not self.hparams.get("variable_with_prefix")) or self.hparams.get(
-            "add_variable_name_prefix"
+            "add_variable_name_prefix_in_pyg"
         ):
-            event = add_variable_name_prefix(event)
+            event = add_variable_name_prefix_in_pyg(event)
         if not self.preprocess:
             return event
         event = self.preprocess_event(event)

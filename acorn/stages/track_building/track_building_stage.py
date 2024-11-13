@@ -40,7 +40,7 @@ from acorn.utils import (
     handle_weighting,
 )
 from . import utils
-from acorn.utils.loading_utils import add_variable_name_prefix, infer_num_nodes
+from acorn.utils.loading_utils import add_variable_name_prefix_in_pyg, infer_num_nodes
 
 
 class TrackBuildingStage:
@@ -358,9 +358,9 @@ class GraphDataset(Dataset):
         Process event before it is used in training and validation loops
         """
         if (not self.hparams.get("variable_with_prefix")) or self.hparams.get(
-            "add_variable_name_prefix"
+            "add_variable_name_prefix_in_pyg"
         ):
-            event = add_variable_name_prefix(event)
+            event = add_variable_name_prefix_in_pyg(event)
         infer_num_nodes(event)
         self.apply_hard_cuts(event)
         self.construct_weighting(event)

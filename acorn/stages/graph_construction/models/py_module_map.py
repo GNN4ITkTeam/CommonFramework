@@ -29,7 +29,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Local imports
 from ..graph_construction_stage import GraphConstructionStage
 from . import utils
-from acorn.utils.loading_utils import remove_variable_name_prefix
+from acorn.utils.loading_utils import remove_variable_name_prefix_in_pyg
 
 
 class PyModuleMap(GraphConstructionStage):
@@ -170,7 +170,7 @@ class PyModuleMap(GraphConstructionStage):
 
             graph = self.build_graph(graph, truth)
             if not self.hparams.get("variable_with_prefix"):
-                graph = remove_variable_name_prefix(graph)
+                graph = remove_variable_name_prefix_in_pyg(graph)
             torch.save(graph, os.path.join(output_dir, f"event{graph.event_id}.pyg"))
 
     def build_graph(self, graph, truth):

@@ -29,7 +29,7 @@ from acorn.stages.track_building.track_building_stage import (
     GraphDataset,
     TrackBuildingStage,
 )
-from acorn.utils.loading_utils import remove_variable_name_prefix
+from acorn.utils.loading_utils import remove_variable_name_prefix_in_pyg
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -151,7 +151,7 @@ class ConnectedComponents(TrackBuildingStage):
                 )
             )
         if not self.hparams.get("variable_with_prefix"):
-            graph = remove_variable_name_prefix(graph)
+            graph = remove_variable_name_prefix_in_pyg(graph)
         torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
 
     def build_tracks(self, dataset: GraphDataset, data_name: str):
