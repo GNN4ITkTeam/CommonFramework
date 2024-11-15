@@ -317,6 +317,16 @@ def add_track_labels(graph, all_trks):
     graph.reco_method = reco_method
 
 
+def join_track_lists(all_trks):
+    """
+    Given a dictionary of tracks from different methods, join them into a single list of tracks
+    """
+    joined_tracks = []
+    for tracks in all_trks.values():
+        joined_tracks.extend(tracks)
+    return joined_tracks
+
+
 def pairwise(l):
     """
     Return successive overlapping pairs taken from the input list
