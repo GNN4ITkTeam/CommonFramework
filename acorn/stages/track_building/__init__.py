@@ -17,6 +17,7 @@ from .models.cc_and_walk import CCandWalk
 from .models.cc_and_junction_removal import CCandJunctionRemoval
 from .models.cc_and_all_simple_path import WeaklyConnectedComponentsAllSimplePath
 from .models.hgnn import HierarchicalGNN
+from .models.fast_walkthrough import FastWalkthrough
 
 __all__ = [
     "ConnectedComponents",
@@ -24,5 +25,6 @@ __all__ = [
     "CCandJunctionRemoval",
     "WeaklyConnectedComponentsAllSimplePath",
     "HierarchicalGNN",
+    "FastWalkthrough",
     "utils",
 ]

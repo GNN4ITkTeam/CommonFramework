@@ -1,0 +1,18 @@
+# CommonFramework configuration
+stage: track_building
+model: FastWalkthrough
+input_dir: MY_DATA_DIR/Example_2/gnn/ # Should contain the files used in training and inference
+stage_dir: MY_DATA_DIR/Example_2/fast_walkthrough/ # A directory to be created that will store logs, artifacts, and output data
+
+# Dataset parameters
+data_split: [80, 10, 10] # Number of [training, validation, testing] examples
+
+# FastWalkthrough parameters
+score_cut_cc: 0.01
+score_cut_walk:
+  min: 0.1
+  add: 0.6
+
+max_workers: 1
+
+log_level: INFO

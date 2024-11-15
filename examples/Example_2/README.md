@@ -72,6 +72,12 @@ acorn eval gnn_eval.yaml
 acorn infer track_building_infer.yaml
 ```
 
+**6a.** (Optional) We can **instead** of ConnectedComponents, run the FastWalkthrough stage:
+```bash
+acorn infer track_building_fastwalkthrough_infer.yaml
+```
+This may take a little longer than ConnectedComponents, but should produce higher quality track candidates.
+
 **7.** And plot the performance
 ```bash
 acorn eval track_building_eval.yaml

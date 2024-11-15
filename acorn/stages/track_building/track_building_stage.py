@@ -67,7 +67,7 @@ class TrackBuildingStage:
 
         if stage in ["fit", "predict"]:
             self.load_data(stage, self.hparams["input_dir"])
-            self.test_data(stage)
+            # self.test_data(stage)
         elif stage == "test":
             torch.manual_seed(0)
             self.load_data(stage, self.hparams["stage_dir"])
@@ -263,6 +263,17 @@ class TrackBuildingStage:
                 "Finish plotting. Find the plot at"
                 f' {os.path.join(config["stage_dir"], save_path)}'
             )
+
+        return {
+            "efficiency": eff,
+            "fake_rate": fake_rate,
+            "dup_rate": dup_rate,
+            "num_reconstructed_particles": n_reconstructed_particles,
+            "num_particles": n_particles,
+            "num_matched_tracks": n_matched_tracks,
+            "num_tracks": n_tracks,
+            "num_dup_reconstructed_particles": n_dup_reconstructed_particles,
+        }
 
     def apply_target_conditions(self, event, target_tracks):
         """
