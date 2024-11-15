@@ -3,9 +3,14 @@ build_docker: &build_docker
   needs: []
   tags:
   - docker-privileged-xl
-  image: docker:20.10.16
+  image: registry.cern.ch/docker.io/library/docker:20.10.16
   services:
-  - docker:20.10.16-dind
+  # To obtain a Docker daemon, request a Docker-in-Docker service
+  # N.B.: make sure you use a pull-through cache mechanism to avoid hitting the pull limits in Docker:
+  # - "Error response from daemon: toomanyrequests: You have reached your pull rate limit. You may increase the limit by authenticating and upgrading: https://www.docker.com/increase-rate-limit"
+  # ref: https://kubernetes.docs.cern.ch/docs/registry/quickstart/#pull-through-caches
+  - name: registry.cern.ch/docker.io/library/docker:20.10.16-dind
+    alias: docker
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
     IMAGE_TAG: "$CI_REGISTRY_IMAGE:latest"
