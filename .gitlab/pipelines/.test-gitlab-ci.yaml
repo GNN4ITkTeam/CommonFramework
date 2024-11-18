@@ -1,5 +1,7 @@
 run tests:
   stage: test
+  tags: 
+    - k8s-cvmfs
   needs: [build_docker_test]
   image: '$CI_REGISTRY_IMAGE/temporary_images:${CI_COMMIT_REF_SLUG}-test'
   before_script:
@@ -7,12 +9,19 @@ run tests:
     - apt-get install zip unzip
   script:
     - pwd
+    - df -h /dev/shm
+    - pwd
     - cd tests
     - ls -la
     - wget https://portal.nersc.gov/project/m3443/dtmurnane/GNN4ITk/TestData/test_files.zip 2>&1 >& /dev/null
+    - wget https://cernbox.cern.ch/remote.php/dav/public-files/0jlkLz6kH945QAP/mm_IGNN2.tar.gz 2>&1 >& /dev/null 
+    - tar -xf mm_IGNN2.tar.gz
+    - rm mm_IGNN2.tar.gz
     - ls -la
     - unzip test_files.zip 2>&1 >& /dev/null
+    - rm test_files.zip
     - which python
+    - export WANDB_DISABLED=true
     - export WANDB_DISABLED=true
     - pytest --cov --cov-report term --cov-report xml:coverage.xml
     - ls -la
