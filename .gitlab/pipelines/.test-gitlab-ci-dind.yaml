@@ -1,0 +1,43 @@
+# pipeline to run test using docker-in-docker workflow. This allows us to control 
+# how much memory is shared between host machine and the docker container which runs the job.
+# It will avoid running into memory issue
+
+run tests:
+  stage: test
+  tags: 
+    - docker-privileged-xl
+  needs: [build_docker_test]
+  image: registry.cern.ch/docker.io/library/docker:20.10.16
+  services:
+  # To obtain a Docker daemon, request a Docker-in-Docker service
+  # N.B.: make sure you use a pull-through cache mechanism to avoid hitting the pull limits in Docker:
+  # - "Error response from daemon: toomanyrequests: You have reached your pull rate limit. You may increase the limit by authenticating and upgrading: https://www.docker.com/increase-rate-limit"
+  # ref: https://kubernetes.docs.cern.ch/docs/registry/quickstart/#pull-through-caches
+  - name: registry.cern.ch/docker.io/library/docker:20.10.16-dind
+    alias: docker
+  script:
+    - pwd
+    - cd tests
+    - wget https://portal.nersc.gov/project/m3443/dtmurnane/GNN4ITk/TestData/test_files.zip 2>&1 >& /dev/null
+    - wget https://cernbox.cern.ch/remote.php/dav/public-files/0jlkLz6kH945QAP/mm_IGNN2.tar.gz 2>&1 >& /dev/null 
+    - tar -xf mm_IGNN2.tar.gz
+    - rm mm_IGNN2.tar.gz
+    - unzip test_files.zip 2>&1 >& /dev/null
+    - rm test_files.zip
+    - ls -la
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - docker pull -q "$CI_REGISTRY_IMAGE/temporary_images:${CI_COMMIT_REF_SLUG}-test"
+    # remember to request 8GB of shared memory here with --shms-size=8g !!! Otherwise memory intensive tests will fail
+    - docker run -dit --rm --shm-size=8g -v $(pwd):/test_dir --name test_container "$CI_REGISTRY_IMAGE/temporary_images:${CI_COMMIT_REF_SLUG}-test" /bin/bash
+    - docker exec -w /test_dir test_container sh run_test.sh
+    - docker stop test_container 
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: tests/coverage.xml
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - when: manual
+      allow_failure: true
