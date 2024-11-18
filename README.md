@@ -30,12 +30,14 @@ To install ACORN, assuming GPU capability with **cuda version >= 12.2**, run the
 
 ```bash
 git clone --recurse-submodules ssh://git@gitlab.cern.ch:7999/gnn4itkteam/acorn.git && cd acorn
-conda create --name acorn python=3.10 && conda activate acorn
-pip install torch==2.1.0 && pip install --no-cache-dir -r requirements.txt
-pip install -e .
+source create_conda_environment.sh
 ```
 
 ### Advanced Installation & Troubleshooting
+
+`xrootd` may be necessary for preparing a large dataset on the CERN grid. To create a conda environment for this purpose, use `scripts/create_conda_environment_with_xrootd.sh`, instead of `create_conda_environment.sh`
+
+-----
 
 To check if the installation is successful, run `python check_acorn.py`. If you see (approximately) the following output, you are good to go!
 ```text

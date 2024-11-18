@@ -1,5 +1,6 @@
 import os
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 
 
 def read(fname):
@@ -8,7 +9,7 @@ def read(fname):
 
 setup(
     name="acorn",
-    version="1.1.0",
+    version="2.0.1",
     description="A common framework for GNN4ITK",
     author="GNN4ITK Team",
     packages=find_packages(include=["acorn", "acorn.*"]),

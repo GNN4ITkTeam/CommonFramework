@@ -8,7 +8,7 @@ ENV PIP_ROOT_USER_ACTION=ignore
 ARG DEBIAN_FRONTEND=noninteractive
 
 # add some packages
-RUN apt-get update && apt-get install -y git h5utils wget
+RUN apt-get update && apt-get install -y git h5utils wget xrootd-client xrootd-server python3-xrootd zip unzip
 
 COPY . ./acorn
 RUN pip install -r acorn/requirements.txt && \

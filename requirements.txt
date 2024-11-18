@@ -20,4 +20,4 @@ onnx
 MonkeyType
 wandb
 scikit-learn
-xrootd
+numba
