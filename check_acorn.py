@@ -4,8 +4,10 @@ Requirement following key python packages:
 pytorch
 pytorch-lightning
 pyg
-frnn
+frnn/faiss
+numba
 cugraph
+cudf
 torch_scatter
 """
 
@@ -56,6 +58,13 @@ def check():
         print("cugraph: ", cugraph.__version__)
     except ImportError:
         print("cugraph not found")
+
+    try:
+        import numba
+
+        print(f"numba: {numba.__version__}")
+    except ImportError:
+        print("numba not available, will not be able to run fast walkthrough")
 
     try:
         import cudf
