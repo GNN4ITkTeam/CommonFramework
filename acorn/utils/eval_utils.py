@@ -25,36 +25,41 @@ from acorn.stages.graph_construction.models.utils import graph_intersection
 def dump_edges(event, config):
     src, dst = event.track_edges
     df = pd.DataFrame()
-    df["truth_map_bool"] = event.truth_map[event.target_mask] >= 0
-    df["radius"] = event.radius[event.target_mask]
-    df["pt"] = event.pt[event.target_mask]
-    df["eta_particle"] = event.eta_particle[event.target_mask]
-    df["pdgId"] = event.pdgId[event.target_mask]
-    df["primary"] = event.primary[event.target_mask]
-    df["particle_id"] = event.particle_id[event.target_mask]
-    df["hit_id_src"] = event.hit_id[src[event.target_mask]]
-    df["hit_id_dst"] = event.hit_id[dst[event.target_mask]]
+    df["track_to_edge_map_bool"] = event.track_to_edge_map[event.track_target_mask] >= 0
+    df["track_radius"] = event.track_radius[event.track_target_mask]
+    df["track_pt"] = event.track_pt[event.track_target_mask]
+    df["track_particle_eta"] = event.track_particle_eta[event.track_target_mask]
+    df["track_pdgId"] = event.track_pdgId[event.track_target_mask]
+    df["track_primary"] = event.track_primary[event.track_target_mask]
+    df["track_particle_id"] = event.track_particle_id[event.track_target_mask]
+    df["hit_id_src"] = event.hit_id[src[event.track_target_mask]]
+    df["hit_id_dst"] = event.hit_id[dst[event.track_target_mask]]
 
-    # delta_eta = hits.eta_1 - hits.eta_2
-    delta_eta = event.eta[src[event.target_mask]] - event.eta[dst[event.target_mask]]
+    delta_eta = (
+        event.hit_eta[src[event.track_target_mask]]
+        - event.hit_eta[dst[event.track_target_mask]]
+    )
     df["deta"] = delta_eta
 
-    # delta_phi = hits.phi_2 - hits.phi_1
-    # delta_phi = self.reset_angle(delta_phi)
-    delta_phi = event.phi[dst[event.target_mask]] - event.phi[src[event.target_mask]]
+    delta_phi = (
+        event.hit_phi[dst[event.track_target_mask]]
+        - event.hit_phi[src[event.track_target_mask]]
+    )
     # Reset angles
     delta_phi[delta_phi > np.pi] = delta_phi[delta_phi > np.pi] - 2 * np.pi
     delta_phi[delta_phi < -np.pi] = delta_phi[delta_phi < -np.pi] + 2 * np.pi
     df["dphi"] = delta_phi
 
-    # delta_z = hits.z_2 - hits.z_1
-    # delta_r = hits.r_2 - hits.r_1
-    # z0 = hits.z_1 - (hits.r_1 * delta_z / delta_r)
-
-    delta_z = event.z[dst[event.target_mask]] - event.z[src[event.target_mask]]
-    delta_r = event.r[dst[event.target_mask]] - event.r[src[event.target_mask]]
-    z0 = event.z[src[event.target_mask]] - (
-        event.r[src[event.target_mask]] * delta_z / delta_r
+    delta_z = (
+        event.hit_z[dst[event.track_target_mask]]
+        - event.hit_z[src[event.track_target_mask]]
+    )
+    delta_r = (
+        event.hit_r[dst[event.track_target_mask]]
+        - event.hit_r[src[event.track_target_mask]]
+    )
+    z0 = event.hit_z[src[event.track_target_mask]] - (
+        event.hit_r[src[event.track_target_mask]] * delta_z / delta_r
     )
     z0[delta_r == 0] = 0
     df["z0"] = z0
@@ -208,16 +213,18 @@ def graph_construction_efficiency_2D(lightning_module, plot_config: dict, config
         if "target_tracks" in config:
             lightning_module.apply_target_conditions(event, config["target_tracks"])
         else:
-            event.target_mask = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
+            event.track_target_mask = torch.ones(
+                event.track_to_edge_map.shape[0], dtype=torch.bool
+            )
 
         # mm -> m scaling
-        for v in ["x", "z", "r"]:
+        for v in ["hit_x", "hit_z", "hit_r"]:
             if v in target:
                 event[v] /= 1000
 
-        if "y_hit" in target:
-            # y of SP is missing because it is overwritting by the true/fake boolean
-            event.y_hit = event.r * np.sin(event.phi)
+        if "hit_y" in target and "hit_y" not in event.keys():
+            # DEPRECATED : linked to old naming scheme, y of SP is missing because it is overwritting by the true/fake boolean
+            event.hit_y = event.hit_r * np.sin(event.hit_phi)
 
         # flip edges that point inward if not undirected, since if undirected is True, lightning_module.apply_score_cut takes care of this
         event.edge_index = rearrange_by_distance(event, event.edge_index)
@@ -232,10 +239,12 @@ def graph_construction_efficiency_2D(lightning_module, plot_config: dict, config
             return_y_truth=False,
             return_truth_to_pred=True,
         )
-        target_edges = event.track_edges[:, event.target_mask & (graph_truth_map > -1)]
+        target_edges = event.track_edges[
+            :, event.track_target_mask & (graph_truth_map > -1)
+        ]
 
         # indices of all target edges (may or may not be present in the input graph)
-        all_target_edges = event.track_edges[:, event.target_mask]
+        all_target_edges = event.track_edges[:, event.track_target_mask]
 
         # get target z r
         for key, item in target.items():
@@ -569,17 +578,17 @@ def graph_region_efficiency_purity(lightning_module, plot_config, config):
                 event.to(lightning_module.device), 0
             )
         event = eval_dict["batch"]
-        event.scores = torch.sigmoid(eval_dict["output"])
+        event.edge_scores = torch.sigmoid(eval_dict["output"])
 
-        edge_truth.append(event.y)
+        edge_truth.append(event.edge_y)
         edge_regions.append(
-            event.x_region[event.edge_index[0]]
+            event.hit_region[event.edge_index[0]]
         )  # Assign region depending on first node in edge
-        edge_positive.append(event.scores > config["edge_cut"])
+        edge_positive.append(event.edge_scores > config["edge_cut"])
 
-        node_r.append(event.x_r)
-        node_z.append(event.x_z)
-        node_regions.append(event.x_region)
+        node_r.append(event.hit_r)
+        node_z.append(event.hit_z)
+        node_regions.append(event.hit_region)
 
     edge_truth = torch.cat(edge_truth).cpu().numpy()
     edge_regions = torch.cat(edge_regions).cpu().numpy()
@@ -916,8 +925,8 @@ def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
 
     for event in tqdm(dataset):
         event = event.to(lightning_module.device)
-        phi_region = float(event.phi_region_id[0])
-        eta_region = float(event.eta_region_id[0])
+        phi_region = float(event.hit_phi_region_id[0])
+        eta_region = float(event.hit_eta_region_id[0])
 
         # Need to apply score cut and remap the truth_map
         if "score_cut" in config:
@@ -925,30 +934,34 @@ def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
         if "target_tracks" in config:
             lightning_module.apply_target_conditions(event, config["target_tracks"])
         else:
-            event.target_mask = torch.ones(event.truth_map.shape[0], dtype=torch.bool)
+            event.track_target_mask = torch.ones(
+                event.track_to_edge_map.shape[0], dtype=torch.bool
+            )
 
         event = event.to(lightning_module.device)
 
         # get all target true positives
-        true_positive.append((event.truth_map[event.target_mask] > -1).cpu())
+        true_positive.append(
+            (event.track_to_edge_map[event.track_target_mask] > -1).cpu()
+        )
 
         # get all target pt. Length = number of target true. This includes ALL truth edges in the event,
         # even those not included in the input graph. We MUST filter them out to isolate the inefficiency from model.
         # Otherwise, we are plotting cumilative edge efficiency.
-        target_pt.append(event.pt[event.target_mask].cpu())
-        target_eta.append(event.eta[event.track_edges[0, event.target_mask]])
+        target_pt.append(event.track_pt[event.track_target_mask].cpu())
+        target_eta.append(event.hit_eta[event.track_edges[0, event.track_target_mask]])
 
         # get all edges passing edge cut
         if "scores" in event.keys:
             pred.append((event.scores >= config["score_cut"]).cpu())
         else:
-            pred.append(event.y.cpu())
+            pred.append(event.edge_y.cpu())
         # get a boolean array answer the question is this target edge in input graph
-        graph_truth.append((event.graph_truth_map[event.target_mask] > -1))
+        graph_truth.append((event.graph_truth_map[event.track_target_mask] > -1))
 
         # scale r and z
-        event.r /= 1000
-        event.z /= 1000
+        event.hit_r /= 1000
+        event.hit_z /= 1000
 
         # flip edges that point inward if not undirected, since if undirected is True, lightning_module.apply_score_cut takes care of this
         event.edge_index = rearrange_by_distance(event, event.edge_index)
@@ -957,11 +970,11 @@ def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
 
         # indices of all target edges present in the input graph
         target_edges = event.track_edges[
-            :, event.target_mask & (event.graph_truth_map > -1)
+            :, event.track_target_mask & (event.graph_truth_map > -1)
         ]
 
         # indices of all target edges (may or may not be present in the input graph)
-        all_target_edges = event.track_edges[:, event.target_mask]
+        all_target_edges = event.track_edges[:, event.track_target_mask]
 
         # get target z r
         for key, item in target_rz.items():
@@ -973,17 +986,17 @@ def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
 
         # indices of all true positive target edges
         target_true_positive_edges_rz = event.track_edges[
-            :, event.target_mask & (event.truth_map > -1)
+            :, event.track_target_mask & (event.track_to_edge_map > -1)
         ]
 
         # true positive edge indices, used as numerator of total purity
-        true_positive_edges_rz = event.track_edges[:, (event.truth_map > -1)]
+        true_positive_edges_rz = event.track_edges[:, (event.track_to_edge_map > -1)]
 
         # all positive edges, used as denominator of total and target purity
         positive_edges_rz = event.edge_index[:, event.pred]
 
         # masked positive edge indices, including true positive target edges and all false positive edges
-        fake_positive_edges_rz = event.edge_index[:, event.pred & (event.y == 0)]
+        fake_positive_edges_rz = event.edge_index[:, event.pred & (event.edge_y == 0)]
         masked_positive_edges_rz = torch.cat(
             [target_true_positive_edges_rz, fake_positive_edges_rz], dim=1
         )
