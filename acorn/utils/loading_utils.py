@@ -58,6 +58,11 @@ def load_dataset_from_dir(input_dir, data_name, data_num):
 
 def run_data_tests(datasets: List, required_features, optional_features):
     for dataset in datasets:
+        if dataset is None or len(dataset) == 0:
+            warnings.warn(
+                "Found an empty dataset. Please check if this is not intended."
+            )
+            continue
         sample_event = dataset[0]
         assert sample_event is not None, "No data loaded"
         # Check that the event is the latest PyG format

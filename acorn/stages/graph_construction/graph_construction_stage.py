@@ -314,7 +314,8 @@ class EventDataset(Dataset):
         Returns a list of all event ids, which are the numbers in filenames that end in .csv and .pyg
         """
 
-        all_files = os.listdir(os.path.join(self.input_dir, self.data_name))
+        input_data_dir = os.path.join(self.input_dir, self.data_name)
+        all_files = os.listdir(input_data_dir) if os.path.isdir(input_data_dir) else []
         all_files = [f for f in all_files if f.endswith(".csv") or f.endswith(".pyg")]
         all_event_ids = sorted(
             list({re.findall("[0-9]+", file)[-1] for file in all_files})

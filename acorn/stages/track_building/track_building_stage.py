@@ -170,10 +170,10 @@ class TrackBuildingStage:
             evaluated_events.append(
                 utils.evaluate_labelled_graph(
                     event,
-                    matching_fraction=config["matching_fraction"],
-                    matching_style=config["matching_style"],
-                    sel_conf=config["target_tracks"],
-                    min_track_length=config["min_track_length"],
+                    matching_fraction=config.get("matching_fraction", 0.5),
+                    matching_style=config.get("matching_style", "ATLAS"),
+                    sel_conf=config.get("target_tracks", {}),
+                    min_track_length=config.get("min_track_length", 5),
                 )
             )
             times.append(event.time_taken)
@@ -224,7 +224,7 @@ class TrackBuildingStage:
 
         res_fname = os.path.join(
             self.hparams["stage_dir"],
-            f"results_summary_{self.hparams['matching_style']}.txt",
+            f"results_summary_{self.hparams.get('matching_style', 'ATLAS')}.txt",
         )
 
         with open(res_fname, "w") as f:
@@ -249,7 +249,7 @@ class TrackBuildingStage:
         for var, varconf in plot_config["variables"].items():
             save_path = os.path.join(
                 self.hparams["stage_dir"],
-                f"track_reconstruction_eff_vs_{var}_{self.hparams['matching_style']}.png",
+                f"track_reconstruction_eff_vs_{var}_{self.hparams.get('matching_style', 'ATLAS')}.png",
             )
 
             utils.plot_eff(
