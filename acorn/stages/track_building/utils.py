@@ -49,8 +49,9 @@ def load_particles_df(graph, sel_conf: dict):
     cols = {
         "particle_id": graph.track_particle_id,
         "pt": graph.track_particle_pt,
-        "eta": graph.track_particle_eta,
     }
+    if "track_particle_eta" in graph:
+        cols["eta"] = graph.track_particle_eta
 
     # Add more variable if needed for th fiducial selection
     for var in sel_conf:
@@ -103,7 +104,11 @@ def get_matching_df(reconstruction_df, particles_df, sel_conf, min_track_length=
     candidate_lengths = (
         reconstruction_df.track_id.value_counts(sort=False)
         .reset_index()
-        .rename(columns={"index": "track_id", "track_id": "n_reco_hits"})
+        .rename(
+            columns={"count": "n_reco_hits"}
+            if int(pd.__version__.split(".")[0]) >= 2
+            else {"index": "track_id", "track_id": "n_reco_hits"}
+        )
     )
 
     # Get true track lengths
@@ -111,7 +116,11 @@ def get_matching_df(reconstruction_df, particles_df, sel_conf, min_track_length=
         reconstruction_df.drop_duplicates(subset=["hit_id"])
         .particle_id.value_counts(sort=False)
         .reset_index()
-        .rename(columns={"index": "particle_id", "particle_id": "n_true_hits"})
+        .rename(
+            columns={"count": "n_true_hits"}
+            if int(pd.__version__.split(".")[0]) >= 2
+            else {"index": "particle_id", "particle_id": "n_true_hits"}
+        )
     )
 
     spacepoint_matching = (
