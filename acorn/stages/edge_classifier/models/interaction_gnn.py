@@ -315,7 +315,7 @@ class InteractionGNNWithPyG(EdgeClassifierStage):
             [hparams["hidden"]] * hparams["nb_edge_layer"] + [1],
             layer_norm=hparams["layernorm"],
             batch_norm=hparams["batchnorm"],
-            output_activation="Sigmoid",
+            output_activation=None,
             hidden_activation=hparams["hidden_activation"],
             track_running_stats=hparams["track_running_stats"],
         )
