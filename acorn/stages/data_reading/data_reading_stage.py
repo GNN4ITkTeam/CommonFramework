@@ -193,6 +193,84 @@ class EventReader:
         Builds a PyG data object from the hits, particles and tracks.
         """
 
+        doRegion = self.config.get("doRegion", False)
+        doModuleRegion = self.config.get("doModuleRegion", False)
+        if doRegion and doModuleRegion:
+            raise ValueError(
+                "Multiple regionalization selections. Please select only one regionalization."
+            )
+
+        # If both doRegion and doModuleRegion are False (or not specified in the config file)
+        # Then the default approach is to build_graph with ALL hits - no regions
+        # There are two ways to define a region - either by region_num or by eta/phi position given in the config
+        # If region_num, then find the corresponding eta/phi boundaries, else just use the eta/phi boundaries given in the config
+
+        if doRegion:
+            (
+                eta_region_low,
+                eta_region_high,
+                phi_region_low,
+                phi_region_high,
+            ) = self.define_region()
+
+            # For each hit in hits: determine whether it is in region based on z/phi spread
+            # For hit inside region: flag true | else: flag false
+            in_region = np.full(len(hits["hit_r"]), False)
+            d0_low = -0.002  # in m
+            d0_high = 0.002  # in m
+            z0_low = -0.150  # in m
+            z0_high = 0.150  # in m
+            q_low = -1.0  # q/pT in 1/GeV
+            q_high = 1.0  # q/pT in 1/GeV
+            A = 0.3  # in GeV
+            rho_low = 1 / (2.0 * A * q_low)
+            rho_high = 1 / (2.0 * A * q_high)
+            theta_region_low = 2.0 * np.arctan(np.exp(-1.0 * eta_region_low))
+            theta_region_high = 2.0 * np.arctan(np.exp(-1.0 * eta_region_high))
+
+            # I want a list of True/False based on whether the z and phi values from z_vals and phi_vals fit inside the z and phi spread vals
+
+            for idx, value in hits["hit_id"].items():
+                r = hits["hit_r"][idx] / 1000.0  # convert to m
+                z = hits["hit_z"][idx] / 1000.0  # convert to m
+                phi = hits["hit_phi"][idx]
+
+                z_low = z0_low + 2.0 * rho_low * 1.0 / np.tan(
+                    theta_region_low
+                ) * np.arcsin(r / (2.0 * rho_low))
+                z_high = z0_high + 2.0 * rho_high * 1.0 / np.tan(
+                    theta_region_high
+                ) * np.arcsin(r / (2.0 * rho_high))
+                phi_low = phi_region_low + np.arcsin(r / (2.0 * rho_low)) + d0_low / r
+                phi_high = (
+                    phi_region_high + np.arcsin(r / (2.0 * rho_high)) + d0_high / r
+                )
+
+                # If the node is inside the new r/phi region, record the node index to use for subgraph construction
+                if (z >= z_low) & (z < z_high) & (phi >= phi_low) & (phi < phi_high):
+                    in_region[idx] = True
+
+            # only keep hits in the region
+            hits = hits[in_region]
+
+            # remapping track edges after hit region selection -> changes hit_id to hit_index and replaces missing hit_id to -1
+            tracks = self.remap_track_edges(tracks, hits)
+
+        if doModuleRegion:
+            list_modules = self.define_module_region()
+            in_region = np.full(len(hits["hit_r"]), False)
+
+            # for each hit, look at the module_id and if it is in the list of modules in the region, then keep the hit
+            for idx, value in hits["hit_module_id"].items():
+                if value in list_modules:
+                    in_region[idx] = True
+
+            # only keep hits in the region
+            hits = hits[in_region]
+
+            # remapping track edges after hit region selection -> changes hit_id to hit_index and replaces missing hit_id to -1
+            tracks = self.remap_track_edges(tracks, hits)
+
         graph = Data()
         for feature in set(self.config["feature_sets"]["hit_features"]).intersection(
             set(hits.columns)
@@ -655,3 +733,125 @@ class EventReader:
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
+
+    def remap_track_edges(self, tracks, hits):
+        hit_ids_0, hit_ids_1 = [], []
+        hit_index_0, hit_index_1 = [], []
+        track_index_0, track_index_1 = [], []
+
+        for i, element in enumerate(hits["hit_id"]):
+            matches_0 = np.where(tracks[0] == element)[0]
+            matches_1 = np.where(tracks[1] == element)[0]
+            for match_0 in matches_0:
+                hit_ids_0.append(element)
+                hit_index_0.append(i)
+                track_index_0.append(match_0)
+            for match_1 in matches_1:
+                hit_ids_1.append(element)
+                hit_index_1.append(i)
+                track_index_1.append(match_1)
+
+        track_edges_0 = np.full(len(tracks[0]), -1)
+        track_edges_0[track_index_0] = hit_index_0
+
+        track_edges_1 = np.full(len(tracks[1]), -1)
+        track_edges_1[track_index_1] = hit_index_1
+
+        return np.asarray([track_edges_0, track_edges_1])
+
+    def define_region(self):
+        eta_region_low, eta_region_high, phi_region_low, phi_region_high = (
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        )
+
+        if set(["region", "region_lookup_file_path"]).issubset(self.config):
+            df = pd.read_csv(self.config["region_lookup_file_path"])
+            region = df[(df["region"] == int(self.config["region"]))]
+            if len(region["region"]) == 1:
+                eta_region_low = region["eta_region_low"]
+                eta_region_high = region["eta_region_high"]
+                phi_region_low = region["phi_region_low"]
+                phi_region_high = region["phi_region_high"]
+            else:
+                raise ValueError(
+                    "Region provided was not in the list of accepted regions in the region lookup file. Please correct config file."
+                )
+        elif set(
+            ["eta_region_low", "eta_region_high", "phi_region_low", "phi_region_high"]
+        ).issubset(self.config):
+            eta_region_low = self.config["eta_region_low"]
+            eta_region_high = self.config["eta_region_high"]
+            phi_region_low = self.config["phi_region_low"]
+            phi_region_high = self.config["phi_region_high"]
+        elif "region" in self.config:
+            raise ValueError(
+                "Region was provided but no lookup file was given. Please include lookup file or instead pass eta/phi coordinates of region"
+            )
+        else:
+            raise ValueError(
+                "No region was defined and provided in config. Either pass eta/phi boundaries or a region number and lookup file"
+            )
+
+        return eta_region_low, eta_region_high, phi_region_low, phi_region_high
+
+    def define_module_region(self):
+        list_modules = list()
+
+        if set(["region", "module_region_lookup_path"]).issubset(self.config):
+            df = pd.read_csv(self.config["module_region_lookup_path"])
+            region = df[(df["region"] == int(self.config["region"]))]
+            if len(region["region"]) == 1:
+                list_modules = list(
+                    map(
+                        int,
+                        region["module_id_list"]
+                        .values[0]
+                        .replace("[", "")
+                        .replace("]", "")
+                        .split(", "),
+                    )
+                )
+            else:
+                raise ValueError(
+                    "Region provided was not in the list of accepted regions in the region lookup file. Please correct config file."
+                )
+        elif set(
+            [
+                "eta_region_low",
+                "eta_region_high",
+                "phi_region_low",
+                "phi_region_high",
+                "module_region_lookup_path",
+            ]
+        ).issubset(self.config):
+            df = pd.read_csv(self.config["module_region_lookup_path"])
+            region = df[
+                (df["eta_region_low"] == int(self.config["eta_region_low"]))
+                & (df["eta_region_high"] == int(self.config["eta_region_high"]))(
+                    df["phi_region_low"] == int(self.config["phi_region_low"])
+                )(df["phi_region_high"] == int(self.config["phi_region_eta"]))
+            ]
+            if len(region["region"]) == 1:
+                list_modules = list(
+                    map(
+                        int,
+                        region["module_id_list"]
+                        .values[0]
+                        .replace("[", "")
+                        .replace("]", "")
+                        .split(", "),
+                    )
+                )
+            else:
+                raise ValueError(
+                    "Eta/Phi boundaries provided was not in the list of accepted regions in the region lookup file. Please correct config file."
+                )
+        else:
+            raise ValueError(
+                "No region was defined or no module_region_lookup file was provided. Please correct config file."
+            )
+
+        return list_modules

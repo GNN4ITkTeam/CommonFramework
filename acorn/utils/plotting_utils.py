@@ -136,6 +136,8 @@ def plot_efficiency_rz(
     fig.colorbar(c, ax=ax)
     ax.set_xlabel("z [m]")
     ax.set_ylabel("r [m]")
+    ax.set_xlim(z_range)
+    ax.set_ylim(r_range)
 
     return fig, ax
 
@@ -149,7 +151,6 @@ def plot_efficiency_2D(
     x_name: str,
     y_name: str,
 ):
-
     x_nbins = plot_config.get("nbins", {}).get(x_name, 100)
     y_nbins = plot_config.get("nbins", {}).get(y_name, 100)
 
@@ -189,7 +190,7 @@ def plot_efficiency_2D(
 
 
 def plot_1d_histogram(
-    hist, bins, err, xlabel, ylabel, ylim, label, canvas=None, logx=False
+    hist, bins, err, xlabel, ylabel, ylim, xlim, label, canvas=None, logx=False
 ):
     """Plot 1D histogram from direct output of np.histogram
 
@@ -217,6 +218,7 @@ def plot_1d_histogram(
     if logx:
         ax.set_xscale("log")
     ax.set_ylim(ylim)
+    ax.set_xlim(xlim)
     plt.tight_layout()
 
     return fig, ax
