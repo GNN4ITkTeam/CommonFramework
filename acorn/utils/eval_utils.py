@@ -112,7 +112,11 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
     if "pt_units" in plot_config and plot_config["pt_units"] == "MeV":
         pt_min, pt_max = pt_min * 1000, pt_max * 1000
     pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
-    eta_bins = np.linspace(-4, 4)
+    if "eta_lim" in plot_config:
+        eta_min, eta_max = plot_config["eta_lim"]
+    else:
+        eta_min, eta_max = [-4, 4]
+    eta_bins = np.linspace(eta_min, eta_max)
 
     true_pt_hist, _ = np.histogram(all_pt, bins=pt_bins)
     true_pos_pt_hist, _ = np.histogram(all_pt[all_y_truth], bins=pt_bins)
@@ -122,11 +126,12 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
 
     pt_units = "GeV" if "pt_units" not in plot_config else plot_config["pt_units"]
 
-    for true_pos_hist, true_hist, bins, xlabel, logx, filename in zip(
+    for true_pos_hist, true_hist, bins, xlabel, xlim, logx, filename in zip(
         [true_pos_pt_hist, true_pos_eta_hist],
         [true_pt_hist, true_eta_hist],
         [pt_bins, eta_bins],
         [f"$p_T [{pt_units}]$", r"$\eta$"],
+        [[pt_min, pt_max], [eta_min, eta_max]],
         [True, False],
         ["edgewise_efficiency_pt.png", "edgewise_efficiency_eta.png"],
     ):
@@ -140,7 +145,8 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
             err,
             xlabel,
             plot_config["title"],
-            plot_config.get("ylim", [0.9, 1.04]),
+            plot_config.get("ylim", [0.8, 1.06]),
+            xlim,
             "Efficiency",
             logx=logx,
         )
@@ -1057,7 +1063,11 @@ def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
     if "pt_units" in plot_config and plot_config["pt_units"] == "MeV":
         pt_min, pt_max = pt_min * 1000, pt_max * 1000
     pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
-    eta_bins = np.linspace(-4, 4)
+    if "eta_lim" in plot_config:
+        eta_min, eta_max = plot_config["eta_lim"]
+    else:
+        eta_min, eta_max = [-4, 4]
+    eta_bins = np.linspace(eta_min, eta_max)
 
     true_pt_hist, true_pt_bins = np.histogram(target_pt[graph_truth], bins=pt_bins)
     true_pos_pt_hist, _ = np.histogram(target_pt[true_positive], bins=pt_bins)
@@ -1069,11 +1079,12 @@ def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
 
     filename = plot_config.get("filename", "gnn_edgewise_efficiency")
 
-    for true_pos_hist, true_hist, bins, xlabel, logx, filename in zip(
+    for true_pos_hist, true_hist, bins, xlabel, xlim, logx, filename in zip(
         [true_pos_pt_hist, true_pos_eta_hist],
         [true_pt_hist, true_eta_hist],
         [true_pt_bins, true_eta_bins],
         [f"$p_T [{pt_units}]$", r"$\eta$"],
+        [[pt_min, pt_max], [eta_min, eta_max]],
         [True, False],
         [f"{filename}_pt", f"{filename}_eta"],
     ):
@@ -1086,8 +1097,9 @@ def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
             err,
             xlabel,
             plot_config["title"],
-            "Efficiency",
             plot_config.get("ylim", [0.8, 1.06]),
+            xlim,
+            "Efficiency",
             logx=logx,
         )
 

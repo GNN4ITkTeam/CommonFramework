@@ -184,6 +184,12 @@ class TrackBuildingStage:
 
         evaluated_events = pd.concat(evaluated_events)
 
+        # Save evaluated_events out as a CSV file to be used later
+        if self.hparams.get("saveMatchingDF", False):
+            save_csv_path = os.path.join(self.hparams["stage_dir"], "matching_df.csv")
+            print("Saving matching_df CSV at:", save_csv_path)
+            evaluated_events.to_csv(save_csv_path)
+
         particles = evaluated_events[evaluated_events["is_reconstructable"]]
         reconstructed_particles = particles[
             particles["is_reconstructed"] & particles["is_matchable"]

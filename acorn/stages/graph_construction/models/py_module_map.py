@@ -178,9 +178,20 @@ class PyModuleMap(GraphConstructionStage):
         Build the graph for the data.
         """
 
-        hits = cudf.from_pandas(truth.copy()) if self.gpu_available else truth.copy()
-
-        hits = self.get_hit_features(hits)
+        hits = cudf.from_pandas(
+            pd.DataFrame(
+                {
+                    "hid": graph.hit_id,
+                    "mid": graph.hit_module_id,
+                    "r": graph.hit_r,
+                    "x": graph.hit_x,
+                    "y": graph.hit_y,
+                    "z": graph.hit_z,
+                    "eta": graph.hit_eta,
+                    "phi": graph.hit_phi,
+                }
+            )
+        )
 
         merged_hits_1 = hits.merge(
             self.MM_1, how="inner", left_on="mid", right_on="mid_2"
@@ -537,7 +548,6 @@ class PyModuleMap(GraphConstructionStage):
         return hits
 
     def apply_triplet_cuts(self, triplet_edges):
-
         method = self.module_map.get("method")
         tolerance = self.module_map.get("tolerance", 0.0)
         threshold_factor_rms = self.module_map.get("threshold_factor_rms", -1)
@@ -709,7 +719,6 @@ def get_doublet_mask(
     rms_threshold_factor=None,
     occurence_threshold=None,
 ):
-
     if method == "minmax":
         epsilon = tolerance
         mask = (
@@ -758,7 +767,6 @@ def get_triplet_mask(
     rms_threshold_factor=None,
     occurence_threshold=None,
 ):
-
     if method == "minmax":
         epsilon = tolerance
         mask = (
