@@ -31,11 +31,11 @@ def get_condition_lambda(condition_key, condition_val):
             event[condition_key],
             torch.tensor(condition_val[1], device=event[condition_key].device),
         ),
-        "within": lambda event: (condition_val[0] <= event[condition_key].float())
-        & (event[condition_key].float() <= condition_val[1]),
-        "not_within": lambda event: not (
-            (condition_val[0] <= event[condition_key].float())
-            & (event[condition_key].float() <= condition_val[1])
+        "within": lambda event: (condition_val[1][0] <= event[condition_key].float())
+        & (event[condition_key].float() <= condition_val[1][1]),
+        "not_within": lambda event: ~(
+            (condition_val[1][0] <= event[condition_key].float())
+            & (event[condition_key].float() <= condition_val[1][1])
         ),
     }
 
