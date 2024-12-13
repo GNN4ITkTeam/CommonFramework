@@ -161,6 +161,10 @@ class EventReader:
         hits = self._add_handengineered_features(hits)
         hits = self._clean_noise_duplicates(hits)
         tracks, track_features, hits = self._build_true_tracks(hits)
+        if tracks.size == 0 or track_features == 0 or hits.size == 0:
+            self.log.warning("Found issue in building true tracks... skipping event")
+            return
+
         hits, particles, tracks = self._custom_processing(hits, particles, tracks)
         graph = self._build_graph(hits, tracks, track_features, event_id)
         self._save_pyg_data(graph, output_dir, event_id)
@@ -176,6 +180,7 @@ class EventReader:
         max_workers = (
             self.config["max_workers"] if "max_workers" in self.config else None
         )
+
         if max_workers != 1:
             process_map(
                 partial(self._build_single_pyg_event, output_dir=stage_dir),
@@ -518,6 +523,13 @@ class EventReader:
                 track_index_edges.extend(list(product(i, j)))
 
         track_index_edges = np.array(track_index_edges).T
+
+        # Check against empty track edge indices
+        # Can appear in single particle samples
+        # where not enough hits in detector
+        if track_index_edges.size == 0:
+            return np.array([]), np.array([]), np.array([])
+
         track_edges = hits.hit_id.values[track_index_edges]
 
         assert (
