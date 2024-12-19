@@ -3,7 +3,7 @@
 
 <img src="docs/media/acorn_logo_1.png" width="400px">
 
-[![Static Badge](https://img.shields.io/badge/documentation-blue)](https://atlas-gnn-tracking.docs.cern.ch/)  [![pipeline status](https://gitlab.cern.ch/gnn4itkteam/commonframework/badges/dev/pipeline.svg)](https://gitlab.cern.ch/gnn4itkteam/commonframework/-/commits/dev) [![coverage report](https://gitlab.cern.ch/gnn4itkteam/commonframework/badges/dev/coverage.svg)](https://gitlab.cern.ch/gnn4itkteam/commonframework/-/commits/dev)
+[![Static Badge](https://img.shields.io/badge/documentation-blue)](https://atlas-gnn-tracking.docs.cern.ch/)  [![pipeline status](https://gitlab.cern.ch/gnn4itkteam/commonframework/badges/dev/pipeline.svg)](https://gitlab.cern.ch/gnn4itkteam/commonframework/-/commits/dev) [![coverage report](https://gitlab.cern.ch/gnn4itkteam/commonframework/badges/dev/coverage.svg)](https://gitlab.cern.ch/gnn4itkteam/commonframework/-/commits/dev) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14526454.svg)](https://doi.org/10.5281/zenodo.14526454)
 
 This repository contains the framework used for developing, testing and presenting the GNN-based ITk track reconstruction project GNN4ITk.
 
@@ -159,13 +159,16 @@ archivePrefix = {arXiv},
 }
 ```
 
-If you use this code in your work, please cite the gnn4itk framework:
+If you use this code in your work, please cite the ACORN framework:
 
 ```
 @misc{YourReferenceHere,
-author = {Atkinson, Markus Julian and Caillou, Sylvain and Clafiura, Paolo and Collard, Christophe and Farrell, Steven Andrew and Huth, Benjamin and Ju, Xiangyang and Liu, Ryan and Minh Pham, Tuan and Murnane, Daniel (corresponding author) and Neubauer, Mark and Rougier, Charline and Stark, Jan and Torres, Heberth and Vallier, Alexis},
-title = {gnn4itk},
-url = {https://github.com/GNN4ITkTeam/CommonFramework}
+author = {Atkinson, Markus Julian and Burzynski, Jackson and Butti, Pierfrancesco and Burleson, Jared and Caillou, Sylvain and Calafiura, Paolo and Chan, Jay and Collard, Christophe and Dittmeier, Sebastian and Farrell, Steven Andrew and Huth, Benjamin and Ju, Xiangyang and Lazar, Alina and Liu, Ryan and Minh Pham, Tuan and Murnane, Daniel (corresponding author) and Neubauer, Mark and Poreba, Aleksandra and Rougier, Charline and Stark, Jan and Torres, Heberth and Vallier, Alexis},
+title = {ACORN - A Charged Object Reconstruction Network},
+url = {https://github.com/GNN4ITkTeam/CommonFramework},
+publisher = {Gitlab},
+howpublished = {\url{https://gitlab.cern.ch/gnn4itkteam/acorn/}},
+doi = {10.5281/zenodo.14526454}
 }
 ```
 
