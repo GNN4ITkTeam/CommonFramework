@@ -33,6 +33,8 @@ git clone --recurse-submodules ssh://git@gitlab.cern.ch:7999/gnn4itkteam/acorn.g
 source create_conda_environment.sh
 ```
 
+If you have permissions issues, you can also clone with `git clone https://gitlab.cern.ch/gnn4itkteam/acorn.git`.
+
 ### Advanced Installation & Troubleshooting
 
 `xrootd` may be necessary for preparing a large dataset on the CERN grid. To create a conda environment for this purpose, use `scripts/create_conda_environment_with_xrootd.sh`, instead of `create_conda_environment.sh`
