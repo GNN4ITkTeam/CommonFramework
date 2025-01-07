@@ -87,30 +87,30 @@ class InteractionGNNParams:
                 output_batch_norm=hparams["output_batch_norm"],
                 track_running_stats=hparams["track_running_stats"],
             )
-
-        # edge decoder
-        self.edge_decoder = make_mlp(
-            input_size=hparams["hidden"],
-            sizes=[hparams["hidden"]] * hparams["n_edge_decoder_layers"],
-            output_activation=hparams["output_activation"],
-            hidden_activation=hparams["hidden_activation"],
-            layer_norm=hparams["layernorm"],
-            batch_norm=hparams["batchnorm"],
-            output_batch_norm=hparams["output_batch_norm"],
-            track_running_stats=hparams["track_running_stats"],
-        )
-        # edge output transform layer
-        self.edge_output_transform = make_mlp(
-            input_size=hparams["hidden"],
-            sizes=[hparams["hidden"], 1],
-            output_activation=hparams["edge_output_transform_final_activation"],
-            hidden_activation=hparams["hidden_activation"],
-            layer_norm=hparams["layernorm"],
-            batch_norm=hparams["batchnorm"],
-            output_batch_norm=hparams["edge_output_transform_final_batch_norm"],
-            track_running_stats=hparams["track_running_stats"],
-        )
-        self.dropout = nn.Dropout(p=0.1)
+        if hparams.get("IGNN2", True):
+            # edge decoder
+            self.edge_decoder = make_mlp(
+                input_size=hparams["hidden"],
+                sizes=[hparams["hidden"]] * hparams["n_edge_decoder_layers"],
+                output_activation=hparams["output_activation"],
+                hidden_activation=hparams["hidden_activation"],
+                layer_norm=hparams["layernorm"],
+                batch_norm=hparams["batchnorm"],
+                output_batch_norm=hparams["output_batch_norm"],
+                track_running_stats=hparams["track_running_stats"],
+            )
+            # edge output transform layer
+            self.edge_output_transform = make_mlp(
+                input_size=hparams["hidden"],
+                sizes=[hparams["hidden"], 1],
+                output_activation=hparams["edge_output_transform_final_activation"],
+                hidden_activation=hparams["hidden_activation"],
+                layer_norm=hparams["layernorm"],
+                batch_norm=hparams["batchnorm"],
+                output_batch_norm=hparams["edge_output_transform_final_batch_norm"],
+                track_running_stats=hparams["track_running_stats"],
+            )
+            self.dropout = nn.Dropout(p=0.1)
 
     def forward(
         self,
@@ -122,6 +122,101 @@ class InteractionGNNParams:
             return self.forward_with_checkpoint(node_features, edge_index, edge_attr)
         else:
             return self.forward_without_checkpoint(node_features, edge_index, edge_attr)
+
+
+class RecurrentInteractionGNN(InteractionGNNParams, EdgeClassifierStage):
+    def __init__(self, hparams):
+        hparams["concat"] = hparams.get("concat", False)
+        hparams["n_node_net_layers"] = hparams["nb_node_layer"]
+        hparams["n_edge_net_layers"] = hparams["nb_edge_layer"]
+        hparams["edge_output_transform_final_activation"] = None
+        hparams["in_out_diff_agg"] = hparams.get("in_out_diff_agg", True)
+        hparams["IGNN2"] = False
+        super().__init__(hparams)
+
+        # edge network
+        self.edge_network = make_mlp(
+            input_size=self.in_edge_net,
+            sizes=[hparams["hidden"]] * hparams["nb_edge_layer"],
+            output_activation=hparams["output_activation"],
+            hidden_activation=hparams["hidden_activation"],
+            layer_norm=hparams["layernorm"],
+            batch_norm=hparams["batchnorm"],
+            output_batch_norm=hparams["output_batch_norm"],
+            track_running_stats=hparams["track_running_stats"],
+        )
+
+        # node network
+        self.node_network = make_mlp(
+            input_size=self.in_node_net,
+            sizes=[hparams["hidden"]] * hparams["nb_node_layer"],
+            output_activation=hparams["output_activation"],
+            hidden_activation=hparams["hidden_activation"],
+            layer_norm=hparams["layernorm"],
+            batch_norm=hparams["batchnorm"],
+            output_batch_norm=hparams["output_batch_norm"],
+            track_running_stats=hparams["track_running_stats"],
+        )
+
+        # edge decoder
+        self.output_edge_classifier = make_mlp(
+            input_size=3 * hparams["hidden"],
+            sizes=[hparams["hidden"]] * hparams["nb_edge_layer"] + [1],
+            output_activation=hparams["edge_output_transform_final_activation"],
+            hidden_activation=hparams["hidden_activation"],
+            layer_norm=hparams["layernorm"],
+            batch_norm=hparams["batchnorm"],
+            output_batch_norm=hparams["output_batch_norm"],
+            track_running_stats=hparams["track_running_stats"],
+        )
+
+    @torch.jit.export
+    def forward_without_checkpoint(
+        self,
+        x: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_attr: Optional[torch.Tensor] = None,
+    ):
+        src, dst = edge_index[0], edge_index[1]
+        x = self.node_encoder(x)
+        e = self.edge_encoder(torch.cat([x[src], x[dst]], dim=-1))
+        outputs = []
+        for i in range(self.n_graph_iters):
+            x, e, out = self.recurrent_message_step(x, e, src, dst)
+        outputs.append(torch.sigmoid(out))
+        return outputs
+
+    def recurrent_message_step(
+        self, x: torch.Tensor, e: torch.Tensor, start: torch.Tensor, end: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        # Compute new node features
+        dst_index = torch.unsqueeze(end, 0).tile(e.shape[1], 1)
+        edge_messages_from_src = torch.scatter_add(
+            torch.zeros(e.shape[1], x.shape[0], device=dst_index.device),
+            1,
+            dst_index,
+            e.T,
+        ).T
+
+        src_index = torch.unsqueeze(start, 0).tile(e.shape[1], 1)
+        edge_messages_from_dst = torch.scatter_add(
+            torch.zeros(e.shape[1], x.shape[0], device=src_index.device),
+            1,
+            src_index,
+            e.T,
+        ).T
+
+        node_inputs = torch.cat(
+            [x, edge_messages_from_src, edge_messages_from_dst], dim=-1
+        )
+
+        x_out = self.node_network(node_inputs)
+        # Compute new edge features
+        edge_inputs = torch.cat([x_out[start], x_out[end], e], dim=-1)
+        e_out = self.edge_network(edge_inputs)
+        classifier_inputs = torch.cat([x_out[start], x_out[end], e_out], dim=1)
+        scores = self.output_edge_classifier(classifier_inputs)
+        return x_out, e_out, scores
 
 
 class RecurrentInteractionGNN2(InteractionGNNParams, EdgeClassifierStage):
