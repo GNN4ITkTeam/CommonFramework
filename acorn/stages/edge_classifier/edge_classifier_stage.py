@@ -371,10 +371,17 @@ class EdgeClassifierStage(LightningModule):
         target_true_positive = (target_truth.bool() & preds).sum().float()
         all_true_positive = (all_truth.bool() & preds).sum().float()
 
-        # add torch.sigmoid(output).float() to convert to float in case training is done with 16-bit precision
-        target_auc = roc_auc_score(
-            target_truth.bool().cpu().detach(),
+        total_auc = roc_auc_score(
+            all_truth.cpu().detach(),
             scores.float().cpu().detach(),
+        )
+
+        truth_without_nontarget = all_truth[(target_truth) | (~all_truth)]
+        scores_without_nontarget = scores[(target_truth) | (~all_truth)]
+        # add torch.sigmoid(output).float() to convert to float in case training is done with 16-bit precision
+        auc = roc_auc_score(
+            truth_without_nontarget.cpu().detach(),
+            scores_without_nontarget.float().cpu().detach(),
         )
         true_and_fake_positive = (
             edge_positive - (preds & (~target_truth) & all_truth).sum().float()
@@ -393,7 +400,8 @@ class EdgeClassifierStage(LightningModule):
                 "target_pur": target_pur,
                 "total_pur": total_pur,
                 "pur": purity,
-                "auc": target_auc,
+                "auc": auc,
+                "total_auc": total_auc,
             },  # type: ignore
             sync_dist=True,
             batch_size=1,
