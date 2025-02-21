@@ -294,6 +294,7 @@ def plot_eff(
 
     # Save the plot
     fig.savefig(save_path)
+    print(f"Finish plotting. Find the plot at {save_path}")
 
 
 # ------------- MAPPING UTILS ----------------
