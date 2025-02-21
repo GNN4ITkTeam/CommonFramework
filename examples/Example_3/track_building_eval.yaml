@@ -25,3 +25,5 @@ matching_fraction: 0.5
 matching_style: ATLAS
 min_track_length: 5
 min_particle_length: 5
+target_tracks:
+  pt: [1000, .inf]

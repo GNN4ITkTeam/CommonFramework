@@ -36,7 +36,7 @@ def clopper_pearson(passed: float, total: float, level: float = 0.68):
         if passed < total
         else 1.0
     )
-    average = passed / total
+    average = passed / total if total > 0 else 0.0
     return (average - lo, hi - average)
 
 

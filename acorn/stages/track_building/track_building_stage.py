@@ -145,15 +145,15 @@ class TrackBuildingStage:
         """
 
         # Load data from testset directory
-        graph_constructor = cls(config)
-        graph_constructor.setup(stage="test")
+        track_builder = cls(config)
+        track_builder.setup(stage="test")
 
         all_plots = config["plots"]
 
         # TODO: Handle the list of plots properly
         for plot_function, plot_config in all_plots.items():
-            if hasattr(graph_constructor, plot_function):
-                getattr(graph_constructor, plot_function)(plot_config, config)
+            if hasattr(track_builder, plot_function):
+                getattr(track_builder, plot_function)(plot_config, config)
             else:
                 print(f"Plot {plot_function} not implemented")
 
