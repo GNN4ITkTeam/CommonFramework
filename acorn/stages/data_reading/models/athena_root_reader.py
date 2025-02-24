@@ -238,7 +238,8 @@ class AthenaRootReader(EventReader):
 
             # Get truth spacepoints
             truth = athena_utils.get_truth_spacepoints(
-                spacepoints, clusters, SPACEPOINTS_DATATYPES
+                spacepoints, clusters, SPACEPOINTS_DATATYPES,
+                self.config.get("phi_overlap_sp_only_same_petal", True)
             )
             truth = athena_utils.remove_undetectable_particles(
                 truth, detectable_particles

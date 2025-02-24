@@ -243,7 +243,7 @@ def split_cluster_entries(clusters_raw, particles, column_lookup):
     return clusters_processed, shape_list
 
 
-def truth_match_clusters(spacepoints, clusters):
+def truth_match_clusters(spacepoints, clusters, phi_overlap_sp_only_same_petal):
     """
     Here we handle the case where a pixel spacepoint belongs to exactly one cluster, but
     a strip spacepoint belongs to 0, 1, or 2 clusters, and we only accept the case of 2 clusters
@@ -252,21 +252,40 @@ def truth_match_clusters(spacepoints, clusters):
     spacepoints = spacepoints.merge(
         clusters, left_on="cluster_index_1", right_on="cluster_id", how="left"
     )
-    spacepointlike_fields = [
-        "hardware",
-        "barrel_endcap",
-        "layer_disk",
-        "eta_module",
-        "phi_module",
-    ]
     spacepoints = spacepoints.merge(
-        clusters.drop(spacepointlike_fields, axis=1),
+        clusters,
         left_on="cluster_index_2",
         right_on="cluster_id",
         how="left",
         suffixes=("_1", "_2"),
     ).drop(["cluster_id_1", "cluster_id_2"], axis=1)
-
+    
+    # remove phi overlap SP in:
+    # - barrel,
+    # - endcap in the 3 internal eta physical modules (i.e. eta_module<=9),
+    # - endcap overlap between different petals in the 3 external eta physical modules. Code explanation:
+    #    phi_module_1%4 relabels modules with indexes 0, 1, 2, 3.
+    #    Modules 0 and 1 are in a common petal, lets call it petal A, and modules 2 and 3 are in another common petal, call it petal B.
+    #    phi_module_1%4>1 gives False for petal A, and True for petal B.
+    #    The condition (phi_module_1%4>1)!=(phi_module_2%4>1) checks whether the two modules are in different petals, to reject the corresponding space-point.
+    if phi_overlap_sp_only_same_petal:
+        spacepoints = spacepoints[ ~((spacepoints.SPisOverlap==2) &
+                                     ((spacepoints.barrel_endcap_1==0) |
+                                      ((spacepoints.barrel_endcap_1!=0) & (spacepoints.eta_module_1<=9)) |
+                                      ((spacepoints.barrel_endcap_1!=0) & (spacepoints.eta_module_1>9) & ((spacepoints.phi_module_1%4>1)!=(spacepoints.phi_module_2%4>1)))
+                                      ) ) ]
+    
+    spacepoints = spacepoints.drop(["hardware_2",
+                                    "barrel_endcap_2",
+                                    "layer_disk_2",
+                                    "eta_module_2",
+                                    "phi_module_2"], axis=1)
+    spacepoints = spacepoints.rename(columns={"hardware_1": "hardware",
+                                              "barrel_endcap_1": "barrel_endcap",
+                                              "layer_disk_1": "layer_disk",
+                                              "eta_module_1": "eta_module",
+                                              "phi_module_1": "phi_module"})
+    
     # Get clusters that share particle ID
     matching_clusters = spacepoints.particle_id_1 == spacepoints.particle_id_2
     spacepoints["particle_id"] = spacepoints["particle_id_1"].where(
@@ -302,9 +321,9 @@ def clean_spacepoints(spacepoints):
     return cleaned_hits
 
 
-def get_truth_spacepoints(spacepoints, clusters, spacepoints_datatypes):
+def get_truth_spacepoints(spacepoints, clusters, spacepoints_datatypes, phi_overlap_sp_only_same_petal):
     # Build truth list of spacepoints by handling matching clusters
-    truth_spacepoints = truth_match_clusters(spacepoints, clusters)
+    truth_spacepoints = truth_match_clusters(spacepoints, clusters, phi_overlap_sp_only_same_petal)
     # Tidy up the truth dataframe and add in all cluster information
     truth_spacepoints = clean_spacepoints(truth_spacepoints)
 
