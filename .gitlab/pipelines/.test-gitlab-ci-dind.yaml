@@ -2,7 +2,7 @@
 # how much memory is shared between host machine and the docker container which runs the job.
 # It will avoid running into memory issue
 
-run tests:
+run test cpu: &run_test_cpu
   stage: test
   tags: 
     - docker-privileged-xl
@@ -15,7 +15,7 @@ run tests:
   # ref: https://kubernetes.docs.cern.ch/docs/registry/quickstart/#pull-through-caches
   - name: registry.cern.ch/docker.io/library/docker:20.10.16-dind
     alias: docker
-  script:
+  before_script:
     - pwd
     - cd tests
     - wget https://portal.nersc.gov/project/m3443/dtmurnane/GNN4ITk/TestData/test_files.zip 2>&1 >& /dev/null
@@ -25,6 +25,7 @@ run tests:
     - unzip test_files.zip 2>&1 >& /dev/null
     - rm test_files.zip
     - ls -la
+  script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
     - docker pull -q "$CI_REGISTRY_IMAGE/temporary_images:${CI_COMMIT_REF_SLUG}-test"
     # remember to request 8GB of shared memory here with --shms-size=8g !!! Otherwise memory intensive tests will fail
@@ -41,3 +42,31 @@ run tests:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - when: manual
       allow_failure: true
+
+# for the moment there is no GPU machine available, commenting this out. Will come back later 
+# run test gpu:
+#   <<: *run_test_cpu
+#   tags: 
+#     - k8s-gpu
+#   variables:
+#     KUBERNETES_PRIVILEGED: "true"
+#   script:
+#     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+#     - docker pull -q "$CI_REGISTRY_IMAGE/temporary_images:${CI_COMMIT_REF_SLUG}-test"
+#     - docker run -dit --rm --shm-size=8g --gpu -v $(pwd):/test_dir --name test_container "$CI_REGISTRY_IMAGE/temporary_images:${CI_COMMIT_REF_SLUG}-test" /bin/bash
+#     - docker exec -w /test_dir test_container sh run_test_gpu.sh
+#     - docker stop test_container 
+
+test create conda env:
+  <<: *run_test_cpu
+  needs: []
+  script:
+    - cd ..
+    - pwd
+    - docker run -dit --rm --shm-size=8g -v $(pwd):/acorn --name conda_container registry.cern.ch/docker.io/continuumio/miniconda3:latest /bin/bash
+    # remember to request 8GB of shared memory here with --shms-size=8g !!! Otherwise memory intensive tests will fail
+    - docker exec -w /acorn conda_container sh create_conda_environment.sh
+    - docker exec -w /acorn/tests conda_container sh run_test.sh
+    - docker stop conda_container 
+  rules:
+    - when: always
