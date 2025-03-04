@@ -555,13 +555,6 @@ class InteractionGNN2(EdgeClassifierStage):
             [batch[feature] for feature in self.hparams["node_features"]], dim=-1
         ).float()
 
-        # Same features on the 3 channels in the STRIP ENDCAP TODO: Process it in previous stage
-        mask = torch.logical_or(batch.hit_region == 2, batch.hit_region == 6).reshape(
-            -1
-        )
-        x[mask] = torch.cat([x[mask, 0:4], x[mask, 0:4], x[mask, 0:4]], dim=1)
-        # print(x[:, 8:12])
-
         if "edge_features" in self.hparams and len(self.hparams) != 0:
             edge_attr = torch.stack(
                 [batch[feature] for feature in self.hparams["edge_features"]], dim=-1
