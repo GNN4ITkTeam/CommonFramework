@@ -13,7 +13,6 @@ from acorn.utils.ml_utils import make_mlp
 
 
 class InteractionGNNBlock(nn.Module):
-
     """
     An interaction network for embedding class
     """
@@ -81,7 +80,6 @@ class InteractionGNNBlock(nn.Module):
 
 
 class HierarchicalGNNBlock(nn.Module):
-
     """
     An hierarchical GNN class
     """

@@ -86,7 +86,6 @@ class FilterMixin:
 
 
 class Filter(EdgeClassifierStage, FilterMixin):
-
     """
     An interaction network class
     """

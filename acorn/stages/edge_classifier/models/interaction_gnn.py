@@ -34,7 +34,6 @@ from itertools import product, combinations_with_replacement
 
 
 class InteractionGNN(EdgeClassifierStage):
-
     """
     An interaction network class
     """

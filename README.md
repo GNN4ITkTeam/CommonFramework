@@ -69,7 +69,7 @@ For NERSC Perlmutter HPC users, the default `cudatoolkit` is 11.7 as of writing 
 
 -----
 
-It is optional to install `FRNN` for faster (~3x) GPU nearest neighbor search. To do so, run
+It is optional to install `FRNN` for faster (~3x) GPU nearest neighbor search. For NERSC Perlmutter HPC users. run `module load cmake/3.30.2` and `module load gcc/12.2.0` , then run the following commands.
 ```bash
 pip install git+https://github.com/asnaylor/prefix_sum.git
 pip install git+https://github.com/xju2/FRNN.git
