@@ -229,9 +229,11 @@ def add_region_labels(hits, region_labels: dict):
     for region_label, conditions in region_labels.items():
         condition_mask = np.logical_and.reduce(
             [
-                hits[condition_column].isin(condition)
-                if isinstance(condition, list)
-                else hits[condition_column] == condition
+                (
+                    hits[condition_column].isin(condition)
+                    if isinstance(condition, list)
+                    else hits[condition_column] == condition
+                )
                 for condition_column, condition in conditions.items()
             ]
         )

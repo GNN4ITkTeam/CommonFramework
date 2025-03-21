@@ -105,9 +105,11 @@ def get_matching_df(reconstruction_df, particles_df, sel_conf, min_track_length=
         reconstruction_df.track_id.value_counts(sort=False)
         .reset_index()
         .rename(
-            columns={"count": "n_reco_hits"}
-            if int(pd.__version__.split(".")[0]) >= 2
-            else {"index": "track_id", "track_id": "n_reco_hits"}
+            columns=(
+                {"count": "n_reco_hits"}
+                if int(pd.__version__.split(".")[0]) >= 2
+                else {"index": "track_id", "track_id": "n_reco_hits"}
+            )
         )
     )
 
@@ -117,9 +119,11 @@ def get_matching_df(reconstruction_df, particles_df, sel_conf, min_track_length=
         .particle_id.value_counts(sort=False)
         .reset_index()
         .rename(
-            columns={"count": "n_true_hits"}
-            if int(pd.__version__.split(".")[0]) >= 2
-            else {"index": "particle_id", "particle_id": "n_true_hits"}
+            columns=(
+                {"count": "n_true_hits"}
+                if int(pd.__version__.split(".")[0]) >= 2
+                else {"index": "particle_id", "particle_id": "n_true_hits"}
+            )
         )
     )
 
