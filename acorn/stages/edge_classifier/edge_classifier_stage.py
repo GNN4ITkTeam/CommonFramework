@@ -288,19 +288,22 @@ class EdgeClassifierStage(LightningModule):
         )
 
         if balance == "proportional":
-            n = positive_mask.sum() + negative_mask.sum()
+            sow = batch.edge_weights.abs().sum()
             return (
-                (positive_loss + negative_loss) / n,
-                positive_loss.detach() / n,
-                negative_loss.detach() / n,
+                (positive_loss + negative_loss) / sow,
+                positive_loss.detach() / sow,
+                negative_loss.detach() / sow,
             )
         else:
             n_pos, n_neg = positive_mask.sum(), negative_mask.sum()
-            n = n_pos + n_neg
+            sow = (
+                batch.edge_weights[positive_mask].abs().sum() / n_pos
+                + batch.edge_weights[negative_mask].abs().sum() / n_neg
+            )
             return (
-                positive_loss / n_pos + negative_loss / n_neg,
-                positive_loss.detach() / n,
-                negative_loss.detach() / n,
+                (positive_loss / n_pos + negative_loss / n_neg) / sow,
+                positive_loss.detach() / n_pos / sow,
+                negative_loss.detach() / n_neg / sow,
             )
 
     def shared_evaluation(self, batch, batch_idx):
