@@ -1,0 +1,22 @@
+tqdm
+ipykernel
+atlasify
+trackml@ https://github.com/LAL/trackml-library/tarball/master#egg=trackml-3
+networkx
+seaborn
+pyyaml
+click
+lightning==2.4.0
+pytest
+pytest-cov
+torch-geometric
+numpy<2
+uproot<=5.3.1
+class-resolver
+onnxruntime
+onnx
+MonkeyType
+wandb
+scikit-learn
+numba
+black==22.8.0
