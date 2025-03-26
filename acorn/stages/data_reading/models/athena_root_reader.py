@@ -257,11 +257,11 @@ class AthenaRootReader(EventReader):
 
             # Save to CSV
             truth.to_csv(
-                os.path.join(output_dir, "event{:09}-truth.csv".format(int(event))),
+                os.path.join(output_dir, f"{self.event_prefix}event{int(event):09}-truth.csv"),
                 index=False,
             )
             detectable_particles.to_csv(
-                os.path.join(output_dir, "event{:09}-particles.csv".format(int(event))),
+                os.path.join(output_dir, f"{self.event_prefix}event{int(event):09}-particles.csv"),
                 index=False,
             )
             self.log.debug(f"truth.csv and particles.csv made for event {event}")
