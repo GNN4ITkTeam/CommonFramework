@@ -54,9 +54,9 @@ class EventReader:
         else:
             raise NotImplementedError
 
-        self.event_prefix = config.get("event_prefix","")
+        self.event_prefix = config.get("event_prefix", "")
         if self.event_prefix != "":
-            self.event_prefix+="_"
+            self.event_prefixc += "_"
 
         # Logging config
         self.log = logging.getLogger("EventReader")
@@ -153,7 +153,9 @@ class EventReader:
 
         event_id = event["event_id"]
 
-        if os.path.exists(os.path.join(output_dir, f"{self.event_prefix}event{event_id}-graph.pyg")):
+        if os.path.exists(
+            os.path.join(output_dir, f"{self.event_prefix}event{event_id}-graph.pyg")
+        ):
             print(f"Graph {event_id} already exists, skipping...")
             return
 
@@ -304,7 +306,10 @@ class EventReader:
         """
         if not self.config.get("variable_with_prefix"):
             graph = remove_variable_name_prefix_in_pyg(graph)
-        torch.save(graph, os.path.join(output_dir, f"{self.event_prefix}event{event_id}-graph.pyg"))
+        torch.save(
+            graph,
+            os.path.join(output_dir, f"{self.event_prefix}event{event_id}-graph.pyg"),
+        )
 
     @staticmethod
     def calc_eta(r, z):
