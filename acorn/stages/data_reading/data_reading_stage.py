@@ -56,7 +56,7 @@ class EventReader:
 
         self.event_prefix = config.get("event_prefix", "")
         if self.event_prefix != "":
-            self.event_prefixc += "_"
+            self.event_prefix += "_"
 
         # Logging config
         self.log = logging.getLogger("EventReader")
