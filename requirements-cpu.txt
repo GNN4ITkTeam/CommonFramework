@@ -13,9 +13,6 @@ torch-geometric
 numpy<2
 uproot<=5.3.1
 class-resolver
---extra-index-url https://pypi.nvidia.com
-cudf-cu12 
-cugraph-cu12
 onnxruntime
 onnx
 MonkeyType
