@@ -82,6 +82,10 @@ class GraphConstructionStage:
         if stage in ["predict", "test"]:
             torch.set_float32_matmul_precision("highest")
 
+        self.event_prefix = self.hparams.get("event_prefix", "")
+        if self.event_prefix != "":
+            self.event_prefix += "_"
+
     def load_data(self, input_dir):
         """
         Load in the data for training, validation and testing.
