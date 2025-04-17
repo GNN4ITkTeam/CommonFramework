@@ -17,6 +17,8 @@ import torch
 import pandas as pd
 import numpy as np
 from atlasify import atlasify
+import atlasify as atl
+
 
 import matplotlib.pyplot as plt
 
@@ -232,7 +234,11 @@ default_eta_configs = {
 
 
 def plot_eff(
-    particles, var: str, varconf: Dict, save_path="track_reconstruction_eff_vs_XXX.png"
+    particles,
+    var: str,
+    varconf: Dict,
+    save_path="track_reconstruction_eff_vs_XXX.png",
+    trackML_label=False,
 ):
     if var not in ["pt", "eta"]:
         raise ValueError(f"Unsupported variable {var}, should be either `pt` or `eta`.")
@@ -288,10 +294,16 @@ def plot_eff(
     if "y_lim" in varconf:
         ax.set_ylim(ymin=varconf["y_lim"][0], ymax=varconf["y_lim"][1])
 
+    if trackML_label:
+        atl.ATLAS = "TrackML Dataset"
+
     atlasify(
-        "Internal",
-        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries ($t"
-        r" \bar{t}$ and soft interactions) " + "\n"
+        atlas=True if trackML_label else "Internal",
+        subtext=(
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries ($t"
+            r" \bar{t}$ and soft interactions) "
+        )
+        + "\n"
         r"$p_T > 1$GeV, $|\eta| < 4$",
         enlarge=1,
     )
