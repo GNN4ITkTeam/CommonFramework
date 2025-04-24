@@ -606,7 +606,9 @@ class GraphDataset(Dataset):
 
     def get(self, idx):
         event_path = self.input_paths[idx]
-        event = torch.load(event_path, map_location=torch.device("cpu"))
+        event = torch.load(
+            event_path, map_location=torch.device("cpu"), weights_only=False
+        )
         # convert DataBatch to Data instance because some transformations don't work on DataBatch
         event = Data(**event.to_dict())
         if (not self.hparams.get("variable_with_prefix")) or self.hparams.get(
