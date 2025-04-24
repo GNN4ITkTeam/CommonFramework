@@ -263,6 +263,7 @@ class TrackBuildingStage:
                 var,
                 varconf,
                 save_path=save_path,
+                trackML_label=self.hparams.get("trackML_label", False),
             )
 
             print(
