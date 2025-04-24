@@ -63,9 +63,9 @@ def load_config_and_checkpoint(config_path, default_root_dir):
     if checkpoint:
         print(f"Loading checkpoint from {checkpoint}")
         return (
-            torch.load(checkpoint, map_location=torch.device("cpu"))[
-                "hyper_parameters"
-            ],
+            torch.load(
+                checkpoint, map_location=torch.device("cpu"), weights_only=False
+            )["hyper_parameters"],
             checkpoint,
         )
     else:
@@ -201,7 +201,9 @@ def get_stage_module(
 
 
 def load_module(checkpoint_path, stage_module_class):
-    checkpoint = torch.load(checkpoint_path, map_location=torch.device("cpu"))
+    checkpoint = torch.load(
+        checkpoint_path, map_location=torch.device("cpu"), weights_only=False
+    )
     config = checkpoint["hyper_parameters"]
     stage_module = stage_module_class.load_from_checkpoint(
         checkpoint_path=checkpoint_path

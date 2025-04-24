@@ -46,7 +46,9 @@ def load_dataset(
 
         loaded_events = []
         for event in tqdm(all_events[:num_events]):
-            loaded_events.append(torch.load(event, map_location=torch.device("cpu")))
+            loaded_events.append(
+                torch.load(event, map_location=torch.device("cpu"), weights_only=False)
+            )
 
         print("Events loaded!")
 
@@ -148,7 +150,9 @@ class LargeDataset(Dataset):
         return len(self.input_paths)
 
     def get(self, idx):
-        event = torch.load(self.input_paths[idx], map_location=torch.device("cpu"))
+        event = torch.load(
+            self.input_paths[idx], map_location=torch.device("cpu"), weights_only=False
+        )
 
         # Process event with pt cuts
         if self.hparams["pt_background_cut"] > 0:
