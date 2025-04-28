@@ -164,14 +164,20 @@ class PyModuleMap(GraphConstructionStage):
         for graph, _, truth in tqdm(dataset):
             if graph is None:
                 continue
-            if os.path.exists(os.path.join(output_dir, f"event{graph.event_id}.pyg")):
-                print(f"Graph {graph.event_id} already exists, skipping...")
+
+            method = self.module_map.get("method")
+            graph_file_name = (
+                f"{self.event_prefix}module_map_{method}_event{graph.event_id}.pyg"
+            )
+
+            if os.path.exists(os.path.join(output_dir, graph_file_name)):
+                print(f"Graph {graph_file_name} already exists, skipping...")
                 continue
 
             graph = self.build_graph(graph, truth)
             if not self.hparams.get("variable_with_prefix"):
                 graph = remove_variable_name_prefix_in_pyg(graph)
-            torch.save(graph, os.path.join(output_dir, f"event{graph.event_id}.pyg"))
+            torch.save(graph, os.path.join(output_dir, graph_file_name))
 
     def build_graph(self, graph, truth):
         """
