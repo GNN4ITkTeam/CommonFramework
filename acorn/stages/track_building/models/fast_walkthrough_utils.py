@@ -24,16 +24,16 @@ from numba.typed import Dict, List
 def filter_graph(graph, score_name, threshold):
     mask = graph[score_name] > threshold
     edge_index = graph.edge_index[:, mask]
-    edge_scores = graph[score_name][mask]
+    edge_scores = graph[score_name][mask].float()
     transform = RemoveIsolatedNodes()
     new_graph = Data(
         edge_index=edge_index,
-        edge_scores=edge_scores,
         hit_id=graph.hit_id,
         num_nodes=len(graph.hit_id),
         hit_r=graph.hit_r,
         hit_z=graph.hit_z,
     )
+    new_graph[score_name] = edge_scores
     new_graph = transform(new_graph)
 
     return new_graph
