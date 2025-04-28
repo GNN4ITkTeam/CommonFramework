@@ -53,7 +53,7 @@ def load_dataset_from_dir(input_dir, data_name, data_num):
     """
     data_files = load_datafiles_in_dir(input_dir, data_name, data_num)
 
-    return [torch.load(f, map_location="cpu") for f in data_files]
+    return [torch.load(f, map_location="cpu", weights_only=False) for f in data_files]
 
 
 def run_data_tests(datasets: List, required_features, optional_features):

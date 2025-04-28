@@ -1,4 +1,5 @@
 from atlasify import atlasify
+import atlasify as atl
 import os
 from matplotlib import pyplot as plt
 import numpy as np
@@ -151,9 +152,12 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
             logx=logx,
         )
 
+        if config.get("trackML_label"):
+            atl.ATLAS = "TrackML Dataset"
+
         # Save the plot
         atlasify(
-            atlas="Internal",
+            atlas=True if config.get("trackML_label") else "Internal",
             subtext=(
                 r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries"
                 r" $t \bar{t}$ and soft interactions) "
@@ -264,11 +268,17 @@ def graph_construction_efficiency_2D(lightning_module, plot_config: dict, config
             y,
         )
 
+        if config.get("trackML_label"):
+            atl.ATLAS = "TrackML Dataset"
+
         # Save the plot
         atlasify(
-            "Internal",
-            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-            r" \bar{t}$ and soft interactions " + "\n"
+            atlas=True if config.get("trackML_label") else "Internal",
+            subtext=(
+                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+                r" \bar{t}$ and soft interactions "
+            )
+            + "\n"
             r"$p_T > 1$ GeV, $ | \eta | < 4$ " + "\n"
             "Graph Construction Efficiency:"
             f" {(target[x].shape[0] / all_target[x].shape[0]):.4f}, "
@@ -409,11 +419,17 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
             logx=logx,
         )
 
+        if config.get("trackML_label"):
+            atl.ATLAS = "TrackML Dataset"
+
         # Save the plot
         atlasify(
-            "Internal",
-            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-            r" \bar{t}$ and soft interactions) " + "\n"
+            atlas=True if config.get("trackML_label") else "Internal",
+            subtext=(
+                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+                r" \bar{t}$ and soft interactions) "
+            )
+            + "\n"
             r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
             r"Edge score cut: " + str(config["score_cut"]) + "\n"
             f"Input graph size: {pred.shape[0]/n_graphs:.2e}, Graph Construction"
@@ -521,12 +537,18 @@ def graph_roc_curve(lightning_module, plot_config, config):
         fontsize=14,
     )
 
+    if config.get("trackML_label"):
+        atl.ATLAS = "TrackML Dataset"
+
     # Save the plot
     atlasify(
-        "Internal",
-        f"{plot_config['title']} \n"
-        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-        r" \bar{t}$ and soft interactions) " + "\n"
+        atlas=True if config.get("trackML_label") else "Internal",
+        subtext=(
+            f"{plot_config['title']} \n"
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+            r" \bar{t}$ and soft interactions) "
+        )
+        + "\n"
         r"$p_T > 1$GeV, $|\eta| < 4$"
         + "\n"
         + f"Evaluated on {dataset.len()} events in {dataset_name}",
@@ -552,8 +574,8 @@ def graph_roc_curve(lightning_module, plot_config, config):
     ax.set_xlabel("Edge score", ha="right", x=0.95, fontsize=14)
     ax.set_ylabel("Count/event", ha="right", y=0.95, fontsize=14)
     atlasify(
-        "Internal",
-        "Score Distribution \n"
+        atlas=True if config.get("trackML_label") else "Internal",
+        subtext=("Score Distribution") + "\n"
         r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
         r" \bar{t}$ and soft interactions) " + "\n"
         r"$p_T > 1$GeV, $|\eta| < 4$"
@@ -705,11 +727,18 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
         true_positive["hit_r"].cpu(),
         plot_config,
     )
+
+    if config.get("trackML_label"):
+        atl.ATLAS = "TrackML Dataset"
+
     # Save the plot
     atlasify(
-        "Internal",
-        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-        r" \bar{t}$ and soft interactions) " + "\n"
+        atlas=True if config.get("trackML_label") else "Internal",
+        subtext=(
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+            r" \bar{t}$ and soft interactions) "
+        )
+        + "\n"
         r"$p_T > 1$ GeV, $ | \eta | < 4$ " + "\n"
         "Graph Construction Efficiency:"
         f" {(target['hit_z'].shape[0] / all_target['hit_z'].shape[0]):.4f}, Input graph size:"
@@ -740,11 +769,18 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
         true_positive["hit_r"].cpu(),
         plot_config,
     )
+
+    if config.get("trackML_label"):
+        atl.ATLAS = "TrackML Dataset"
+
     # Save the plot
     atlasify(
-        "Internal",
-        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-        r" \bar{t}$ and soft interactions) " + "\n"
+        atlas=True if config.get("trackML_label") else "Internal",
+        subtext=(
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+            r" \bar{t}$ and soft interactions) "
+        )
+        + "\n"
         r"$p_T > 1$ GeV, $ | \eta | < 4$ " + "\n"
         "Graph Construction Efficiency:"
         f" {(target['hit_z'].shape[0] / all_target['hit_z'].shape[0]):.4f}, Input graph size:"
@@ -881,11 +917,18 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
             numerator["hit_r"].cpu(),
             plot_config,
         )
+
+        if config.get("trackML_label"):
+            atl.ATLAS = "TrackML Dataset"
+
         # Save the plot
         atlasify(
-            "Internal",
-            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-            r" \bar{t}$ and soft interactions) " + "\n"
+            atlas=True if config.get("trackML_label") else "Internal",
+            subtext=(
+                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+                r" \bar{t}$ and soft interactions) "
+            )
+            + "\n"
             r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
             r"Edge score cut: "
             + str(config["score_cut"])
@@ -1103,11 +1146,17 @@ def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
             logx=logx,
         )
 
+        if config.get("trackML_label"):
+            atl.ATLAS = "TrackML Dataset"
+
         # Save the plot
         atlasify(
-            "Internal",
-            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-            r" \bar{t}$ and soft interactions) " + "\n"
+            atlas=True if config.get("trackML_label") else "Internal",
+            subtext=(
+                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+                r" \bar{t}$ and soft interactions) "
+            )
+            + "\n"
             r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
             r"Edge score cut: " + str(config["score_cut"]) + "\n"
             f"Input graph size: {pred.shape[0]/n_graphs:.2e}, Graph Construction"
@@ -1133,11 +1182,13 @@ def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
     )
     # Save the plot
     atlasify(
-        "Internal",
-        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-        r" \bar{t}$ and soft interactions) "
-        r"\n$p_T > 1$ GeV, $ | \eta | < 4$ "
-        "\nGraph Construction Efficiency:"
+        atlas=True if config.get("trackML_label") else "Internal",
+        subtext=(
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+            r" \bar{t}$ and soft interactions) "
+            r"\n$p_T > 1$ GeV, $ | \eta | < 4$ "
+        )
+        + "\nGraph Construction Efficiency:"
         f" {graph_construction_efficiency:.4f}, Input graph size: {pred.shape[0]/n_graphs: .2e} \n"
         r"Edge score cut: "
         + str(config["score_cut"])
@@ -1164,11 +1215,13 @@ def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
     )
     # Save the plot
     atlasify(
-        "Internal",
-        r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-        r" \bar{t}$ and soft interactions) "
-        r"\n$p_T > 1$ GeV, $ | \eta | < 4$ "
-        "\nGraph Construction Efficiency:"
+        atlas=True if config.get("trackML_label") else "Internal",
+        subtext=(
+            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+            r" \bar{t}$ and soft interactions) "
+            r"\n$p_T > 1$ GeV, $ | \eta | < 4$ "
+        )
+        + "\nGraph Construction Efficiency:"
         f" {graph_construction_efficiency:.4f}, Input graph size: {pred.shape[0]/n_graphs: .2e} \n"
         r"Edge score cut: "
         + str(config["score_cut"])
@@ -1205,9 +1258,12 @@ def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
         )
         # Save the plot
         atlasify(
-            "Internal",
-            r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
-            r" \bar{t}$ and soft interactions) " + "\n"
+            atlas=True if config.get("trackML_label") else "Internal",
+            subtext=(
+                r"$\sqrt{s}=14$TeV, $t \bar{t}$, $\langle \mu \rangle = 200$, primaries $t"
+                r" \bar{t}$ and soft interactions) "
+            )
+            + "\n"
             r"$p_T > 1$ GeV, $ | \eta | < 4$" + "\n"
             r"Edge score cut: "
             + str(config["score_cut"])

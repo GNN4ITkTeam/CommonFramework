@@ -263,6 +263,7 @@ class TrackBuildingStage:
                 var,
                 varconf,
                 save_path=save_path,
+                trackML_label=self.hparams.get("trackML_label", False),
             )
 
             print(
@@ -364,7 +365,9 @@ class GraphDataset(Dataset):
 
     def get(self, idx):
         event_path = self.input_paths[idx]
-        event = torch.load(event_path, map_location=torch.device("cpu"))
+        event = torch.load(
+            event_path, map_location=torch.device("cpu"), weights_only=False
+        )
         self.preprocess_event(event)
 
         # return (event, event_path) if self.stage == "predict" else event

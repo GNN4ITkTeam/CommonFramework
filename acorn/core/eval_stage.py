@@ -85,7 +85,7 @@ def evaluate(config_file, verbose=None, checkpoint=None, dataset="valset"):
             sys.exit(1)
         print(f"Loading checkpoint: {checkpoint_path}")
         checkpoint_config = torch.load(
-            checkpoint_path, map_location=torch.device("cpu")
+            checkpoint_path, map_location=torch.device("cpu"), weights_only=False
         )["hyper_parameters"]
         config = {**checkpoint_config, **config}
 

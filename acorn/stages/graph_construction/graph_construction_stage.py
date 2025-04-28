@@ -285,7 +285,7 @@ class EventDataset(Dataset):
             if os.path.exists(f"{event_path}-graph.pyg")
             else f"{event_path}.pyg"
         )
-        graph = torch.load(graph_path)
+        graph = torch.load(graph_path, weights_only=False)
         graph = self.preprocess_graph(graph)
 
         if not self.use_csv:

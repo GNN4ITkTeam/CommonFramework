@@ -507,22 +507,20 @@ class EdgeClassifierStage(LightningModule):
         """
 
         # Load data from testset directory
-        graph_constructor = cls(config).to(device)
+        edge_classifier = cls(config).to(device)
         if checkpoint is not None:
             print(f"Restoring model from {checkpoint}")
-            graph_constructor = cls.load_from_checkpoint(checkpoint, hparams=config).to(
+            edge_classifier = cls.load_from_checkpoint(checkpoint, hparams=config).to(
                 device
             )
-        graph_constructor.setup(stage="test")
+        edge_classifier.setup(stage="test")
 
         all_plots = config["plots"]
 
         # TODO: Handle the list of plots properly
         for plot_function, plot_config in all_plots.items():
             if hasattr(eval_utils, plot_function):
-                getattr(eval_utils, plot_function)(
-                    graph_constructor, plot_config, config
-                )
+                getattr(eval_utils, plot_function)(edge_classifier, plot_config, config)
             else:
                 print(f"Plot {plot_function} not implemented")
 
@@ -606,7 +604,9 @@ class GraphDataset(Dataset):
 
     def get(self, idx):
         event_path = self.input_paths[idx]
-        event = torch.load(event_path, map_location=torch.device("cpu"))
+        event = torch.load(
+            event_path, map_location=torch.device("cpu"), weights_only=False
+        )
         # convert DataBatch to Data instance because some transformations don't work on DataBatch
         event = Data(**event.to_dict())
         if (not self.hparams.get("variable_with_prefix")) or self.hparams.get(
