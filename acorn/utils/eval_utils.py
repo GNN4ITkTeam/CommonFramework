@@ -134,7 +134,10 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
         [f"$p_T [{pt_units}]$", r"$\eta$"],
         [[pt_min, pt_max], [eta_min, eta_max]],
         [True, False],
-        ["edgewise_efficiency_pt.png", "edgewise_efficiency_eta.png"],
+        [
+            "graph_construction_edgewise_efficiency_pt.png",
+            "graph_construction_edgewise_efficiency_eta.png",
+        ],
     ):
         hist, err = get_ratio(true_pos_hist, true_hist)
         if plot_config.get("filename_template") is not None:
@@ -221,8 +224,8 @@ def graph_construction_efficiency_2D(lightning_module, plot_config: dict, config
             ).to(lightning_module.device)
 
         # mm -> m scaling
-        for v in ["hit_x", "hit_z", "hit_r"]:
-            if v in target:
+        for v in target:
+            if v in event.keys():
                 event[v] /= 1000
 
         if "hit_y" in target and "hit_y" not in event.keys():
@@ -384,8 +387,11 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
     if "pt_units" in plot_config and plot_config["pt_units"] == "MeV":
         pt_min, pt_max = pt_min * 1000, pt_max * 1000
     pt_bins = np.logspace(np.log10(pt_min), np.log10(pt_max), 10)
-
-    eta_bins = np.linspace(-4, 4)
+    if "eta_lim" in plot_config:
+        eta_min, eta_max = plot_config["eta_lim"]
+    else:
+        eta_min, eta_max = [-4, 4]
+    eta_bins = np.linspace(eta_min, eta_max)
 
     true_pt_hist, true_pt_bins = np.histogram(target_pt[graph_truth], bins=pt_bins)
     true_pos_pt_hist, _ = np.histogram(target_pt[true_positive], bins=pt_bins)
@@ -397,11 +403,12 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
 
     filename = plot_config.get("filename", "edgewise_efficiency")
 
-    for true_pos_hist, true_hist, bins, xlabel, logx, filename in zip(
+    for true_pos_hist, true_hist, bins, xlabel, xlim, logx, filename in zip(
         [true_pos_pt_hist, true_pos_eta_hist],
         [true_pt_hist, true_eta_hist],
         [true_pt_bins, true_eta_bins],
         [f"$p_T [{pt_units}]$", r"$\eta$"],
+        [[pt_min, pt_max], [eta_min, eta_max]],
         [True, False],
         [f"{filename}_pt.png", f"{filename}_eta.png"],
     ):
@@ -415,6 +422,7 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
             xlabel,
             plot_config["title"],
             plot_config.get("ylim", [0.9, 1.04]),
+            xlim,
             "Efficiency",
             logx=logx,
         )
@@ -526,11 +534,13 @@ def graph_roc_curve(lightning_module, plot_config, config):
     ax.set_ylabel("True Positive Rate", ha="right", y=0.95, fontsize=14)
     ax.set_xscale("log")
     ax.set_yscale("log")
+    ax.set_xlim(plot_config.get("xlim", [1e-7, 1]))
+    ax.set_ylim(plot_config.get("ylim", [5e-1, 1]))
     ax.legend(loc="lower right", fontsize=14)
     ax.text(
         0.95,
         0.20,
-        f"Full AUC: {full_auc_score:.3f}, Masked AUC: {masked_auc_score: .3f}",
+        f"Full AUC: {full_auc_score:.6f}, Masked AUC: {masked_auc_score: .6f}",
         ha="right",
         va="bottom",
         transform=ax.transAxes,
