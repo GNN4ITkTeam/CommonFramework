@@ -201,7 +201,7 @@ class AthenaRootReader(EventReader):
 
             # Read particles
             particles = athena_root_utils.read_particles(part_branches)
-            if particles is None:
+            if particles is None or len(particles) == 0:
                 warnings.warn(f"No particles found in event number {event}")
                 return
             particles = athena_utils.convert_barcodes(particles)
@@ -214,6 +214,13 @@ class AthenaRootReader(EventReader):
             spacepoints = athena_root_utils.read_spacepoints(
                 sp_branches, self.config.get("overlap_sp_cut", 999)
             )
+            # At least 2 spacepoints are needed to build at least one edge
+            if len(spacepoints) < 2:
+                self.log.warn(
+                    f"Not enough spacepoints ({len(spacepoints)}) found in event number {event}"
+                )
+                return
+
             self.log.debug("Space points data frame made")
             if self.log.getEffectiveLevel() == logging.DEBUG:
                 print("\nSpace points\n")
@@ -234,6 +241,9 @@ class AthenaRootReader(EventReader):
             detectable_particles = athena_utils.get_detectable_particles(
                 particles, clusters
             )
+            if len(detectable_particles) == 0:
+                self.log.warn(f"No detectable particles found in event {event}")
+                return
             self.log.debug("Detectable particles data frame made")
 
             # Get truth spacepoints
