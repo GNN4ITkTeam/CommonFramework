@@ -40,6 +40,7 @@ class CCandWalk(TrackBuildingStage):
         self.hparams = hparams
         self.gpu_available = torch.cuda.is_available()
         self.cc_only = self.hparams.get("cc_only", False)
+        self.score_guided_walk = self.hparams.get("score_guided_walk", False)
 
     def build_tracks(self, dataset, data_name):
         """
@@ -98,12 +99,21 @@ class CCandWalk(TrackBuildingStage):
 
         # Walkthrough on remaining non simple paths (ie with branching)
         if not self.cc_only:
-            all_trks["walk"] = cc_and_walk_utils.walk_through(
-                G,
-                score_name,
-                self.hparams["score_cut_walk"]["min"],
-                self.hparams["score_cut_walk"]["add"],
-            )
+            if self.score_guided_walk:
+                all_trks["walk"] = cc_and_walk_utils.walk_through_score_guided(
+                    G,
+                    score_name,
+                    self.hparams["score_cut_walk"]["min"],
+                    self.hparams["score_cut_walk"]["add"],
+                    self.hparams["guidance_mode_walk"],
+                )
+            else:
+                all_trks["walk"] = cc_and_walk_utils.walk_through(
+                    G,
+                    score_name,
+                    self.hparams["score_cut_walk"]["min"],
+                    self.hparams["score_cut_walk"]["add"],
+                )
 
         # Add tracks labels to the graph
         cc_and_walk_utils.add_track_labels(graph, all_trks)
