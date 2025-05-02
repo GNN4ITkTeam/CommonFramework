@@ -10,7 +10,6 @@ def test_stage_load():
 
 
 def test_gnn_infer():
-
     import os
 
     import yaml
