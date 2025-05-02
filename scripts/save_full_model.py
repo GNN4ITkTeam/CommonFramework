@@ -104,7 +104,6 @@ def model_save(
 
         model = new_gnn
     elif "GNNFilter" in model_name:
-
         input_data = [node_features, edge_list]
         input_names = ["node_features", "edge_list"]
         dynamic_axes = {

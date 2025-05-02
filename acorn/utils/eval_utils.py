@@ -25,25 +25,39 @@ from acorn.stages.graph_construction.models.utils import graph_intersection
 def dump_edges(event, config):
     src, dst = event.track_edges
     df = pd.DataFrame()
-    df["track_to_edge_map_bool"] = event.track_to_edge_map[event.track_target_mask] >= 0
-    df["track_particle_radius"] = event.track_particle_radius[event.track_target_mask]
-    df["track_particle_pt"] = event.track_particle_pt[event.track_target_mask]
-    df["track_particle_eta"] = event.track_particle_eta[event.track_target_mask]
-    df["track_particle_pdgId"] = event.track_particle_pdgId[event.track_target_mask]
-    df["track_particle_primary"] = event.track_particle_primary[event.track_target_mask]
-    df["track_particle_id"] = event.track_particle_id[event.track_target_mask]
-    df["hit_id_src"] = event.hit_id[src[event.track_target_mask]]
-    df["hit_id_dst"] = event.hit_id[dst[event.track_target_mask]]
+    df["track_to_edge_map_bool"] = (
+        event.track_to_edge_map[event.track_target_mask].cpu() >= 0
+    ).numpy()
+    df["track_particle_radius"] = (
+        event.track_particle_radius[event.track_target_mask].cpu().numpy()
+    )
+    df["track_particle_pt"] = (
+        event.track_particle_pt[event.track_target_mask].cpu().numpy()
+    )
+    df["track_particle_eta"] = (
+        event.track_particle_eta[event.track_target_mask].cpu().numpy()
+    )
+    df["track_particle_pdgId"] = (
+        event.track_particle_pdgId[event.track_target_mask].cpu().numpy()
+    )
+    df["track_particle_primary"] = (
+        event.track_particle_primary[event.track_target_mask].cpu().numpy()
+    )
+    df["track_particle_id"] = (
+        event.track_particle_id[event.track_target_mask].cpu().numpy()
+    )
+    df["hit_id_src"] = event.hit_id[src[event.track_target_mask]].cpu().numpy()
+    df["hit_id_dst"] = event.hit_id[dst[event.track_target_mask]].cpu().numpy()
 
     delta_eta = (
-        event.hit_eta[src[event.track_target_mask]]
-        - event.hit_eta[dst[event.track_target_mask]]
+        event.hit_eta[src[event.track_target_mask]].cpu().numpy()
+        - event.hit_eta[dst[event.track_target_mask]].cpu().numpy()
     )
     df["deta"] = delta_eta
 
     delta_phi = (
-        event.hit_phi[dst[event.track_target_mask]]
-        - event.hit_phi[src[event.track_target_mask]]
+        event.hit_phi[dst[event.track_target_mask]].cpu().numpy()
+        - event.hit_phi[src[event.track_target_mask]].cpu().numpy()
     )
     # Reset angles
     delta_phi[delta_phi > np.pi] = delta_phi[delta_phi > np.pi] - 2 * np.pi
@@ -51,15 +65,15 @@ def dump_edges(event, config):
     df["dphi"] = delta_phi
 
     delta_z = (
-        event.hit_z[dst[event.track_target_mask]]
-        - event.hit_z[src[event.track_target_mask]]
+        event.hit_z[dst[event.track_target_mask]].cpu().numpy()
+        - event.hit_z[src[event.track_target_mask]].cpu().numpy()
     )
     delta_r = (
-        event.hit_r[dst[event.track_target_mask]]
-        - event.hit_r[src[event.track_target_mask]]
+        event.hit_r[dst[event.track_target_mask]].cpu().numpy()
+        - event.hit_r[src[event.track_target_mask]].cpu().numpy()
     )
-    z0 = event.hit_z[src[event.track_target_mask]] - (
-        event.hit_r[src[event.track_target_mask]] * delta_z / delta_r
+    z0 = event.hit_z[src[event.track_target_mask]].cpu().numpy() - (
+        event.hit_r[src[event.track_target_mask]].cpu().numpy() * delta_z / delta_r
     )
     z0[delta_r == 0] = 0
     df["z0"] = z0
