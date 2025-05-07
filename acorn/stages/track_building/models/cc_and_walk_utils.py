@@ -19,6 +19,7 @@ import torch
 import pandas as pd
 import numpy as np
 from itertools import chain
+import sys
 
 
 def remove_cycles(graph):
@@ -128,6 +129,29 @@ def walk_through(G, score_name, cut_min, cut_add):
     return pred_list
 
 
+def walk_through_score_guided(G, score_name, cut_min, cut_add, guidance_mode):
+    """
+    Call score-guided walkthrough and return track candidates as list of hit ids
+    """
+
+    tracks_in_graph = get_tracks_score_guided(
+        G,
+        score_name=score_name,
+        th_min=cut_min,
+        th_add=cut_add,
+        guidance_mode=guidance_mode,
+    )
+
+    pred_list = []
+
+    # Convert subgraphs in list of node indices
+    for subG in tracks_in_graph:
+        subL = [subG.nodes[node]["hit_id"] for node in subG]
+        pred_list.append(subL)
+
+    return pred_list
+
+
 def get_tracks(G, th_min, th_add, score_name):
     """
     Run walkthrough and return subgraphs
@@ -145,7 +169,9 @@ def get_tracks(G, th_min, th_add, score_name):
         if node in used_nodes:
             continue
 
-        road = build_roads(G, node, next_hit_fn, used_nodes)
+        road, alternative = build_roads(
+            G, node, next_hit_fn, used_nodes
+        )  # alternative will be False
         a_road = choose_longest_road(road)
 
         # Case where there is only one hit: a_road = (<node>,None)
@@ -163,25 +189,115 @@ def get_tracks(G, th_min, th_add, score_name):
     return sub_graphs
 
 
+def get_tracks_score_guided(G, th_min, th_add, score_name, guidance_mode):
+    """
+    Run score-guided walkthrough and return subgraphs
+    """
+    used_nodes = []
+    sub_graphs = []
+    next_hit_fn = partial(
+        find_next_hits, th_min=th_min, th_add=th_add, score_name=score_name
+    )
+
+    # Rely on the fact the graph was already topologically sorted
+    # to start looking first on nodes without incoming edges
+    for node in G.nodes():
+
+        alternative = True
+        while alternative:
+
+            # Ignore already used nodes
+            if node in used_nodes:
+                alternative = False
+                continue
+
+            road, alternative = build_roads(
+                G,
+                node,
+                next_hit_fn,
+                used_nodes,
+                explore_alternatives=True,
+                score_name=score_name,
+            )
+            if len(road) > 1:
+                match guidance_mode:
+                    case 0:
+                        a_road = choose_longest_road(road)
+                    case 1:
+                        a_road = choose_longest_most_likely_road(G, score_name, road)
+                    case 2:
+                        a_road = choose_longest_most_likely_road_local(
+                            G, score_name, road
+                        )
+                    case _:
+                        sys.exit("Undefined guidance mode")
+            else:
+                a_road = road[0]
+
+            # Case where there is only one hit: a_road = (<node>,None)
+            if len(a_road) < 3:
+                used_nodes.append(node)
+                sub_graphs.append(G.subgraph([node]))
+                continue
+
+            # Need to drop the last item of the a_road tuple, since it is None
+            a_track = list(pairwise(a_road[:-1]))
+            sub = G.edge_subgraph(a_track)
+            sub_graphs.append(sub)
+            used_nodes += list(sub.nodes())
+
+    return sub_graphs
+
+
 # TODO understand better
-def build_roads(G, starting_node, next_hit_fn, used_hits):
+def build_roads(
+    G,
+    starting_node,
+    next_hit_fn,
+    used_hits,
+    explore_alternatives=False,
+    score_name=None,
+):
     """
     Build roads strating from a given node, using a choosen function
     to find the next hits
     next_hit_fn: a function return next hits, could be find_next_hits
+    When explore_alternatives is set to True, alternative first hits (with a better score on the edge to
+    the second hit) are selected.
     """
+
+    alternative = False
 
     # Get next hits from the starting node
     next_hits = next_hit_fn(G, starting_node, used_hits)
 
     # Case where no next hits where found
     if next_hits is None:
-        return [(starting_node, None)]
+        return [(starting_node, None)], alternative
 
+    # Create first list of roadlets (roadlet = pair of hits)
     path = []
-    for hit in next_hits:
-        path.append((starting_node, hit))
+    if not explore_alternatives:
 
+        for hit in next_hits:
+            path.append((starting_node, hit))
+
+    else:
+
+        for hit in next_hits:
+            bestprob = -1
+            thebest = None
+            for p in list(G.predecessors(hit)):
+                if G.edges[(p, hit)][score_name] > bestprob:
+                    bestprob = G.edges[(p, hit)][score_name]
+                    thebest = p
+            if thebest == starting_node:
+                path.append((starting_node, hit))
+            else:
+                alternative = True
+                path.append((thebest, hit))
+
+    # Extend roadlets, one hit at a time
     while True:
         new_path = []
         is_all_none = True
@@ -214,7 +330,7 @@ def build_roads(G, starting_node, next_hit_fn, used_hits):
 
         path = new_path
 
-    return path
+    return path, alternative
 
 
 def choose_longest_road(road):
@@ -222,6 +338,63 @@ def choose_longest_road(road):
     for i in range(1, len(road)):
         if len(road[i]) >= len(res):
             res = road[i]
+    return res
+
+
+def calculate_road_likelihood(G, score_name, a_road):
+    prob = 1
+    for i in range(0, len(a_road) - 2):
+        prob *= G.edges[(a_road[i], a_road[i + 1])][score_name]
+    return prob
+
+
+def choose_longest_most_likely_road(G, score_name, road):
+    res = road[0]
+    l = len(res)
+    prob = calculate_road_likelihood(G, score_name, res)
+    for i in range(1, len(road)):
+        if len(road[i]) > l:
+            res = road[i]
+            l = len(res)
+            prob = calculate_road_likelihood(G, score_name, res)
+        elif len(road[i]) == l:
+            prob2 = calculate_road_likelihood(G, score_name, road[i])
+            if prob2 > prob:
+                res = road[i]
+                l = len(res)
+                prob = prob2
+    return res
+
+
+def pick_road_local_likelihood(G, score_name, a_road, b_road):
+    for i in range(0, min(len(a_road), len(b_road)) - 2):
+        if (
+            abs(
+                G.edges[(a_road[i], a_road[i + 1])][score_name]
+                - G.edges[(b_road[i], b_road[i + 1])][score_name]
+            )
+            > 1e-5
+        ):
+            if (
+                G.edges[(a_road[i], a_road[i + 1])][score_name]
+                > G.edges[(b_road[i], b_road[i + 1])][score_name]
+            ):
+                return a_road
+            else:
+                return b_road
+    return a_road
+
+
+def choose_longest_most_likely_road_local(G, score_name, road):
+    res = road[0]
+    l = len(res)
+    for i in range(1, len(road)):
+        if len(road[i]) > l + 1:
+            res = road[i]
+            l = len(res)
+        elif abs(len(road[i]) - l) <= 1:
+            res = pick_road_local_likelihood(G, score_name, res, road[i])
+            l = len(res)
     return res
 
 

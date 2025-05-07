@@ -530,6 +530,7 @@ class EventReader:
         for row in signal_index_list.values:
             for i, j in zip(row[:-1], row[1:]):
                 track_index_edges.extend(list(product(i, j)))
+        assert len(track_index_edges) > 0
 
         track_index_edges = np.array(track_index_edges).T
 

@@ -113,7 +113,9 @@ def uproot2pandaDF(branches: dict):
     for k, val in branches.items():
         # sanity check
         if len(val) == 0:
+            warnings.warn(f"WARNING val has length 0 for {k}")
             return None
+
         if len(val) > 1:
             warnings.warn("WARNING val has length larger than 1:", len(val))
 
