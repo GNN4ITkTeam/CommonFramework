@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from typing import Dict
+import warnings
 import torch
 import pandas as pd
 import numpy as np
@@ -317,13 +318,20 @@ def plot_eff(
 
 
 def rearrange_by_distance(event, edge_index):
-    assert "hit_r" in get_pyg_data_keys(event) and "hit_z" in get_pyg_data_keys(
-        event
-    ), "event must contain r and z"
-    distance = event.hit_r**2 + event.hit_z**2
+    if "hit_R" not in get_pyg_data_keys(event):
+        warnings.warn(
+            "hit_R not found in the event, calculating it from hit_r and hit_z"
+        )
+        assert "hit_r" in get_pyg_data_keys(event) and "hit_z" in get_pyg_data_keys(
+            event
+        ), "event must contain R or contain r and z"
+        event.hit_R = event.hit_r**2 + event.hit_z**2
 
     # flip edges that are pointing inward
-    edge_mask = distance[edge_index[0]] > distance[edge_index[1]]
+    edge_mask = (event.hit_R[edge_index[0]] > event.hit_R[edge_index[1]]) | (
+        (event.hit_R[edge_index[0]] == event.hit_R[edge_index[1]])
+        & (edge_index[0] > edge_index[1])
+    )
     edge_index[:, edge_mask] = edge_index[:, edge_mask].flip(0)
 
     return edge_index

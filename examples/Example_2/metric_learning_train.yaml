@@ -38,6 +38,7 @@ hard_cuts:
 
 # Model parameters
 undirected: True
+train_undirected: True
 node_features: [r,    phi,  z]
 node_scales:   [1000, 3.14, 1000]
 emb_hidden: 1024

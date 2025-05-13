@@ -18,6 +18,7 @@ import torch
 from acorn.utils import make_mlp
 from .gnn_submodule.gcn_encoder import GCNEncoder
 from ..edge_classifier_stage import EdgeClassifierStage
+from acorn.stages.track_building.utils import rearrange_by_distance
 
 
 class FilterMixin:
@@ -255,8 +256,13 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
         return output.squeeze(-1)
 
     def training_step(self, batch, batch_idx):
+        if self.hparams.get("random_flip"):
+            random_flip = torch.randint(
+                2, (batch.edge_index.shape[1],), dtype=torch.bool
+            )
+            batch.edge_index[:, random_flip] = batch.edge_index[:, random_flip].flip(0)
+        x = self.stack_x(batch)
         if self.hparams["ratio"] not in [0, None]:
-            x = self.stack_x(batch)
             with torch.no_grad():
                 z = self.gnn(x, batch.adj_t)
                 no_grad_output = self.memory_robust_eval(z, batch.edge_index)
@@ -266,7 +272,6 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
 
             # batch.requires_grad_(*self.hparams['node_features'])
 
-        x = self.stack_x(batch)
         output = self(x, batch.edge_index, batch.adj_t)
         loss, pos_loss, neg_loss = self.loss_function(
             output, batch, self.hparams.get("loss_balance")
@@ -310,6 +315,11 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
         return torch.cat(outputs)
 
     def shared_evaluation(self, batch, batch_idx):
+        if self.hparams.get("random_flip"):
+            random_flip = torch.randint(
+                2, (batch.edge_index.shape[1],), dtype=torch.bool
+            )
+            batch.edge_index[:, random_flip] = batch.edge_index[:, random_flip].flip(0)
         z = self.gnn(self.stack_x(batch), batch.adj_t)
         output = self.memory_robust_eval(z, batch.edge_index)
         loss, pos_loss, neg_loss = self.loss_function(
@@ -320,6 +330,10 @@ class GNNFilter(EdgeClassifierStage, FilterMixin):
 
         all_truth = batch.edge_y.bool()
         target_truth = (batch.edge_weights > 0) & all_truth
+
+        # Reorient the edges in the end if they were randomly flipped
+        if self.hparams.get("random_flip"):
+            batch.edge_index = rearrange_by_distance(batch, batch.edge_index)
 
         return {
             "loss": loss,

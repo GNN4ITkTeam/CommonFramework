@@ -9,7 +9,6 @@ import torch
 from tqdm import tqdm
 import yaml
 
-from acorn.stages.track_building.utils import rearrange_by_distance
 from acorn.utils.plotting_utils import (
     get_ratio,
     plot_1d_histogram,
@@ -19,7 +18,6 @@ from acorn.utils.plotting_utils import (
     plot_efficiency_2D,
 )
 from acorn.utils.version_utils import get_pyg_data_keys
-from acorn.stages.graph_construction.models.utils import graph_intersection
 
 
 def dump_edges(event, config):
@@ -246,20 +244,8 @@ def graph_construction_efficiency_2D(lightning_module, plot_config: dict, config
             # DEPRECATED : linked to old naming scheme, y of SP is missing because it is overwritting by the true/fake boolean
             event.hit_y = event.hit_r * torch.sin(event.hit_phi)
 
-        # flip edges that point inward if not undirected, since if undirected is True, lightning_module.apply_score_cut takes care of this
-        event.edge_index = rearrange_by_distance(event, event.edge_index)
-        event.track_edges = rearrange_by_distance(event, event.track_edges)
-
-        # indices of all target edges present in the input graph
-        graph_truth_map = graph_intersection(
-            event.edge_index,
-            event.track_edges,
-            return_y_pred=False,
-            return_y_truth=False,
-            return_truth_to_pred=True,
-        )
         target_edges = event.track_edges[
-            :, event.track_target_mask & (graph_truth_map > -1)
+            :, event.track_target_mask & (event.track_to_edge_map > -1)
         ]
 
         # indices of all target edges (may or may not be present in the input graph)
@@ -713,10 +699,6 @@ def gnn_efficiency_rz(lightning_module, plot_config: dict, config: dict):
         event.hit_r /= 1000
         event.hit_z /= 1000
 
-        # flip edges that point inward if not undirected, since if undirected is True, lightning_module.apply_score_cut takes care of this
-        event.edge_index = rearrange_by_distance(event, event.edge_index)
-        event.track_edges = rearrange_by_distance(event, event.track_edges)
-
         # indices of all target edges present in the input graph
         target_edges = event.track_edges[
             :, event.track_target_mask & (event.track_to_edge_map > -1)
@@ -874,10 +856,6 @@ def gnn_purity_rz(lightning_module, plot_config: dict, config: dict):
         # scale r and z
         event.hit_r /= 1000
         event.hit_z /= 1000
-
-        # flip edges that point inward if not undirected, since if undirected is True, lightning_module.apply_score_cut takes care of this
-        event.edge_index = rearrange_by_distance(event, event.edge_index)
-        event.track_edges = rearrange_by_distance(event, event.track_edges)
 
         # target true positive edge indices, used as numerator of target purity and purity
         target_true_positive_edges = event.track_edges[
@@ -1037,10 +1015,6 @@ def graph_scoring_efficiency_purity(lightning_module, plot_config, config):
         # scale r and z
         event.hit_r /= 1000
         event.hit_z /= 1000
-
-        # flip edges that point inward if not undirected, since if undirected is True, lightning_module.apply_score_cut takes care of this
-        event.edge_index = rearrange_by_distance(event, event.edge_index)
-        event.track_edges = rearrange_by_distance(event, event.track_edges)
 
         # indices of all target edges present in the input graph
         target_edges = event.track_edges[

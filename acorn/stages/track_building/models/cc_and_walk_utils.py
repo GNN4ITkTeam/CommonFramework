@@ -28,7 +28,10 @@ def remove_cycles(graph):
     """
 
     R = graph.hit_r**2 + graph.hit_z**2
-    edge_flip_mask = R[graph.edge_index[0]] > R[graph.edge_index[1]]
+    edge_flip_mask = (R[graph.edge_index[0]] > R[graph.edge_index[1]]) | (
+        (R[graph.edge_index[0]] == R[graph.edge_index[1]])
+        & (graph.edge_index[0] > graph.edge_index[1])
+    )
     graph.edge_index[:, edge_flip_mask] = graph.edge_index[:, edge_flip_mask].flip(0)
 
     return graph

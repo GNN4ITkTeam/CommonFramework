@@ -30,6 +30,8 @@ hard_cuts:
 
 # Model parameters
 edge_cut: 0.5
+undirected: True
+undirected_message_passing: True
 node_features: [r,  phi, z]
 node_scales: [1000, 3.14,  1000]
 hidden: 128
