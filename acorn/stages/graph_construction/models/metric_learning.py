@@ -28,6 +28,7 @@ from ..utils import build_signal_edges  # handle_weighting
 from acorn.utils import handle_weighting
 from acorn.utils.version_utils import get_pyg_data_keys
 from acorn.utils.loading_utils import remove_variable_name_prefix_in_pyg
+from acorn.stages.track_building.utils import rearrange_by_distance
 
 
 class MetricLearning(GraphConstructionStage, LightningModule):
@@ -179,13 +180,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         return e_spatial
 
     def append_signal_edges(self, batch, edges):
-        # Instantiate bidirectional truth (since KNN prediction will be bidirectional)
-        if "undirected" in self.hparams and self.hparams["undirected"]:
-            true_edges = torch.cat(
-                [batch.track_edges, batch.track_edges.flip(0)], dim=-1
-            )
-        else:
-            true_edges = batch.track_edges
+        true_edges = batch.track_edges
 
         # Append the signal edges
         signal_true_edges = build_signal_edges(
@@ -232,7 +227,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             batch.edge_y,
             batch.track_to_edge_map,
             true_edges,
-        ) = self.get_truth(batch, batch.edge_index)
+        ) = self.get_truth(
+            batch, batch.edge_index, self.hparams.get("train_undirected", True)
+        )
         weights = self.get_weights(batch)  # true_edges, truth_map)
 
         loss = self.loss_function(batch, embedding, weights)
@@ -269,17 +266,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
 
         return training_edges, embedding
 
-    def get_truth(self, batch, pred_edges):
+    def get_truth(self, batch, pred_edges, undirected):
         # Calculate truth from intersection between Prediction graph and Truth graph
-        if "undirected" in self.hparams and self.hparams["undirected"]:
-            batch.track_edges[
-                :, batch.track_edges[0] > batch.track_edges[1]
-            ] = batch.track_edges[:, batch.track_edges[0] > batch.track_edges[1]].flip(
-                0
-            )
-            pred_edges[:, pred_edges[0] > pred_edges[1]] = pred_edges[
-                :, pred_edges[0] > pred_edges[1]
-            ].flip(0)
+        pred_edges = rearrange_by_distance(batch, pred_edges)
         true_edges = batch.track_edges
 
         pred_edges, truth, truth_map = graph_intersection(
@@ -288,6 +277,7 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             return_y_pred=True,
             return_truth_to_pred=True,
             unique_pred=False,
+            undirected=undirected,
         )
 
         return pred_edges, truth, truth_map, batch.track_edges
@@ -391,7 +381,9 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             batch.edge_y,
             batch.track_to_edge_map,
             true_edges,
-        ) = self.get_truth(batch, batch.edge_index)
+        ) = self.get_truth(
+            batch, batch.edge_index, self.hparams.get("undirected", False)
+        )
 
         weights = self.get_weights(batch)
 
@@ -488,9 +480,6 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         )
         self.shared_evaluation(batch, self.hparams["r_infer"], knn_infer)
 
-        if self.hparams["undirected"]:
-            self.remove_duplicate_edges(batch)
-
         dataset = self.predict_dataloader()[dataloader_idx].dataset
         dataset.unscale_features(batch)
         datatype = dataset.data_name
@@ -511,27 +500,3 @@ class MetricLearning(GraphConstructionStage, LightningModule):
             event.cpu(),
             os.path.join(self.hparams["stage_dir"], datatype, f"event{event_id}.pyg"),
         )
-
-    def remove_duplicate_edges(self, event):
-        """
-        Remove duplicate edges, since we only need an undirected graph. Randomly flip the remaining edges to remove
-        any training biases downstream
-        TODO: Make this more readable
-        """
-
-        event.edge_index[
-            :, event.edge_index[0] > event.edge_index[1]
-        ] = event.edge_index[:, event.edge_index[0] > event.edge_index[1]].flip(0)
-        event.edge_index, edge_inverse = event.edge_index.unique(
-            return_inverse=True, dim=-1
-        )
-        event.edge_y = torch.zeros_like(
-            event.edge_index[0], dtype=event.edge_y.dtype
-        ).scatter(0, edge_inverse, event.edge_y)
-        event.track_to_edge_map[event.track_to_edge_map >= 0] = edge_inverse[
-            event.track_to_edge_map[event.track_to_edge_map >= 0]
-        ]
-        event.track_to_edge_map = event.track_to_edge_map[: event.track_edges.shape[1]]
-
-        random_flip = torch.randint(2, (event.edge_index.shape[1],), dtype=torch.bool)
-        event.edge_index[:, random_flip] = event.edge_index[:, random_flip].flip(0)

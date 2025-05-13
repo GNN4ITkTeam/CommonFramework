@@ -186,7 +186,7 @@ class InteractionGNN(EdgeClassifierStage):
         scores = self.output_edge_classifier(classifier_inputs).squeeze(-1)
 
         if (
-            self.hparams.get("undirected")
+            self.hparams.get("undirected_message_passing", True)
             and self.hparams.get("dataset_class") != "HeteroGraphDataset"
         ):
             scores = torch.mean(scores.view(2, -1), dim=0)
@@ -198,7 +198,7 @@ class InteractionGNN(EdgeClassifierStage):
             [batch[feature] for feature in self.hparams["node_features"]], dim=-1
         ).float()
         start, end = batch.edge_index
-        if "undirected" in self.hparams and self.hparams["undirected"]:
+        if self.hparams.get("undirected_message_passing", True):
             start, end = torch.cat([start, end]), torch.cat([end, start])
 
         # Encode the graph features into the hidden space
@@ -329,7 +329,7 @@ class InteractionGNNWithPyG(EdgeClassifierStage):
         edge_index = batch.edge_index
 
         # if undirected, extend the edge index to include the inverse graph
-        if "undirected" in self.hparams and self.hparams["undirected"]:
+        if self.hparams.get("undirected_message_passing", True):
             edge_index = torch.cat([edge_index, edge_index.flip(0)], dim=1)
 
         start, end = edge_index
@@ -361,7 +361,7 @@ class InteractionGNNWithPyG(EdgeClassifierStage):
         scores = self.output_edge_classifier(classifier_inputs).squeeze(-1)
 
         if (
-            self.hparams.get("undirected")
+            self.hparams.get("undirected_message_passing", True)
             and self.hparams.get("dataset_class") != "HeteroGraphDataset"
         ):
             scores = torch.mean(scores.view(2, -1), dim=0)

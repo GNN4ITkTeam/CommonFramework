@@ -25,7 +25,6 @@ from sklearn.metrics import roc_auc_score
 import torch
 from class_resolver import ClassResolver
 
-from acorn.stages.track_building.utils import rearrange_by_distance
 from acorn.utils import eval_utils
 from acorn.utils.version_utils import get_pyg_data_keys
 from acorn.utils.loading_utils import (
@@ -109,7 +108,7 @@ class EdgeClassifierStage(LightningModule):
         Load in the data for training, validation and testing.
         """
         transform = None
-        if self.hparams.get("transform") is not None:
+        if self.hparams.get("transform") is not None and stage != "test":
             t_list = []
             for t in self.hparams["transform"]:
                 # dynamically initiate transformations from pyg. The 'transform' configuration should be a list of elements like
@@ -486,6 +485,7 @@ class EdgeClassifierStage(LightningModule):
             return_y_pred=False,
             return_y_truth=False,
             return_truth_to_pred=True,
+            undirected=self.hparams.get("undirected", False),
         )
 
         datatype = dataset.data_name
@@ -528,26 +528,14 @@ class EdgeClassifierStage(LightningModule):
         """
         Apply a score cut to the event. This is used for the evaluation stage.
         """
-        passing_edges_mask = event.edge_scores >= score_cut
+        event.edge_pred = event.edge_scores >= score_cut
 
-        # flip edge direction if points inward
-        event.edge_index = rearrange_by_distance(event, event.edge_index)
-        event.track_edges = rearrange_by_distance(event, event.track_edges)
-
-        event.track_to_edge_map = graph_intersection(
-            event.edge_index,
-            event.track_edges,
-            return_y_pred=False,
-            return_y_truth=False,
-            return_truth_to_pred=True,
-        )
-        event.track_to_passing_edge_map = graph_intersection(
-            event.edge_index[:, passing_edges_mask],
-            event.track_edges,
-            return_y_pred=False,
-            return_truth_to_pred=True,
-        )
-        event.edge_pred = passing_edges_mask
+        event.track_to_passing_edge_map = torch.ones_like(event.track_to_edge_map) * -1
+        event.track_to_passing_edge_map[
+            (event.track_to_edge_map > -1) & (event.edge_pred[event.track_to_edge_map])
+        ] = event.track_to_edge_map[
+            (event.track_to_edge_map > -1) & (event.edge_pred[event.track_to_edge_map])
+        ]
 
     def apply_target_conditions(self, event, target_tracks):
         """
@@ -608,7 +596,8 @@ class GraphDataset(Dataset):
             event_path, map_location=torch.device("cpu"), weights_only=False
         )
         # convert DataBatch to Data instance because some transformations don't work on DataBatch
-        event = Data(**event.to_dict())
+        if (self.transform is not None) and (self.stage != "test"):
+            event = Data(**event.to_dict())
         if (not self.hparams.get("variable_with_prefix")) or self.hparams.get(
             "add_variable_name_prefix_in_pyg"
         ):
@@ -617,7 +606,7 @@ class GraphDataset(Dataset):
             return event
         event = self.preprocess_event(event)
         # do pyg transformation if a torch_geometric.transforms instance is given
-        if self.transform is not None:
+        if (self.transform is not None) and (self.stage != "test"):
             event = self.transform(event)
 
         # return (event, event_path) if self.stage == "predict" else event

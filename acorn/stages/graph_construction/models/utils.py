@@ -82,7 +82,7 @@ def build_edges(
             return_sorted=True,
         )
 
-        idxs: torch.Tensor = idxs.squeeze().int()
+        idxs: torch.Tensor = idxs.squeeze(0).int()
         ind = (
             torch.arange(idxs.shape[0], device=query.device)
             .repeat(idxs.shape[1], 1)
@@ -116,6 +116,7 @@ def graph_intersection(
     return_truth_to_pred=False,
     unique_pred=True,
     unique_truth=True,
+    undirected=False,
 ):
     """
     An updated version of the graph intersection function, which is around 25x faster than the
@@ -127,6 +128,10 @@ def graph_intersection(
         input_pred_graph = torch.unique(input_pred_graph, dim=1)
     if not unique_truth:
         input_truth_graph = torch.unique(input_truth_graph, dim=1)
+    if undirected:
+        input_pred_graph = torch.cat(
+            [input_pred_graph, input_pred_graph.flip(0)], dim=1
+        )
 
     unique_edges, inverse = torch.unique(
         torch.cat([input_pred_graph, input_truth_graph], dim=1),
@@ -136,11 +141,13 @@ def graph_intersection(
         return_counts=False,
     )
 
+    # map of unique_edges to pred edges
     inverse_pred_map = torch.ones_like(unique_edges[1]) * -1
     inverse_pred_map[inverse[: input_pred_graph.shape[1]]] = torch.arange(
         input_pred_graph.shape[1], device=input_pred_graph.device
     )
 
+    # map of unique_edges to truth edges
     inverse_truth_map = torch.ones_like(unique_edges[1]) * -1
     inverse_truth_map[inverse[input_pred_graph.shape[1] :]] = torch.arange(
         input_truth_graph.shape[1], device=input_truth_graph.device
@@ -148,6 +155,13 @@ def graph_intersection(
 
     pred_to_truth = inverse_truth_map[inverse][: input_pred_graph.shape[1]]
     truth_to_pred = inverse_pred_map[inverse][input_pred_graph.shape[1] :]
+
+    if undirected:
+        input_pred_graph = input_pred_graph[:, : input_pred_graph.shape[1] // 2]
+        pred_to_truth = torch.max(pred_to_truth.reshape(2, -1), dim=0)[0]
+        truth_to_pred[
+            truth_to_pred >= input_pred_graph.shape[1]
+        ] -= input_pred_graph.shape[1]
 
     return_tensors = []
 
