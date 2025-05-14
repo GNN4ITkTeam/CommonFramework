@@ -62,7 +62,7 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
 
             graph_cc = Data(x=graph.hit_id, edge_index=graph.edge_index)
             # Apply score cut
-            edge_mask = graph.scores > self.hparams["score_cut_high"]
+            edge_mask = graph.edge_scores > self.hparams["score_cut_high"]
             # Get number of nodes
             num_nodes = graph_cc.x.shape[0]
             # Keep only non-masked edges
@@ -132,9 +132,7 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
 
             graph.config.append(self.hparams)
 
-            # TODO: Graph name file??
             graph.time_taken = process_time() - start_time
-            torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
 
             # Make a dataframe from pyg graph
             d = utils.load_reconstruction_df(graph)
@@ -142,23 +140,9 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
             d = d[d.track_id >= 0]
             # Make a dataframe of list of hits (one row = one list of hits, ie one track)
             tracks = d.groupby("track_id")["hit_id"].apply(list)
-            os.makedirs(
-                os.path.join(
-                    self.hparams["stage_dir"], os.path.basename(output_dir) + "_tracks"
-                ),
-                exist_ok=True,
-            )
-            with open(
-                os.path.join(
-                    self.hparams["stage_dir"],
-                    os.path.basename(output_dir) + "_tracks",
-                    f"event{graph.event_id[0]}.txt",
-                ),
-                "w",
-            ) as f:
-                f.write(
-                    "\n".join(
-                        str(t).replace(",", "").replace("[", "").replace("]", "")
-                        for t in tracks.values
-                    )
-                )
+
+            if self.hparams.get("save_tracks", True):
+                self.save_tracks(graph, tracks, output_dir)
+
+            if self.hparams.get("save_graph", True):
+                graph = self.save_graph(graph, output_dir)

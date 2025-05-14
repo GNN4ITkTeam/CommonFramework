@@ -205,10 +205,8 @@ def get_tracks_score_guided(G, th_min, th_add, score_name, guidance_mode):
     # Rely on the fact the graph was already topologically sorted
     # to start looking first on nodes without incoming edges
     for node in G.nodes():
-
         alternative = True
         while alternative:
-
             # Ignore already used nodes
             if node in used_nodes:
                 alternative = False
@@ -281,12 +279,10 @@ def build_roads(
     # Create first list of roadlets (roadlet = pair of hits)
     path = []
     if not explore_alternatives:
-
         for hit in next_hits:
             path.append((starting_node, hit))
 
     else:
-
         for hit in next_hits:
             bestprob = -1
             thebest = None

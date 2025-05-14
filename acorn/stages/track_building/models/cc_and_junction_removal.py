@@ -63,7 +63,7 @@ class CCandJunctionRemoval(TrackBuildingStage):
             if self.hparams["score_cut"]:
                 # run cc
                 chain_edges = event.edge_index[
-                    :, (event.scores > self.hparams["score_cut"]) & edge_mask
+                    :, (event.edge_scores > self.hparams["score_cut"]) & edge_mask
                 ]
                 graph = to_scipy_sparse_matrix(
                     chain_edges, num_nodes=event.hit_id.shape[0]
@@ -94,7 +94,7 @@ class CCandJunctionRemoval(TrackBuildingStage):
             if self.hparams["junction_cut"]:
                 # Apply the score cut
                 junction_edges = event.edge_index[
-                    :, (event.scores > self.hparams["junction_cut"]) & edge_mask
+                    :, (event.edge_scores > self.hparams["junction_cut"]) & edge_mask
                 ]
                 junction_edges = junction_edges[:, to_keep[junction_edges].all(0)]
 
@@ -114,7 +114,7 @@ class CCandJunctionRemoval(TrackBuildingStage):
 
                 # build csr graph and run cc
                 graph = to_scipy_sparse_matrix(
-                    junction_edges, num_nodes=event.x.shape[0]
+                    junction_edges, num_nodes=event.hit_x.shape[0]
                 )
                 _, labels = connected_components(graph, directed=False)
                 labels = torch.as_tensor(labels, dtype=torch.long)
@@ -129,5 +129,5 @@ class CCandJunctionRemoval(TrackBuildingStage):
             event.config.append(self.hparams)
             event.time_taken = process_time() - start_time
 
-            # TODO: Graph name file??
-            torch.save(event, os.path.join(output_dir, f"event{event.event_id[0]}.pyg"))
+            if self.hparams.get("save_graph", True):
+                event = self.save_graph(event, output_dir)

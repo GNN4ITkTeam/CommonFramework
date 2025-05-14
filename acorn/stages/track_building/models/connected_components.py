@@ -130,29 +130,12 @@ class ConnectedComponents(TrackBuildingStage):
         d = d[d.track_id >= 0].sort_values(["track_id", "r2"])
         # Make a dataframe of list of hits (one row = one list of hits, ie one track)
         tracks = d.groupby("track_id")["hit_id"].apply(list)
-        os.makedirs(
-            os.path.join(
-                self.hparams["stage_dir"], os.path.basename(output_dir) + "_tracks"
-            ),
-            exist_ok=True,
-        )
-        with open(
-            os.path.join(
-                self.hparams["stage_dir"],
-                os.path.basename(output_dir) + "_tracks",
-                f"event{graph.event_id[0]}.txt",
-            ),
-            "w",
-        ) as f:
-            f.write(
-                "\n".join(
-                    str(t).replace(",", "").replace("[", "").replace("]", "")
-                    for t in tracks.values
-                )
-            )
-        if not self.hparams.get("variable_with_prefix"):
-            graph = remove_variable_name_prefix_in_pyg(graph)
-        torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
+
+        if self.hparams.get("save_tracks", True):
+            self.save_tracks(graph, tracks, output_dir)
+
+        if self.hparams.get("save_graph", True):
+            graph = self.save_graph(graph, output_dir)
 
     def build_tracks(self, dataset: GraphDataset, data_name: str):
         """
