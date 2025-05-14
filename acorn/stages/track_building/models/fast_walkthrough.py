@@ -24,7 +24,6 @@ from time import process_time
 # Local imports
 from ..track_building_stage import TrackBuildingStage
 from . import fast_walkthrough_utils, cc_and_walk_utils
-from acorn.utils.loading_utils import remove_variable_name_prefix_in_pyg
 
 
 class FastWalkthrough(TrackBuildingStage):
@@ -83,19 +82,12 @@ class FastWalkthrough(TrackBuildingStage):
                 tracks, self.hparams.get("max_ambi_hits", 2)
             )
         graph.time_taken = process_time() - start_time
+
         if self.hparams.get("save_tracks", True):
-            tracks_dir = os.path.join(
-                self.hparams["stage_dir"], f"{os.path.basename(output_dir)}_tracks"
-            )
-            os.makedirs(tracks_dir, exist_ok=True)
-            output_file = os.path.join(tracks_dir, f"event{graph.event_id[0]}.txt")
-            with open(output_file, "w", newline="") as f:
-                csv.writer(f, delimiter=" ").writerows(tracks)
+            self.save_tracks(graph, tracks, output_dir)
 
         if self.hparams.get("save_graph", True):
-            if not self.hparams.get("variable_with_prefix"):
-                graph = remove_variable_name_prefix_in_pyg(graph)
-            torch.save(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
+            graph = self.save_graph(graph, output_dir)
 
         return graph
 

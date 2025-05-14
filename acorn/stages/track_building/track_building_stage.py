@@ -25,6 +25,7 @@ TODO: Update structure with the latest Gravnet base class
 
 import os
 import logging
+import csv
 
 from torch_geometric.data import Dataset
 import torch
@@ -40,7 +41,11 @@ from acorn.utils import (
     handle_weighting,
 )
 from . import utils
-from acorn.utils.loading_utils import add_variable_name_prefix_in_pyg, infer_num_nodes
+from acorn.utils.loading_utils import (
+    add_variable_name_prefix_in_pyg,
+    infer_num_nodes,
+    remove_variable_name_prefix_in_pyg,
+)
 
 
 class TrackBuildingStage:
@@ -56,6 +61,10 @@ class TrackBuildingStage:
             log_level = hparams.get("log_level", "WARNING").upper()
             self.log.setLevel(logging._nameToLevel.get(log_level, logging.WARNING))
             self.log.info(f"Using log level {log_level}")
+
+        self.event_prefix = hparams.get("event_prefix", "")
+        if self.event_prefix != "":
+            self.event_prefix += "_"
 
     def setup(self, stage="fit"):
         """
@@ -301,6 +310,45 @@ class TrackBuildingStage:
                 passing_tracks = passing_tracks * (event[key] == values)
 
         event.target_mask = passing_tracks
+
+    def save_tracks(self, graph, tracks, output_dir):
+        tracks_dir = os.path.join(
+            self.hparams["stage_dir"], f"{os.path.basename(output_dir)}_tracks"
+        )
+        os.makedirs(tracks_dir, exist_ok=True)
+
+        if self.hparams.get("save_tracks_as_csv", False):
+            _delimiter = ","
+            filename = self.event_prefix
+            if self.hparams.get("athena_csv_format", False):
+                # In Athena, the GNNTrackReader needs CSV track file with the following name : "<prefix>_RUNNUMBER_EVTNUMBER.csv".
+                # By default, the <prefix> is set to "track" in Athena, so if you want to produce track files with the equivalent filename, set 'event_prefix' in yaml config file to : "track_RUNNUMBER".
+                # If you want to use a specific prefix, you have to define it in both ACORN and Athena as follows:
+                # in ACORN yaml config file with 'event_prefix' : "<any_prefix_you_want>_RUNNUMBER" (The run number is mandatory, otherwise it will not work in Athena.)
+                # in Athena with 'csvPrefix' : "<any_prefix_you_want>" (without the RUNNUMBER, it is already handled by Athena.)
+
+                filename += f"{graph.event_id[0].lstrip('0')}.csv"
+            else:
+                filename += f"event{graph.event_id[0]}.csv"
+        else:
+            _delimiter = " "
+            filename = f"{self.event_prefix}event{graph.event_id[0]}.txt"
+
+        output_file = os.path.join(tracks_dir, filename)
+        with open(output_file, "w", newline="") as f:
+            csv.writer(f, delimiter=_delimiter).writerows(tracks)
+
+    def save_graph(self, graph, output_dir):
+        if not self.hparams.get("variable_with_prefix"):
+            graph = remove_variable_name_prefix_in_pyg(graph)
+
+        torch.save(
+            graph,
+            os.path.join(
+                output_dir, f"{self.event_prefix}event{graph.event_id[0]}.pyg"
+            ),
+        )
+        return graph
 
 
 def make_result_summary(
