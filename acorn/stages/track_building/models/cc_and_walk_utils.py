@@ -475,10 +475,6 @@ def add_track_labels(graph, all_trks):
     # Alexis : this line seems suspicious to me
     track_df = track_df.drop_duplicates(subset="hit_id")
 
-    hit_id = track_df.hit_id
-    track_id = track_df.track_id
-    reco_method = track_df.reco_method
-
     # In the case that the dataframe hits are out of order with the input graph hits
     hit_id_df = pd.DataFrame({"hit_id": graph.hit_id})
     hit_id_df = hit_id_df.merge(track_df, on="hit_id", how="left")
@@ -486,7 +482,7 @@ def add_track_labels(graph, all_trks):
     track_id_tensor = torch.from_numpy(hit_id_df.track_id.values).long()
 
     graph.edge_track_labels = track_id_tensor
-    graph.reco_method = reco_method
+    graph.hit_reco_method = hit_id_df.reco_method
 
 
 def join_track_lists(all_trks):
