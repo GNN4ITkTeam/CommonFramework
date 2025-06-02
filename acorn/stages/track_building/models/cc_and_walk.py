@@ -86,7 +86,6 @@ class CCandWalk(TrackBuildingStage):
             threshold = self.hparams["score_cut_cc"]
 
         # Remove cycles by pointing all edges outwards (necessary for topo-sort)
-        R = graph.hit_r**2 + graph.hit_z**2
         graph = cc_and_walk_utils.remove_cycles(graph)
 
         # remove low-scoring edges

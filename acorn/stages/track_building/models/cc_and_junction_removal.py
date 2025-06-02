@@ -114,7 +114,7 @@ class CCandJunctionRemoval(TrackBuildingStage):
 
                 # build csr graph and run cc
                 graph = to_scipy_sparse_matrix(
-                    junction_edges, num_nodes=event.hit_x.shape[0]
+                    junction_edges, num_nodes=event.hit_id.shape[0]
                 )
                 _, labels = connected_components(graph, directed=False)
                 labels = torch.as_tensor(labels, dtype=torch.long)
@@ -125,7 +125,7 @@ class CCandJunctionRemoval(TrackBuildingStage):
                     labels[to_keep & (counts[inverse] > 1)] + track_id.max() + 1
                 )
 
-            event.labels = track_id
+            event.hit_track_labels = track_id
             event.config.append(self.hparams)
             event.time_taken = process_time() - start_time
 

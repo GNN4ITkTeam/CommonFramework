@@ -481,7 +481,7 @@ def add_track_labels(graph, all_trks):
     hit_id_df.fillna(-1, inplace=True)
     track_id_tensor = torch.from_numpy(hit_id_df.track_id.values).long()
 
-    graph.edge_track_labels = track_id_tensor
+    graph.hit_track_labels = track_id_tensor
     graph.hit_reco_method = hit_id_df.reco_method
 
 

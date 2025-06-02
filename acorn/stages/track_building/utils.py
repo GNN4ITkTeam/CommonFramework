@@ -35,13 +35,18 @@ def load_reconstruction_df(graph):
         hit_id = graph.hit_id
     else:
         hit_id = torch.arange(graph.num_nodes)
-    pids = torch.zeros(hit_id.shape[0], dtype=torch.int64)
-    pids[graph.track_edges[0]] = graph.track_particle_id
-    pids[graph.track_edges[1]] = graph.track_particle_id
 
-    return pd.DataFrame(
-        {"hit_id": hit_id, "track_id": graph.edge_track_labels, "particle_id": pids}
-    )
+    reco_df = pd.DataFrame({"hit_id": hit_id, "track_id": graph.hit_track_labels})
+
+    node_id = graph.track_edges.reshape(-1)
+    pids = graph.track_particle_id.repeat(2)
+    pid_df = pd.DataFrame({"hit_id": node_id, "particle_id": pids})
+    pid_df.drop_duplicates(subset=["hit_id", "particle_id"], inplace=True)
+
+    # Merge the two dataframes
+    reco_df = reco_df.merge(pid_df, on="hit_id", how="outer")
+    reco_df.fillna({"track_id": -1, "particle_id": 0}, inplace=True)  # Fill NaN values
+    return reco_df
 
 
 def load_particles_df(graph, sel_conf: dict):
@@ -105,7 +110,8 @@ def apply_fiducial_sel(df: pd.DataFrame, sel_conf: dict):
 def get_matching_df(reconstruction_df, particles_df, sel_conf, min_track_length=1):
     # Get track lengths
     candidate_lengths = (
-        reconstruction_df.track_id.value_counts(sort=False)
+        reconstruction_df.drop_duplicates(subset=["hit_id", "track_id"])
+        .track_id.value_counts(sort=False)
         .reset_index()
         .rename(
             columns=(
@@ -118,7 +124,7 @@ def get_matching_df(reconstruction_df, particles_df, sel_conf, min_track_length=
 
     # Get true track lengths
     particle_lengths = (
-        reconstruction_df.drop_duplicates(subset=["hit_id"])
+        reconstruction_df.drop_duplicates(subset=["hit_id", "particle_id"])
         .particle_id.value_counts(sort=False)
         .reset_index()
         .rename(
@@ -131,7 +137,8 @@ def get_matching_df(reconstruction_df, particles_df, sel_conf, min_track_length=
     )
 
     spacepoint_matching = (
-        reconstruction_df.groupby(["track_id", "particle_id"])
+        reconstruction_df.drop_duplicates(subset=["hit_id", "track_id", "particle_id"])
+        .groupby(["track_id", "particle_id"])
         .size()
         .reset_index()
         .rename(columns={0: "n_shared"})
