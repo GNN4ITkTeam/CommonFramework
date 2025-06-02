@@ -319,7 +319,7 @@ class HierarchicalGNN(MLTrackBuildingStage):
         filtered_bgraph = bgraph[:, idx]
         track_id_tensor = -torch.ones(batch.full_event.hit_x.shape[0], dtype=torch.long)
         track_id_tensor[filtered_bgraph[0]] = torch.as_tensor(filtered_bgraph[1]).long()
-        batch.full_event.edge_track_labels = track_id_tensor
+        batch.full_event.hit_track_labels = track_id_tensor
 
         batch.full_event.time_taken = process_time() - start_time + batch.time_taken
 

@@ -102,7 +102,7 @@ class ConnectedComponents(TrackBuildingStage):
         # get labels. isolated nodes get -1 as label
         labels = (torch.ones(num_nodes) * -1).long()
         labels[mask] = torch.from_numpy(candidate_labels).long()
-        graph.edge_track_labels = labels
+        graph.hit_track_labels = labels
         graph.time_taken = process_time() - start_time
 
         return graph

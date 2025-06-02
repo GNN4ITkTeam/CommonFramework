@@ -119,7 +119,7 @@ class Walkthrough(TrackBuildingStage):
             track_id_tensor = torch.ones(len(graph.hit_x), dtype=torch.long) * -1
             track_id_tensor[hit_id.values] = torch.from_numpy(track_id.values)
 
-            graph.edge_track_labels = track_id_tensor
+            graph.hit_track_labels = track_id_tensor
             graph.time_taken = process_time() - start_time
 
             if not self.hparams.get("variable_with_prefix"):

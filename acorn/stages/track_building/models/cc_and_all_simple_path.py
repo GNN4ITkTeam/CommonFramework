@@ -58,7 +58,7 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
             # TODO check isolated nodes
             start_time = process_time()
 
-            graph.edge_track_labels = -torch.ones(graph.hit_id.shape).long()
+            graph.hit_track_labels = -torch.ones(graph.hit_id.shape).long()
 
             graph_cc = Data(x=graph.hit_id, edge_index=graph.edge_index)
             # Apply score cut
@@ -89,7 +89,7 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
             )
             # print("Found ", n_cc, "Weakly Connected Components")
 
-            graph.edge_track_labels[mask_x] = torch.from_numpy(candidate_labels).long()
+            graph.hit_track_labels[mask_x] = torch.from_numpy(candidate_labels).long()
 
             #####################################################
             graph_residual = Data(x=graph.hit_id, edge_index=graph.edge_index)
@@ -117,7 +117,7 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
             ]
 
             labels = {node_idx: -1 for node_idx in graph_residual_nx.nodes}
-            label = torch.max(graph.edge_track_labels) + 1
+            label = torch.max(graph.hit_track_labels) + 1
             for source in sources:
                 paths = nx.all_simple_paths(
                     graph_residual_nx, source=source, target=targets, cutoff=25
@@ -128,7 +128,7 @@ class WeaklyConnectedComponentsAllSimplePath(TrackBuildingStage):
                         labels.update({node_idx: label for node_idx in path})
                         label += 1
 
-            graph.edge_track_labels[mask_x] = torch.tensor(list(labels.values()))
+            graph.hit_track_labels[mask_x] = torch.tensor(list(labels.values()))
 
             graph.config.append(self.hparams)
 
