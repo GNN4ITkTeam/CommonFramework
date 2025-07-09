@@ -121,6 +121,11 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
     all_eta = torch.cat(all_eta).cpu().numpy()
     all_y_truth = torch.cat(all_y_truth).cpu().numpy()
 
+    print("*** DEBUG  ***")
+    print(all_eta)
+    print(all_pt)
+    print(all_y_truth)
+
     # Get the edgewise efficiency
     # Build a histogram of true pTs, and a histogram of true-positive pTs
     pt_min, pt_max = 1, 50

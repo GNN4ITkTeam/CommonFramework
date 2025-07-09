@@ -23,7 +23,7 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from functools import partial
 import re
-from itertools import chain, product, combinations
+from itertools import product, combinations
 from torch_geometric.data import Data
 import torch
 import warnings
@@ -166,9 +166,11 @@ class EventReader:
         hits, particles = self._merge_particles_to_hits(hits, particles)
         hits = self._add_handengineered_features(hits)
         hits = self._clean_noise_duplicates(hits)
-        tracks, track_features, hits = self._build_true_tracks(hits)
+        tracks, track_features, hits = self._build_true_tracks(hits, event_id)
         if tracks.size == 0 or track_features == 0 or hits.size == 0:
-            self.log.warning("Found issue in building true tracks... skipping event")
+            self.log.warning(
+                f"Found issue in building true tracks... skipping event {event_id}"
+            )
             return
 
         hits, particles, tracks = self._custom_processing(hits, particles, tracks)
@@ -470,7 +472,7 @@ class EventReader:
 
         return hits
 
-    def _build_true_tracks(self, hits):
+    def _build_true_tracks(self, hits, event_id):
         assert all(
             col in hits.columns
             for col in [
@@ -530,7 +532,7 @@ class EventReader:
         for row in signal_index_list.values:
             for i, j in zip(row[:-1], row[1:]):
                 track_index_edges.extend(list(product(i, j)))
-        assert len(track_index_edges) > 0
+        # assert len(track_index_edges) > 0 , f"No true track edges found in event {event_id}"
 
         track_index_edges = np.array(track_index_edges).T
 
@@ -660,33 +662,73 @@ class EventReader:
         elif filename_terms is None:
             filename_terms = ["*"]
 
-        all_files_in_template = [
-            glob.glob(os.path.join(inputdir, f"*{template}*"))
+        self.log.debug(f"Glob with template {filename_terms}, in {inputdir}")
+        files_per_template = {
+            template: list(glob.glob(os.path.join(inputdir, f"*{template}*")))
             for template in filename_terms
-        ]
-        all_files_in_template = list(chain.from_iterable(all_files_in_template))
+        }
+        all_files_in_template = []
+        for files in files_per_template.values():
+            all_files_in_template += files
+        # all_files_in_template = [
+        #     glob.glob(os.path.join(inputdir, f"*{template}*"))
+        #     for template in filename_terms
+        # ]
+
+        # all_files_in_template = list(chain.from_iterable(all_files_in_template))
+        self.log.debug(f"Found {len(all_files_in_template)} files")
+        self.log.debug(
+            f"{all_files_in_template[0]}\n [...]\n{all_files_in_template[-1]}"
+        )
+
+        self.log.debug("Find all event ids [0-9]+")
         all_event_ids = sorted(
             list({re.findall("[0-9]+", file)[-1] for file in all_files_in_template})
         )
+        self.log.debug(f"Found {len(all_event_ids)} event IDs")
+        self.log.debug(f"{all_event_ids[:5]}\n [...]\n {all_event_ids[-5:]}")
 
+        self.log.debug("Loop on all events ids")
         all_events = []
-        for event_id in all_event_ids:
-            event = {"event_id": event_id}
-            for term in filename_terms:
-                if template_file := [
-                    file
-                    for file in all_files_in_template
-                    if term in os.path.basename(file)
-                    and re.findall("[0-9]+", file)[-1] == event_id
-                ]:
-                    event[term] = template_file[0]
-                else:
-                    print(
-                        f"Could not find file for term {term} and event id {event_id}"
-                    )
-                    break
-            else:
-                all_events.append(event)
+        # for event_id in tqdm(all_event_ids):
+        #     event = {"event_id": event_id}
+        #     for term in filename_terms:
+        #         if template_file := [
+        #             file
+        #             for file in all_files_in_template
+        #             if term in os.path.basename(file)
+        #             and re.findall("[0-9]+", file)[-1] == event_id
+        #         ]:
+        #             event[term] = template_file[0]
+        #         else:
+        #             print(
+        #                 f"Could not find file for term {term} and event id {event_id}"
+        #             )
+        #             break
+        #     else:
+        #         all_events.append(event)
+
+        dict_events = dict()
+        for term in filename_terms:
+
+            for file in files_per_template[term]:
+
+                found_evt_id = re.findall("[0-9]+", file)[-1]
+
+                if term in os.path.basename(file):
+
+                    if found_evt_id in dict_events:
+                        dict_events[found_evt_id] |= {term: file}
+                    else:
+                        dict_events[found_evt_id] = {term: file}
+
+        # Put in the format that is expected downstream
+        for evt_id, terms in dict_events.items():
+            d = {"event_id": evt_id}
+            d |= terms
+            all_events.append(d)
+
+        self.log.debug(f"{all_events[:5]}\n [...]\n {all_events[-5:]}")
 
         return all_events
 

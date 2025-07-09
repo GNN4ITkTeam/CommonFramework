@@ -114,16 +114,23 @@ class GraphConstructionStage:
         Test the data to ensure it is of the right format and loaded correctly.
         """
         required_features = ["hit_x", "track_edges"]
+        # optional_features = [
+        #     "track_particle_pid",
+        #     "track_particle_n_hits",
+        #     "track_particle_primary",
+        #     "track_particle_pdg_id",
+        #     "hit_module_id",
+        #     "hit_region_id",
+        #     "hit_id",
+        # ]
         optional_features = [
-            "track_particle_pid",
-            "track_particle_n_hits",
+            "track_particle_id",
+            "track_particle_nhits",
             "track_particle_primary",
-            "track_particle_pdg_id",
+            "track_particle_pdgId",
             "hit_module_id",
-            "hit_region_id",
             "hit_id",
         ]
-
         run_data_tests(
             [self.trainset, self.valset, self.testset],
             required_features,

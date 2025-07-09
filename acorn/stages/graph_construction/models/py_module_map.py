@@ -39,7 +39,8 @@ class PyModuleMap(GraphConstructionStage):
         Initialise the PyModuleMap - a python implementation of the Triplet Module Map.
         """
         self.hparams = hparams
-        self.use_csv = True
+        # self.use_csv = True
+        self.use_csv = False
         self.gpu_available = torch.cuda.is_available()
         if self.gpu_available:
             self.device = "cuda"
@@ -161,7 +162,7 @@ class PyModuleMap(GraphConstructionStage):
         os.makedirs(output_dir, exist_ok=True)
         self.log.info(f"Building graphs for {data_name}")
 
-        for graph, _, truth in tqdm(dataset):
+        for graph in tqdm(dataset):
             if graph is None:
                 continue
 
@@ -174,12 +175,12 @@ class PyModuleMap(GraphConstructionStage):
                 print(f"Graph {graph_file_name} already exists, skipping...")
                 continue
 
-            graph = self.build_graph(graph, truth)
+            graph = self.build_graph(graph)
             if not self.hparams.get("variable_with_prefix"):
                 graph = remove_variable_name_prefix_in_pyg(graph)
             torch.save(graph, os.path.join(output_dir, graph_file_name))
 
-    def build_graph(self, graph, truth):
+    def build_graph(self, graph):
         """
         Build the graph for the data.
         """

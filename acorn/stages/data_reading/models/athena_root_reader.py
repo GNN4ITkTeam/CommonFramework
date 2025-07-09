@@ -130,9 +130,11 @@ class AthenaRootReader(EventReader):
 
         # Check if file already exists
         if os.path.exists(
-            os.path.join(output_dir, "event{:09}-particles.csv".format(event))
+            os.path.join(
+                output_dir, f"{self.event_prefix}event{event:09}-particles.csv"
+            )
         ) and os.path.exists(
-            os.path.join(output_dir, "event{:09}-truth.csv".format(event))
+            os.path.join(output_dir, f"{self.event_prefix}event{event:09}-truth.csv")
         ):
             print(f"File for event number {event} already exists, skipping...")
             return
