@@ -179,6 +179,7 @@ def map_edges_to_nodes(
     edge_index: torch.Tensor,
     aggr: str = None,
     num_nodes: int = None,
+    dummy_value = 0,
     **kwargs,
 ):
     """
@@ -190,8 +191,11 @@ def map_edges_to_nodes(
         num_nodes = int(edge_index.max().item() + 1)
 
     if aggr is None:
-        nodelike_output = torch.zeros(
-            num_nodes, dtype=edgelike_input.dtype, device=edgelike_input.device
+        nodelike_output = torch.full(
+            (num_nodes,),
+            dummy_value,
+            dtype=edgelike_input.dtype,
+            device=edgelike_input.device,
         )
         nodelike_output[edge_index] = edgelike_input
         return nodelike_output
@@ -222,6 +226,7 @@ def map_tracks_to_nodes(
     track_edges: torch.Tensor,
     aggr: str = None,
     num_nodes: int = None,
+    dummy_value = 0,
     **kwargs,
 ):
     """
@@ -233,8 +238,11 @@ def map_tracks_to_nodes(
         num_nodes = int(track_edges.max().item() + 1)
 
     if aggr is None:
-        nodelike_output = torch.zeros(
-            num_nodes, dtype=tracklike_input.dtype, device=tracklike_input.device
+        nodelike_output = torch.full(
+            (num_nodes,),
+            dummy_value,
+            dtype=tracklike_input.dtype,
+            device=tracklike_input.device,
         )
         nodelike_output[track_edges] = tracklike_input
         return nodelike_output
@@ -252,6 +260,7 @@ def map_tracks_to_edges(
     tracklike_input: torch.Tensor,
     truth_map: torch.Tensor,
     num_edges: int = None,
+    dummy_value = 0,
     **kwargs,
 ):
     """
@@ -261,13 +270,16 @@ def map_tracks_to_edges(
 
     if num_edges is None:
         num_edges = int(truth_map.max().item() + 1)
-    edgelike_output = torch.zeros(
-        num_edges, dtype=tracklike_input.dtype, device=tracklike_input.device
+    edgelike_output = torch.full(
+        (num_edges,),
+        dummy_value,
+        dtype=tracklike_input.dtype,
+        device=tracklike_input.device,
     )
     if num_edges == 0:
         return edgelike_output
     edgelike_output[truth_map[truth_map >= 0]] = tracklike_input[truth_map >= 0]
-    edgelike_output[truth_map[truth_map == -1]] = float("nan")
+    
     return edgelike_output
 
 
