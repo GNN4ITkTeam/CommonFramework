@@ -23,6 +23,7 @@ from torch_geometric.data import Data
 from torch_geometric.utils import remove_isolated_nodes
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
+import pandas as pd
 
 from acorn.stages.track_building import utils
 from acorn.stages.track_building.track_building_stage import (
@@ -123,7 +124,7 @@ class ConnectedComponents(TrackBuildingStage):
         )
         graph.config.append(self.hparams)
         # Make a dataframe from pyg graph
-        d = utils.load_reconstruction_df(graph)
+        d = pd.DataFrame({"hit_id": graph.hit_id, "track_id": graph.hit_track_labels})
         # include distance from origin to sort hits
         d["r2"] = (graph.hit_r**2 + graph.hit_z**2).cpu().numpy()
         # Keep only hit_id associtated to a tracks (label >= 0, not -1), sort by track_id and r2
