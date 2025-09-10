@@ -20,6 +20,7 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from functools import partial
 from time import process_time
+import pandas as pd
 
 from . import cc_and_walk_utils
 from acorn.utils.loading_utils import remove_variable_name_prefix_in_pyg
@@ -118,7 +119,7 @@ class CCandWalk(TrackBuildingStage):
         cc_and_walk_utils.add_track_labels(graph, all_trks)
 
         # Make a dataframe from pyg graph
-        d = utils.load_reconstruction_df(graph)
+        d = pd.DataFrame({"hit_id": graph.hit_id, "track_id": graph.hit_track_labels})
         # Keep only hit_id associtated to a tracks (label >= 0, not -1)
         d = d[d.track_id >= 0]
         # Make a dataframe of list of hits (one row = one list of hits, ie one track)
