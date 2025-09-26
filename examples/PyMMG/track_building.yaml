@@ -1,0 +1,14 @@
+stage: track_building
+model: PyMMG_EdgeLayerConnector
+input_dir: MY_DATA_DIR/gnn/
+stage_dir: MY_DATA_DIR/tracks/
+
+event_prefix: ""
+data_split: [0, 10, 0]
+
+gpu_nb_blocks: 512
+gpu_core: 0
+edge_layer_connector_min_hits: 4
+edge_layer_connector_weights_cut: 0.01
+save-graph-on-disk: True
+
