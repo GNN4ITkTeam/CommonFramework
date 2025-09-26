@@ -35,11 +35,7 @@ source create_conda_environment.sh
 
 If you have permissions issues, you can also clone with `git clone https://gitlab.cern.ch/gnn4itkteam/acorn.git`.
 
-### Advanced Installation & Troubleshooting
-
-`xrootd` may be necessary for preparing a large dataset on the CERN grid. To create a conda environment for this purpose, use `scripts/create_conda_environment_with_xrootd.sh`, instead of `create_conda_environment.sh`
-
------
+### Check install
 
 To check if the installation is successful, run `python check_acorn.py`. If you see (approximately) the following output, you are good to go!
 ```text
@@ -63,10 +59,74 @@ argmax: tensor([[5, 5, 3, 4, 0, 1],
         [1, 4, 3, 5, 5, 5]], device='cuda:0')
 ```
 
+
+## Advanced Installation & Troubleshooting
+-----
+
+### PyMMG
+
+
+To use **PyModuleMapGraph (PyMMG)** models (e.g. `PyMMG_GraphBuilder`, `PyMMG_EdgeLayerConnector`), install the `pymmg` package in the `acorn` environment:
+
+
+**Binary package (recommended)** 
+
+```bash
+# Install PyMMG
+conda activate acorn
+python -m pip install --upgrade pip
+pip install --index-url https://gitlab.cern.ch/api/v4/projects/210408/packages/pypi/simple pymodulemapgraph==1.20.1
+```
+
+➡️ Replace `1.20.1` with the desired version (see [available versions](https://gitlab.cern.ch/gnn4itkteam/pymodulemapgraph/-/packages)) : **choose a version >= 1.20.1 : Prior versions are non-functional**
+
+
+**From source**
+
+If **CVMFS** is available on your environment, setup **MMG dependencies** (Boost, ROOT, CUDA) via LCG 107 (CUDA-enabled):
+
+```bash
+# 1) Source LCG 107 (CUDA-enabled) environment
+source /cvmfs/sft.cern.ch/lcg/views/LCG_107_cuda/x86_64-el9-gcc11-opt/setup.sh
+```
+
+**If CVMFS is not available**, ensure you have the required **MMG dependencies** installed and visible to your build:
+
+- Boost
+
+- ROOT
+
+- CUDA
+
+Make sure your compiler and runtime can find them (e.g., via PATH, LD_LIBRARY_PATH, or CMAKE_PREFIX_PATH as appropriate).
+
+```bash
+# 2) Load a recent NVHPC toolchain to get a modern nvcc (example: CC-IN2P3)
+module load HPC_GPU/nvhpc/24.5
+```
+
+```bash
+# 3) Clone (or wget source) and install PyMMG 
+git clone https://gitlab.cern.ch/gnn4itkteam/pymodulemapgraph.git
+cd pymodulemapgraph
+git fetch --all --tags
+git checkout <tag-or-branch>
+conda activate acorn
+python -m pip install --upgrade pip
+pip install .
+```
+
+### xrootd
+-----
+
+`xrootd` may be necessary for preparing a large dataset on the CERN grid. To create a conda environment for this purpose, use `scripts/create_conda_environment_with_xrootd.sh`, instead of `create_conda_environment.sh`
+
+### cudatoolkit @ NERSC
 -----
 
 For NERSC Perlmutter HPC users, the default `cudatoolkit` is 11.7 as of writing (12/13/2023). Please switch it to 12.2 by running `module load cudatoolkit/12.2`, then run the following commands.
 
+### FRNN
 -----
 
 It is optional to install `FRNN` for faster (~3x) GPU nearest neighbor search. For NERSC Perlmutter HPC users. run `module load cmake/3.30.2` and `module load gcc/12.2.0` , then run the following commands.
@@ -75,12 +135,13 @@ pip install git+https://github.com/asnaylor/prefix_sum.git
 pip install git+https://github.com/xju2/FRNN.git
 ```
 
-**Note: If you got this error message:**
+**: If you got this error message:**
 ```bash
 error: command /usr/bin/gcc failed with exit code 1 
 ```
 **It might be necessary to go into the installation script of FRNN and change the cpp flag from c++14 to c++17**
 
+### NOTES
 -----
 
 **IMPORTANT! On December 2, 2023 a major refactoring of the code was merged on `dev`**
@@ -108,7 +169,7 @@ The new setup introduces the following changes:
 
 Please see the [documentation](https://atlas-gnn-tracking.docs.cern.ch/) for more details, examples and tutorials.
 
-## Citing this work
+## Citing
 
 If this work is useful for your research, please cite our vCHEP2021 and CTD2022 proceedings:
 

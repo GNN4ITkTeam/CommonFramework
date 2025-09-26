@@ -1,0 +1,10 @@
+stage: graph_construction
+model: PyMMG_GraphBuilder
+input_dir: MY_DATA_DIR/feature_store/
+stage_dir: MY_DATA_DIR/graphs/
+
+event_prefix: ""
+data_split: [0, 10, 0]
+
+module_map_pattern_path: "MODULE_MAP_PATTERN_PATH"
+save-graph-on-disk: True
