@@ -23,7 +23,7 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 from functools import partial
 import re
-from itertools import chain, product, combinations
+from itertools import product, combinations
 from torch_geometric.data import Data
 import torch
 import warnings
@@ -94,8 +94,10 @@ class EventReader:
         if not config.get("skip_csv_conversion"):
             reader.convert_to_csv()
             reader._test_csv_conversion()
-        reader._convert_to_pyg()
-        reader._test_pyg_conversion()
+
+        if not config.get("skip_pyg_conversion", False):
+            reader._convert_to_pyg()
+            reader._test_pyg_conversion()
 
         return reader
 
@@ -168,7 +170,9 @@ class EventReader:
         hits = self._clean_noise_duplicates(hits)
         tracks, track_features, hits = self._build_true_tracks(hits)
         if tracks.size == 0 or track_features == 0 or hits.size == 0:
-            self.log.warning("Found issue in building true tracks... skipping event")
+            self.log.warning(
+                f"Found issue in building true tracks... skipping event {event_id}"
+            )
             return
 
         hits, particles, tracks = self._custom_processing(hits, particles, tracks)
@@ -530,7 +534,6 @@ class EventReader:
         for row in signal_index_list.values:
             for i, j in zip(row[:-1], row[1:]):
                 track_index_edges.extend(list(product(i, j)))
-        assert len(track_index_edges) > 0
 
         track_index_edges = np.array(track_index_edges).T
 
@@ -660,33 +663,56 @@ class EventReader:
         elif filename_terms is None:
             filename_terms = ["*"]
 
-        all_files_in_template = [
-            glob.glob(os.path.join(inputdir, f"*{template}*"))
+        self.log.debug(f"Glob with template {filename_terms}, in {inputdir}")
+        files_per_template = {
+            template: list(glob.glob(os.path.join(inputdir, f"*{template}*")))
             for template in filename_terms
-        ]
-        all_files_in_template = list(chain.from_iterable(all_files_in_template))
+        }
+        all_files_in_template = []
+        for files in files_per_template.values():
+            all_files_in_template += files
+
+        self.log.debug(f"Found {len(all_files_in_template)} files")
+        if len(all_files_in_template) > 0:
+            self.log.debug(
+                f"{all_files_in_template[0]}\n [...]\n{all_files_in_template[-1]}"
+            )
+
+        self.log.debug("Find all event ids [0-9]+")
         all_event_ids = sorted(
             list({re.findall("[0-9]+", file)[-1] for file in all_files_in_template})
         )
+        self.log.debug(f"Found {len(all_event_ids)} event IDs")
+        if len(all_event_ids) > 0:
+            self.log.debug(f"{all_event_ids[:5]}\n [...]\n {all_event_ids[-5:]}")
 
+        self.log.debug("Loop on all events ids")
         all_events = []
-        for event_id in all_event_ids:
-            event = {"event_id": event_id}
-            for term in filename_terms:
-                if template_file := [
-                    file
-                    for file in all_files_in_template
-                    if term in os.path.basename(file)
-                    and re.findall("[0-9]+", file)[-1] == event_id
-                ]:
-                    event[term] = template_file[0]
-                else:
-                    print(
-                        f"Could not find file for term {term} and event id {event_id}"
-                    )
-                    break
-            else:
-                all_events.append(event)
+
+        dict_events = dict()
+        for term in filename_terms:
+
+            for file in files_per_template[term]:
+
+                found_evt_id = re.findall("[0-9]+", file)[-1]
+
+                if term in os.path.basename(file):
+
+                    if found_evt_id in dict_events:
+                        dict_events[found_evt_id] |= {term: file}
+                    else:
+                        dict_events[found_evt_id] = {term: file}
+
+        # Put in the format that is expected downstream
+        for evt_id, terms in dict_events.items():
+            d = {"event_id": evt_id}
+            d |= terms
+            all_events.append(d)
+
+        if len(all_events) > 0:
+            self.log.debug(f"{all_events[:5]}\n [...]\n {all_events[-5:]}")
+        else:
+            self.log.debug("No event files found")
 
         return all_events
 
@@ -697,9 +723,22 @@ class EventReader:
         return hits, particles, tracks
 
     def _test_csv_conversion(self):
-        for data_name in ["trainset", "valset", "testset"]:
+
+        # Handle cases when we do not provide the three categories train/valid/test in the yaml
+        input_sets = [
+            f"{dataset_name}set"
+            for dataset_name in ["train", "valid", "test"]
+            if dataset_name in self.config["input_sets"]
+        ]
+
+        # Fix validset / valset name mismatch
+        if "validset" in input_sets:
+            input_sets = [e for e in input_sets if e != "validset"]
+            input_sets.append("valset")
+
+        for data_name in input_sets:
             dataset = getattr(self, data_name)
-            if dataset is None:
+            if not dataset:
                 continue
             self.csv_events = self.get_file_names(
                 os.path.join(self.config["stage_dir"], data_name),
@@ -724,27 +763,28 @@ class EventReader:
                 " conversion to CSV was successful."
             )
 
-        for dataset1, dataset2 in combinations(["trainset", "valset", "testset"], 2):
-            dataset1_files = {
-                event["event_id"]
-                for event in self.get_file_names(
-                    os.path.join(self.config["stage_dir"], dataset1),
-                    filename_terms=["truth", "particles"],
-                )
-            }
-            dataset2_files = {
-                event["event_id"]
-                for event in self.get_file_names(
-                    os.path.join(self.config["stage_dir"], dataset2),
-                    filename_terms=["truth", "particles"],
-                )
-            }
-            if dataset1_files.intersection(dataset2_files):
-                warnings.warn(
-                    f"There are overlapping files between the {dataset1} and"
-                    f" {dataset2}. You should remove these overlapping files from one"
-                    f" of the datasets: {dataset1_files.intersection(dataset2_files)}"
-                )
+        if len(input_sets) > 1:
+            for dataset1, dataset2 in combinations(input_sets, 2):
+                dataset1_files = {
+                    event["event_id"]
+                    for event in self.get_file_names(
+                        os.path.join(self.config["stage_dir"], dataset1),
+                        filename_terms=["truth", "particles"],
+                    )
+                }
+                dataset2_files = {
+                    event["event_id"]
+                    for event in self.get_file_names(
+                        os.path.join(self.config["stage_dir"], dataset2),
+                        filename_terms=["truth", "particles"],
+                    )
+                }
+                if dataset1_files.intersection(dataset2_files):
+                    warnings.warn(
+                        f"There are overlapping files between the {dataset1} and"
+                        f" {dataset2}. You should remove these overlapping files from one"
+                        f" of the datasets: {dataset1_files.intersection(dataset2_files)}"
+                    )
 
     def __len__(self):
         return len(self.files)
