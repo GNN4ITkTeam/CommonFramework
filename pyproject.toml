@@ -24,5 +24,5 @@ acorn = "acorn.core.entrypoint_stage:cli"
 include = ["acorn", "acorn.*"]
 
 [tool.black]
-line-length = 120
+line-length = 88
 exclude = '(\.git|\.tox|\.venv|_build|build|dist|acorn\.egg-info|\.venv|docs|functorch)'

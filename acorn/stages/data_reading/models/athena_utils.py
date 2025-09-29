@@ -102,8 +102,8 @@ def get_detectable_particles(particles, clusters):
 
     cut1 = particles[particles.charge.abs() > 0]  # Keep charged particles
     return cut1[
-        cut1.num_clusters > 0
-    ]  # Keep particles which are leaved at least one cluster
+        cut1.num_clusters > 1
+    ]  # Keep particles which are leaved at least two clusters
 
 
 def read_spacepoints(filename):
