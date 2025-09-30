@@ -1,0 +1,41 @@
+stage: edge_classifier
+model: GNNFilter
+input_dir: MY_DATA_DIR/metric_learning
+stage_dir: MY_DATA_DIR/gfilter
+project: ACAT2025_gfilter # Used in logging
+accelerator: cuda
+devices: 1
+nodes: 1
+
+data_split: [7785, 1000, 926]
+
+variable_with_prefix: true
+
+# Evaluation parameters
+score_cut: 0.05
+# undirected: false
+target_tracks: 
+  track_particle_pt: [1000., .inf]
+  track_particle_nhits: [3., .inf]
+  track_particle_primary: True
+  track_particle_pdgId: [not_in, [11, -11]]
+
+# Plotting parameters
+plots:
+  # gnn_efficiency_rz: 
+  #   title: Filter efficiency
+  # gnn_purity_rz: 
+  #   title: Filter purity
+  #   vmin: 0.
+  #   vmax: 0.03
+  graph_scoring_efficiency:
+    title: Filter efficiency
+    pt_units: MeV
+    ylim: [0.97, 1.01]
+  # multi_edgecut_graph_scoring_efficiency: 
+  #   title: Filter Edge-wise Efficiency
+  #   pt_units: MeV
+  #   template_filename: edgewise_efficiency_with_radius_edgesplits_edgecut
+  #   score_cuts: [0.05, 0.06, 0.07, 0.08, 0.09, 0.1]
+  # graph_roc_curve:
+  #   title: Filter ROC curve

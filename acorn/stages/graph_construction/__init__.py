@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from .models.metric_learning import MetricLearning
+from .models.double_metric_learning import DoubleMetricLearning
 from .models.py_module_map import PyModuleMap
 from .models.transformer_metric import TransformerMetricLearning
 from .models.gravnet import GravNetMetricLearning
@@ -23,5 +24,6 @@ __all__ = [
     "PyModuleMap",
     "TransformerMetricLearning",
     "GravNetMetricLearning",
+    "DoubleMetricLearning",
     "PyMMGGraphBuilder",
 ]

@@ -1,0 +1,43 @@
+stage: edge_classifier
+model: InteractionGNN2
+input_dir: MY_DATA_DIR/gfilter
+stage_dir: MY_DATA_DIR/ignn2
+project: ACAT2025_ignn2 # Used in logging
+accelerator: cuda
+devices: 1
+nodes: 1
+
+# Dataset parameters-
+data_split: [7785, 1000, 926]
+
+variable_with_prefix: true
+
+dataset_class: GraphDataset
+undirected: True
+
+# Evaluation parameters
+score_cut: 0.5
+#input_cut: 0.2
+
+target_tracks: 
+  track_particle_pt: [1000, .inf]
+  track_particle_nhits: [3, .inf]
+  track_particle_primary: True
+  track_particle_pdgId: [not_in, [11, -11]]
+  track_particle_radius: [0., 260.]
+  track_particle_eta: [-4., 4.]
+  track_redundant_split_edges: False
+
+# Plotting parameters
+plots:
+  # graph_scoring_efficiency:
+  #   title: Filter efficiency
+  #   pt_units: MeV
+  #   ylim: [0.97, 1.01]
+
+  gnn_efficiency_rz:
+    title: GNN edge-wise Efficiency vs (r,z)
+  
+  gnn_purity_rz:
+    title: GNN edge-wise Purity vs (r,z)
+    vmin: 0.4

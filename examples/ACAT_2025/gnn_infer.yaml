@@ -1,0 +1,16 @@
+stage: edge_classifier
+model: InteractionGNN2
+input_dir: MY_DATA_DIR/gfilter
+stage_dir: MY_DATA_DIR/ignn2
+project: ACAT2025_ignn2 # Used in logging
+accelerator: cuda
+devices: 1
+nodes: 1
+# Dataset parameters
+data_split: [7785, 1000, 926]
+dataset_class: GraphDataset
+undirected: True
+
+variable_with_prefix: true
+# add_variable_name_prefix: false
+# add_variable_name_prefix_in_ckpt: true
