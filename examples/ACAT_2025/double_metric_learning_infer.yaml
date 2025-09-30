@@ -1,0 +1,22 @@
+# CommonFramework configuration
+stage: graph_construction
+model: DoubleMetricLearning
+input_dir: MY_DATA_DIR/data_reading
+stage_dir: MY_DATA_DIR/double_metric_learning
+project: ACAT2025_double_metric_leaarning # Used in logging
+accelerator: cuda
+devices: 1
+nodes: 1
+
+data_split: [7785, 1000, 926]
+checkpoint: false
+
+# Model inference parameters
+r_infer: 0.14
+knn_infer: 1000
+undirected: true
+
+variable_with_prefix: true
+add_variable_name_prefix_in_pyg: false
+
+event_prefix: ttbar_uncorr_pu200_v9

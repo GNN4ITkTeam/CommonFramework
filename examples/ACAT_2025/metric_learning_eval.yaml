@@ -1,0 +1,32 @@
+# CommonFramework configuration
+stage: graph_construction
+model: MetricLearning
+input_dir: ACAT2025_metric_leaarning/data_reading
+stage_dir: ACAT2025_metric_leaarning/metric_learning
+project: ACAT2025_metric_leaarning # Used in logging
+accelerator: cuda
+devices: 1
+nodes: 1
+
+data_split: [7785, 1000, 926]
+
+variable_with_prefix: true
+
+# Evaluation parameters
+target_tracks: 
+  track_particle_pt: [1000., .inf]
+  track_particle_nhits: [3., .inf]
+  track_particle_primary: true
+  track_particle_pdgId: [not_in, [11, -11]]
+
+# Plotting parameters
+plots:
+  graph_construction_efficiency: 
+    title: Metric Learning Edge-wise Efficiency
+    pt_units: MeV
+    ylim: [0.97, 1.01]
+    filename: no_radius_splitedge
+  # graph_region_efficiency_purity:
+  #   title: Metric Learning Region Efficiency
+
+event_prefix: 
