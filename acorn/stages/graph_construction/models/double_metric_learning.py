@@ -23,7 +23,7 @@ import torch
 import torch.nn.functional as F
 
 # Local imports
-from .utils import make_mlp, build_edges, build_neighbors, graph_intersection
+from .utils import make_mlp, build_edges, graph_intersection
 from ..utils import build_signal_edges  # handle_weighting
 from acorn.utils import handle_weighting
 from acorn.utils.version_utils import get_pyg_data_keys
