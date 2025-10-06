@@ -23,6 +23,7 @@ from .models.jittable_gnn import (
     RecurrentInteractionGNN,
     RecurrentInteractionGNN2,
     ChainedInteractionGNN2,
+    GNNFilterJitable,
 )
 
 __all__ = [
@@ -35,4 +36,5 @@ __all__ = [
     "RecurrentInteractionGNN",
     "RecurrentInteractionGNN2",
     "ChainedInteractionGNN2",
+    "GNNFilterJitable",
 ]
