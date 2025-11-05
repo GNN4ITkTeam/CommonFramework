@@ -27,6 +27,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from acorn import stages
+from acorn.core.throughput import ThroughputCallback
 from acorn.stages import *  # noqa
 from pytorch_lightning.strategies.ddp import DDPStrategy
 from pytorch_lightning.loggers import CSVLogger
@@ -153,12 +154,14 @@ def get_trainer(config, default_root_dir):
     )
     checkpoint_callback.CHECKPOINT_NAME_LAST = f"last-{filename_suffix}"
 
+    throughput_callback = ThroughputCallback()
+
     return Trainer(
         accelerator=accelerator,
         devices=devices,
         num_nodes=config["nodes"],
         max_epochs=config["max_epochs"],
-        callbacks=[checkpoint_callback],
+        callbacks=[checkpoint_callback, throughput_callback],
         logger=logger,
         precision=config.get("precision", 32),
         strategy=DDPStrategy(find_unused_parameters=False, static_graph=True),
