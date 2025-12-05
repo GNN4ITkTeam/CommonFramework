@@ -68,6 +68,8 @@ class FastWalkthrough(TrackBuildingStage):
                 self.hparams["score_cut_walk"]["min"],
                 self.hparams["score_cut_walk"]["add"],
                 self.hparams.get("reuse_hits", False),
+                self.hparams.get("walk_mode", 0),
+                self.hparams.get("lookback", False),
             )
 
         if self.hparams.get("save_graph", True):

@@ -171,19 +171,20 @@ def resolve_ambiguities(tracks, max_ambi_hits):
     return resolved_tracks
 
 
-def walk_through(graph, score_name, th_min, th_add, allow_node_reuse):
-    graph = max_add_cuts(graph, score_name, th_min, th_add)
+def walk_through(graph, score_name, th_min, th_add, allow_node_reuse, mode, lookback=False):
+    graph = max_add_cuts(graph, score_name, th_min, th_add, lookback=lookback)
     numba_edges = convert_pyg_graph_to_numba(graph, score_name)
     sorted_hit_ids = topological_sort_graph(graph, numba_edges=numba_edges)
     tracks = get_tracks(
         numba_edges,
         sorted_hit_ids,
         allow_node_reuse,
+        mode,
     )
     return tracks
 
 
-def max_add_cuts(graph, score_name, th_min, th_add):
+def max_add_cuts(graph, score_name, th_min, th_add, lookback=False):
     edge_scores = graph[score_name]
     edge_index = graph.edge_index
 
@@ -195,6 +196,16 @@ def max_add_cuts(graph, score_name, th_min, th_add):
     mask_max[argmax[out >= th_min]] = True
 
     final_mask = mask_max | mask_add
+
+    if lookback:
+        # to select edges that are not connected to the start node
+        not_first_mask = torch.isin(edge_index[0], edge_index[1])
+        # to select the incoming edge with the highest score for each junction
+        out, argmax = scatter_max(edge_scores, edge_index[1], dim=0)
+        mask_imcoming_max = torch.zeros_like(mask_min, dtype=torch.bool)
+        mask_imcoming_max[argmax[argmax < len(mask_imcoming_max)]] = True
+        # either not the first, or has the highest score
+        final_mask = (not_first_mask | mask_imcoming_max) & final_mask
 
     subgraph = graph.edge_subgraph(final_mask)
 
@@ -217,53 +228,112 @@ def find_longest_path(complete_paths):
 
 
 @njit
-def process_sorted_nodes(sorted_hit_ids, numba_edges, allow_node_reuse):
+def find_most_likely_local_path(complete_paths, complete_branching_scores):
+    # Compare the paths with their branching score in order
+    best_path = List.empty_list(types.int64)
+    best_score = List.empty_list(types.float64)
+    for path, branching_score in zip(complete_paths, complete_branching_scores):
+        if branching_score > best_score:
+            best_score.clear()
+            best_score.extend(branching_score)
+            best_path.clear()
+            best_path.extend(path)
+    return best_path
+
+
+@njit
+def process_sorted_nodes(sorted_hit_ids, numba_edges, allow_node_reuse, mode):
     tracks = List()
     used_nodes = Dict.empty(key_type=types.int64, value_type=types.boolean)
     for hit_id in sorted_hit_ids:
         if hit_id in used_nodes:
             continue
 
-        complete_paths = find_paths(hit_id, numba_edges, used_nodes, allow_node_reuse)
+        complete_paths, complete_branching_scores = find_paths(hit_id, numba_edges, used_nodes, allow_node_reuse, mode)
 
         if complete_paths:
-            longest_path = find_longest_path(complete_paths)
-            if len(longest_path) > 1:
-                tracks.append(longest_path)
-                for node in longest_path:
+            if mode == 0:
+                # resolved_path = find_longest_path(complete_paths)
+                resolved_path = complete_paths[0] # they should all have the same length, so we just select the first one
+            elif mode == 1:
+                raise NotImplementedError("Most likely path not implemented yet")
+            elif mode == 2:
+                resolved_path = find_most_likely_local_path(complete_paths, complete_branching_scores)
+
+            if len(resolved_path) > 1:
+                tracks.append(resolved_path)
+                for node in resolved_path:
                     used_nodes[node] = True
 
     return tracks
 
 
-def get_tracks(numba_edges, sorted_hit_ids, allow_node_reuse):
+def get_tracks(numba_edges, sorted_hit_ids, allow_node_reuse, mode):
     numba_sorted_hit_ids = List(sorted_hit_ids)
-    tracks = process_sorted_nodes(numba_sorted_hit_ids, numba_edges, allow_node_reuse)
+    tracks = process_sorted_nodes(numba_sorted_hit_ids, numba_edges, allow_node_reuse, mode)
     return tracks
 
 
 @njit
-def find_paths(start_node, edges, used_nodes, allow_node_reuse):
+def find_paths(start_node, edges, used_nodes, allow_node_reuse, mode):
     paths = List()
-    paths.append([start_node])
+    paths.append(List([start_node]))
     complete_paths = List()
+    if mode >= 0:
+        # for mode 1 and 2, we need to keep track of the branching scores
+        branching_scores = List()
+        branching_scores.append(List([0.0]))
+        complete_branching_scores = List()
 
     while len(paths) > 0:
-        path = paths.pop(0)
-        current_node = path[-1]
+        if mode == 2:
+            old_complete_paths = complete_paths.copy() # for mode 2, we also need to keep the second longest paths
+            old_complete_branching_scores = complete_branching_scores.copy()
+            complete_branching_scores.clear()
+        if mode != 1:
+            complete_paths.clear() # we only need to keep the longest paths
+        # BFS approach to iterate all the possible paths
+        for i in range(len(paths)):
+            path = paths.pop(0)
+            if mode > 0:
+                branching_score = branching_scores.pop(0)
+            current_node = path[-1]
 
-        if current_node not in edges:
-            complete_paths.append(path)
-            continue
-
-        for neighbor in edges[current_node]:
-            if not allow_node_reuse and neighbor in used_nodes:
+            if current_node not in edges:
+                complete_paths.append(path)
+                if mode > 0:
+                    complete_branching_scores.append(branching_score)
                 continue
-            new_path = path.copy()
-            new_path.append(neighbor)
-            paths.append(new_path)
 
-    return complete_paths
+            num_branches = 0
+            for neighbor in edges[current_node]:
+                if not allow_node_reuse and neighbor in used_nodes:
+                    continue
+                num_branches += 1
+                new_path = path.copy()
+                new_path.append(neighbor)
+                paths.append(new_path)
+            if num_branches == 0:
+                # if all neighbors are already used, we consider the path complete
+                complete_paths.append(path)
+                if mode > 0:
+                    complete_branching_scores.append(branching_score)
+                continue
+            if mode > 0:
+                for neighbor in edges[current_node]:
+                    if not allow_node_reuse and neighbor in used_nodes:
+                        continue
+                    new_branching_score = branching_score.copy()
+                    if num_branches > 1:
+                        # add bracnching scores if more than one next nodes
+                        new_branching_score.append(edges[current_node][neighbor])
+                    branching_scores.append(new_branching_score)
+
+    if mode == 2:
+        complete_paths.extend(old_complete_paths)
+        complete_branching_scores.extend(old_complete_branching_scores)
+
+    return complete_paths, complete_branching_scores
 
 
 inner_dict_type = types.DictType(types.int64, types.float64)
