@@ -1,6 +1,7 @@
 from atlasify import atlasify
 import atlasify as atl
 import os
+import json
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -601,6 +602,23 @@ def graph_roc_curve(lightning_module, plot_config, config):
     fig.savefig(filename)
     print("Finish plotting. Find the score distribution at" f" {filename}")
 
+    # Save the metrics as file
+    save_auc_as_file = plot_config.get("save_auc_as_file")
+    if not save_auc_as_file:
+        return
+
+    filename = (
+        f"{filename_template}_roc_metrics.json"
+        if filename_template is not None
+        else "roc_metrics.json"
+    )
+    filename = os.path.join(config["stage_dir"], filename)
+    with open(filename, "w") as roc_metrics_file:
+        metrics = {
+            "auc": full_auc_score
+        }
+        json.dump(metrics, roc_metrics_file)
+    print("Finish saving AUC metric to file. Find the file at" f" {filename}")
 
 def graph_region_efficiency_purity(lightning_module, plot_config, config):
     print(f"Plotting efficiency and purity by region , events from {config['dataset']}")
