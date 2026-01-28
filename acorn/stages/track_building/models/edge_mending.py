@@ -18,7 +18,7 @@ import logging
 import torch
 from tqdm import tqdm
 from scipy.sparse.csgraph import connected_components
-from torch_scatter import scatter_max
+from torch_scatter import scatter_max, scatter_min
 import numpy as np
 import pandas as pd
 
@@ -27,13 +27,10 @@ from acorn.stages.track_building.models.cc_and_walk_utils import remove_cycles
 from acorn.stages.track_building.track_building_stage import TrackBuildingStage
 
 
-class CCandJunctionRemoval(TrackBuildingStage):
+class EdgeMending(TrackBuildingStage):
     def __init__(self, hparams):
         super().__init__(hparams)
-        """
-        Run graph segmentation with Connected Components and Junction Removal
 
-        """
         self.hparams = hparams
         self.gpu_available = torch.cuda.is_available()
 
@@ -45,7 +42,6 @@ class CCandJunctionRemoval(TrackBuildingStage):
         3. Running connected components on the sparse array
         4. Assigning the connected components labels back to the graph nodes as `labels` attribute
         """
-
         output_dir = os.path.join(self.hparams["stage_dir"], data_name)
         os.makedirs(output_dir, exist_ok=True)
         logging.info(f"Saving tracks to {output_dir}")
@@ -100,6 +96,32 @@ class CCandJunctionRemoval(TrackBuildingStage):
             junction_score = junction_score[to_keep[junction_edges].all(0)]
             junction_edges = junction_edges[:, to_keep[junction_edges].all(0)]
 
+            out_degree = np.bincount(junction_edges[0], minlength=event.hit_x.shape[0])
+            in_degree = np.bincount(junction_edges[1], minlength=event.hit_x.shape[0])
+
+            x_nodes = np.where((in_degree == 2) & np.equal(in_degree, out_degree))[0]
+            in_ind = np.isin(junction_edges[1], x_nodes)
+            out_ind = np.isin(junction_edges[0], x_nodes)
+            x_chain_edges_out = junction_edges[:, (out_ind)]
+            x_chain_edges_in = junction_edges[:, (in_ind)]
+
+            out_order = np.argsort(x_chain_edges_out[0])
+            in_order = np.argsort(x_chain_edges_in[1])
+            x_out = x_chain_edges_out[:, out_order][0]  # changed
+            x_in = x_chain_edges_in[:, in_order][1]  # changed
+            in_scores = junction_score[in_ind][in_order]
+            out_scores = junction_score[out_ind][out_order]
+
+            in_min = scatter_min(in_scores, x_in)[1]
+            in_min = in_min[in_min < x_chain_edges_in.size(1)].numpy()
+            out_min = scatter_min(out_scores, x_in)[1]
+            out_min = out_min[out_min < x_chain_edges_out.size(1)].numpy()
+
+            # make mended edges
+            out_nodes_for_mend = x_chain_edges_out[1][out_order][out_min]
+            in_nodes_for_mend = x_chain_edges_in[0][in_order][in_min]
+            mend_edges = torch.tensor(np.array([in_nodes_for_mend, out_nodes_for_mend]))
+
             # Masking out the junctions
 
             mask = torch.zeros_like(junction_edges[0], dtype=torch.bool)
@@ -110,7 +132,7 @@ class CCandJunctionRemoval(TrackBuildingStage):
             out_max = out_max[out_max < junction_edges.size(1)].numpy()
             mask.index_fill_(0, torch.as_tensor(np.intersect1d(in_max, out_max)), True)
 
-            junction_edges = junction_edges[:, mask]
+            junction_edges = torch.cat((junction_edges[:, mask], mend_edges), dim=1)
             # build csr graph and run cc
             graph = to_scipy_sparse_matrix(
                 junction_edges, num_nodes=event.hit_id.shape[0]

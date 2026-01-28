@@ -1,0 +1,18 @@
+# CommonFramework configuration
+stage: track_building
+model: EdgeMending
+input_dir: /pscratch/sd/l/lcondren/eps_valset # Should contain the files used in training and inference
+stage_dir: /global/cfs/cdirs/m3443/usr/lcondren/track_building_study/Edge_mend_nov_10 # A directory to be created that will store logs, artifacts, and output data
+
+saveMatchingDF: True
+
+# Dataset parameters
+data_split: [0, 1000, 0] # Number of [training, validation, testing] examples
+max_workers: 1
+# Connected Components and Junction Removal thresholds
+random_drop: 0
+score_cut: 0.9
+min_chain_length: 5
+junction_cut: 0.2
+save_graph: True
+save_tracks: True

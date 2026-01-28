@@ -19,6 +19,7 @@ from .models.cc_and_all_simple_path import WeaklyConnectedComponentsAllSimplePat
 from .models.hgnn import HierarchicalGNN
 from .models.fast_walkthrough import FastWalkthrough
 from .models.pymmg_edge_layer_connector import PyMMGEdgeLayerConnector
+from .models.edge_mending import EdgeMending
 
 __all__ = [
     "ConnectedComponents",
@@ -28,5 +29,6 @@ __all__ = [
     "HierarchicalGNN",
     "FastWalkthrough",
     "PyMMGEdgeLayerConnector",
+    "EdgeMending",
     "utils",
 ]
