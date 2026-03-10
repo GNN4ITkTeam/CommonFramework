@@ -456,7 +456,7 @@ class PyModuleMap(GraphConstructionStage):
         return MM_ids_1, MM_ids_2, MM_triplet
 
     def get_deltas(self, hits):
-        delta_eta = hits.eta_1 - hits.eta_2
+        delta_eta = hits.eta_2 - hits.eta_1
         delta_z = hits.z_2 - hits.z_1
         delta_r = hits.r_2 - hits.r_1
 
@@ -486,7 +486,7 @@ class PyModuleMap(GraphConstructionStage):
 
         # Delta eta
         # ---------
-        delta_eta = hits.eta_1 - hits.eta_2
+        delta_eta = hits.eta_2 - hits.eta_1
         eta_mask = get_doublet_mask(
             method,
             delta_eta,
@@ -563,9 +563,9 @@ class PyModuleMap(GraphConstructionStage):
         # Diff dydx
         # ---------
         dy_12 = triplet_edges.y_2 - triplet_edges.y_1
-        dy_23 = triplet_edges.y_2 - triplet_edges.y_3
-        dx_12 = triplet_edges.x_1 - triplet_edges.x_2
-        dx_23 = triplet_edges.x_2 - triplet_edges.x_3
+        dy_23 = triplet_edges.y_3 - triplet_edges.y_2
+        dx_12 = triplet_edges.x_2 - triplet_edges.x_1
+        dx_23 = triplet_edges.x_3 - triplet_edges.x_2
 
         diff_dydx = dy_12 / dx_12 - dy_23 / dx_23
         diff_dydx[(dx_12 == 0) & (dx_23 == 0)] = 0
