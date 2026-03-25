@@ -16,6 +16,7 @@ import os
 import uproot
 import logging
 import warnings
+import numpy as np
 
 from ..data_reading_stage import EventReader
 from . import athena_utils
@@ -266,7 +267,6 @@ class AthenaRootReader(EventReader):
             detectable_particles = detectable_particles[
                 athena_root_utils.particles_col_order
             ]
-
             # Save to CSV
             truth.to_csv(
                 os.path.join(
@@ -274,6 +274,61 @@ class AthenaRootReader(EventReader):
                 ),
                 index=False,
             )
+
+            if "track_particle_phi" in self.config["feature_sets"]["track_features"]:
+                print("Calculating track_particle_phi for detectable particles")
+                detectable_particles["phi"] = np.arctan2(
+                    detectable_particles["py"], detectable_particles["px"]
+                )
+
+            if "track_particle_d0" in self.config["feature_sets"]["track_features"]:
+                print("Calculating track_particle_d0 for detectable particles")
+                vx = detectable_particles["vx"]
+                vy = detectable_particles["vy"]
+                px = detectable_particles["px"]
+                py = detectable_particles["py"]
+                pt = detectable_particles["pt"]
+                q = detectable_particles["charge"]
+                B = 2.0  # Tesla
+
+                cx = vx + np.sign(q) * py / (0.3 * B * np.abs(q))
+                cy = vy - np.sign(q) * px / (0.3 * B * np.abs(q))
+                R = pt / (B * 0.3 * np.abs(q))
+
+                detectable_particles["d0"] = np.sqrt((cx) ** 2 + (cy) ** 2) - R
+
+            if "track_particle_z0" in self.config["feature_sets"]["track_features"]:
+                print("Calculating track_particle_z0 for detectable particles")
+                vx = detectable_particles["vx"]
+                vy = detectable_particles["vy"]
+                vz = detectable_particles["vz"]
+                px = detectable_particles["px"]
+                py = detectable_particles["py"]
+                pz = detectable_particles["pz"]
+                pt = detectable_particles["pt"]
+                q = detectable_particles["charge"]
+                B = 2.0  # Tesla
+
+                cx = vx + np.sign(q) * py / (0.3 * B * np.abs(q))
+                cy = vy - np.sign(q) * px / (0.3 * B * np.abs(q))
+                R = pt / (B * 0.3 * np.abs(q))
+
+                phi_v = np.arctan2(py, px)
+                phi_c = np.sign(q) * np.pi / 2 + np.arctan2(cy, cx)
+
+                # wrap phi_c to (-pi, pi]
+                phi_c = (phi_c + np.pi) % (2 * np.pi) - np.pi
+
+                # align branches of phi_c relative to phi_v
+                mask1 = (phi_c > 0) & (phi_c > 1) & (phi_v < 0)
+                mask2 = (phi_c < 0) & (phi_c < -1) & (phi_v > 0)
+
+                phi_c = phi_c.copy()
+                phi_c[mask1] -= 2 * np.pi
+                phi_c[mask2] += 2 * np.pi
+
+                detectable_particles["z0"] = vz - R * np.abs(phi_c - phi_v) * pz / pt
+
             detectable_particles.to_csv(
                 os.path.join(
                     output_dir, f"{self.event_prefix}event{int(event):09}-particles.csv"
