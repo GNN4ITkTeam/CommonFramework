@@ -1,0 +1,14 @@
+stage: edge_classifier
+model: InteractionGNN2Pruning
+input_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/module_map/ # Should contain the files used in training and inference
+stage_dir: MY_DATA_DIR/ATLAS-P2-ITK-23-00-03_Rel.21.9/ttbar/gnn/ # A directory to be created that will store logs, artifacts, and output data
+project: gnn_pruning # Used in logging
+accelerator: gpu
+devices: 1
+nodes: 1
+
+# Most of the parameters will be preloaded from the checkpoint
+save_top_k: -1 # Save all the checkpoints, to keep the pruned checkpoints with worse performance
+pruning_allow: True # Enables structured pruning callback
+pruning_amount: {50: 16, 100: 8}
+n_retraining_epochs: 1

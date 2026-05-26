@@ -170,7 +170,7 @@ def get_trainer(config, default_root_dir):
 
 
 def get_stage_module(
-    config, stage_module_class, checkpoint_path=None, checkpoint_resume_dir=None
+    config, stage_module_class, checkpoint_path=None, checkpoint_resume_dir=None, hparams_file=None
 ):
     # get a default_root_dr
     default_root_dir = get_default_root_dir()
@@ -197,18 +197,20 @@ def get_stage_module(
 
     # Load a checkpoint if checkpoint_path is not None
     if checkpoint_path is not None:
-        stage_module, config = load_module(checkpoint_path, stage_module_class)
+        stage_module, config = load_module(checkpoint_path, stage_module_class, hparams_file)
     else:
         stage_module = stage_module_class(config)
     return stage_module, config, default_root_dir, checkpoint_path
 
 
-def load_module(checkpoint_path, stage_module_class):
-    checkpoint = torch.load(
-        checkpoint_path, map_location=torch.device("cpu"), weights_only=False
-    )
-    config = checkpoint["hyper_parameters"]
+from pytorch_lightning.core.saving import load_hparams_from_yaml
+def load_module(checkpoint_path, stage_module_class, hparams_file=None):
+    checkpoint = torch.load(checkpoint_path, map_location=torch.device("cpu"), weights_only=False)
+    config = load_hparams_from_yaml(hparams_file)
+    hparams = checkpoint["hyper_parameters"]
+
     stage_module = stage_module_class.load_from_checkpoint(
-        checkpoint_path=checkpoint_path
+        checkpoint_path=checkpoint_path,
+        hparams={**hparams, **config}
     )
     return stage_module, config
