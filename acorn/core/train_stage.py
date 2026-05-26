@@ -145,6 +145,10 @@ def lightning_train(
         )
     trainer = get_trainer(config, default_root_dir)
     if load_only_model_parameters:
+        stage_module._hparams = {**stage_module._hparams, **config}
+        # Load new config to wandb
+        if wandb is not None and wandb.run is not None:
+            wandb.config.update({"override": stage_module._hparams}, allow_val_change=True)
         trainer.fit(stage_module)
     else:
         trainer.fit(stage_module, ckpt_path=checkpoint)
