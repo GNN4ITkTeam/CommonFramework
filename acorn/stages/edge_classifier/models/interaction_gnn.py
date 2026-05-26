@@ -918,3 +918,220 @@ class HeteroInteractionGNN(InteractionGNN, HeteroMixin):
             "pos_loss": pos_loss,
             "neg_loss": neg_loss,
         }
+
+
+from acorn.core.pruning_utils import LinkedMaskLayerNorm
+class InteractionGNN2Pruning(InteractionGNN2):
+    """
+    InteractionGNN2 supporting pruning, compression and operations on MLPs with irregular dimensions
+    """
+
+    def __init__(self, hparams):
+        super().__init__(hparams)
+
+        # This hyper parameter is set in checkpoint after model compression and allows custom MLP sizes
+        if "mlp_sizes" in hparams:
+            if hparams["concat"]:
+                if hparams["in_out_diff_agg"]:
+                    in_node_net = hparams["hidden"] * 4
+                else:
+                    in_node_net = hparams["hidden"] * 3
+                in_edge_net = hparams["hidden"] * 6
+            else:
+                if hparams["in_out_diff_agg"]:
+                    in_node_net = hparams["hidden"] * 3
+                else:
+                    in_node_net = hparams["hidden"] * 2
+                in_edge_net = hparams["hidden"] * 3
+
+            # node encoder
+            self.node_encoder = make_mlp(
+                input_size=len(hparams["node_features"]),
+                sizes=hparams["mlp_sizes"]["node_encoder"] if "mlp_sizes" in hparams else [hparams["hidden"]] * hparams["n_node_net_layers"],
+                output_activation=hparams["output_activation"],
+                hidden_activation=hparams["hidden_activation"],
+                layer_norm=hparams["layernorm"],
+                batch_norm=hparams["batchnorm"],
+                output_batch_norm=hparams["output_batch_norm"],
+                track_running_stats=hparams["track_running_stats"],
+            )
+            # edge encoder
+            if "edge_features" in hparams and len(hparams["edge_features"]) != 0:
+                self.edge_encoder = make_mlp(
+                    input_size=len(hparams["edge_features"]),
+                    sizes=hparams["mlp_sizes"]["edge_encoder"] if "mlp_sizes" in hparams else [hparams["hidden"]] * hparams["n_edge_net_layers"],
+                    output_activation=hparams["output_activation"],
+                    hidden_activation=hparams["hidden_activation"],
+                    layer_norm=hparams["layernorm"],
+                    batch_norm=hparams["batchnorm"],
+                    output_batch_norm=hparams["output_batch_norm"],
+                    track_running_stats=hparams["track_running_stats"],
+                )
+            else:
+                self.edge_encoder = make_mlp(
+                    input_size=2 * hparams["hidden"],
+                    sizes=hparams["mlp_sizes"]["edge_encoder"] if "mlp_sizes" in hparams else [hparams["hidden"]] * hparams["n_edge_net_layers"],
+                    output_activation=hparams["output_activation"],
+                    hidden_activation=hparams["hidden_activation"],
+                    layer_norm=hparams["layernorm"],
+                    batch_norm=hparams["batchnorm"],
+                    output_batch_norm=hparams["output_batch_norm"],
+                    track_running_stats=hparams["track_running_stats"],
+                )
+
+            # edge network
+            if hparams["edge_net_recurrent"]:
+                self.edge_network = make_mlp(
+                    input_size=in_edge_net,
+                    sizes=hparams["mlp_sizes"][f"edge_network"] if "mlp_sizes" in hparams else [hparams["hidden"]] * hparams["n_edge_net_layers"],
+                    output_activation=hparams["output_activation"],
+                    hidden_activation=hparams["hidden_activation"],
+                    layer_norm=hparams["layernorm"],
+                    batch_norm=hparams["batchnorm"],
+                    output_batch_norm=hparams["output_batch_norm"],
+                    track_running_stats=hparams["track_running_stats"],
+                )
+            else:
+                self.edge_network = nn.ModuleList(
+                    [
+                        make_mlp(
+                            input_size=in_edge_net,
+                            sizes=hparams["mlp_sizes"][f"edge_network.{i}"] if "mlp_sizes" in hparams else [hparams["hidden"]] * hparams["n_edge_net_layers"],
+                            output_activation=hparams["output_activation"],
+                            hidden_activation=hparams["hidden_activation"],
+                            layer_norm=hparams["layernorm"],
+                            batch_norm=hparams["batchnorm"],
+                            output_batch_norm=hparams["output_batch_norm"],
+                            track_running_stats=hparams["track_running_stats"],
+                        )
+                        for i in range(hparams["n_graph_iters"])
+                    ]
+                )
+            # node network
+            if hparams["node_net_recurrent"]:
+                self.node_network = make_mlp(
+                    input_size=in_node_net,
+                    sizes=hparams["mlp_sizes"][f"node_network"] if "mlp_sizes" in hparams else [hparams["hidden"]] * hparams["n_node_net_layers"],
+                    output_activation=hparams["output_activation"],
+                    hidden_activation=hparams["hidden_activation"],
+                    layer_norm=hparams["layernorm"],
+                    batch_norm=hparams["batchnorm"],
+                    output_batch_norm=hparams["output_batch_norm"],
+                    track_running_stats=hparams["track_running_stats"],
+                )
+            else:
+                self.node_network = nn.ModuleList(
+                    [
+                        make_mlp(
+                            input_size=in_node_net,
+                            sizes=hparams["mlp_sizes"][f"node_network.{i}"] if "mlp_sizes" in hparams else [hparams["hidden"]] * hparams["n_node_net_layers"],
+                            output_activation=hparams["output_activation"],
+                            hidden_activation=hparams["hidden_activation"],
+                            layer_norm=hparams["layernorm"],
+                            batch_norm=hparams["batchnorm"],
+                            output_batch_norm=hparams["output_batch_norm"],
+                            track_running_stats=hparams["track_running_stats"],
+                        )
+                        for i in range(hparams["n_graph_iters"])
+                    ]
+                )
+
+            # edge decoder
+            self.edge_decoder = make_mlp(
+                input_size=hparams["hidden"],
+                sizes=hparams["mlp_sizes"]["edge_decoder"] if "mlp_sizes" in hparams else [hparams["hidden"]] * hparams["n_edge_net_layers"],
+                output_activation=hparams["output_activation"],
+                hidden_activation=hparams["hidden_activation"],
+                layer_norm=hparams["layernorm"],
+                batch_norm=hparams["batchnorm"],
+                output_batch_norm=hparams["output_batch_norm"],
+                track_running_stats=hparams["track_running_stats"],
+            )
+            # edge output transform layer
+            self.edge_output_transform = make_mlp(
+                input_size=hparams["hidden"],
+                sizes=hparams["mlp_sizes"]["edge_output_transform"] if "mlp_sizes" in hparams else [hparams["hidden"], 1],
+                output_activation=hparams["edge_output_transform_final_activation"],
+                hidden_activation=hparams["hidden_activation"],
+                layer_norm=hparams["layernorm"],
+                batch_norm=hparams["batchnorm"],
+                output_batch_norm=hparams["edge_output_transform_final_batch_norm"],
+                track_running_stats=hparams["track_running_stats"],
+            )
+
+        self.grad_importance_scores={}
+        self.calculate_grad_scores=False
+
+
+        self.node_encoder = self.replace_layer_norm(self.node_encoder, "node_encoder")
+        self.edge_encoder = self.replace_layer_norm(self.edge_encoder, "edge_encoder")
+        if hparams["edge_net_recurrent"]:
+            self.edge_network = self.replace_layer_norm(self.edge_network, "edge_network")
+        else:
+            self.edge_network = nn.ModuleList([self.replace_layer_norm(self.edge_network[i], f"edge_network.{i}") for i in range(hparams["n_graph_iters"])])
+        if hparams["node_net_recurrent"]:
+            self.node_network = self.replace_layer_norm(self.node_network, "node_network")
+        else:
+            self.node_network = nn.ModuleList([self.replace_layer_norm(self.node_network[i], f"node_network.{i}") for i in range(hparams["n_graph_iters"])])
+
+        self.edge_decoder = self.replace_layer_norm(self.edge_decoder, "edge_decoder")
+        self.edge_output_transform = self.replace_layer_norm(self.edge_output_transform, "edge_output_transform")
+
+
+    def replace_layer_norm(self, sequential, seq_name):
+        for i, layer in enumerate(sequential):
+            if isinstance(layer, nn.LayerNorm):
+                linear_name = f"{seq_name}.{i-1}"
+                sequential[i] = LinkedMaskLayerNorm(self, linear_name, layer)
+
+        return sequential
+
+    """
+    Calculate gradient-based importance scores
+    """
+    def on_after_backward(self):
+        if not self.calculate_grad_scores: 
+            return
+
+        batch_idx = self.trainer.global_step % len(self.trainer.train_dataloader)  # Get current batch index
+        if batch_idx < len(self.trainer.train_dataloader)-1: # Check if last batch
+            return
+
+        for name, module in self.named_modules():
+            if isinstance(module, nn.Linear) and name[-1] != "6" and name not in ["edge_output_transform.3", "node_network.7.0", "node_network.7.3"]:
+
+                #module["preserved_grad"] = module.weight.grad
+                if hasattr(module, "weight_orig") and module.weight_orig.grad is None:
+                    module.grad_importance_score = None
+                    continue
+
+                if hasattr(module, "weight_orig"):
+                    if torch.sum(module.weight_orig.grad, [0, 1]) == 0:
+                        warnings.warn(f"Gradient for {name}.weight_orig is zero! - will use weight values as importance score")
+                        module.grad_importance_score =  module.weight
+                    else:
+                        module.grad_importance_score =  module.weight_orig.grad*module.weight
+                else:
+                    if torch.sum(module.weight.grad, [0, 1]) == 0:
+                        warnings.warn(f"Gradient for {name}.weight is zero! - will use weight values as importance score")
+                        module.grad_importance_score =  module.weight
+                    else:
+                        module.grad_importance_score =  module.weight.grad*module.weight
+
+
+    def get_pruning_percentage(self):
+        total_parameters = 0
+        pruned_parameters = 0
+
+        if all(False for _ in self.buffers()):
+            return 0.
+
+        for name, buf in self.named_buffers():
+            if not "weight" in name: 
+                continue
+
+            total_parameters += buf.numel()
+            pruned_parameters += (buf == 0).sum().item()
+
+        return (pruned_parameters / total_parameters) * 100 if total_parameters>0 else 0.0
+

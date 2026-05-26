@@ -17,6 +17,7 @@ from .models.interaction_gnn import (
     InteractionGNN2,
     InteractionGNNWithPyG,
     InteractionGNN2WithPyG,
+    InteractionGNN2Pruning
 )
 from .models.filter import Filter, GNNFilter
 from .models.jittable_gnn import (
@@ -37,4 +38,5 @@ __all__ = [
     "RecurrentInteractionGNN2",
     "ChainedInteractionGNN2",
     "GNNFilterJitable",
+    "InteractionGNN2Pruning"
 ]

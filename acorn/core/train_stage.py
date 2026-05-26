@@ -117,6 +117,7 @@ def train(
             checkpoint=checkpoint,
             checkpoint_resume_dir=checkpoint_resume_dir,
             load_only_model_parameters=load_only_model_parameters,
+            config_file=config_file
         )
     else:
         stage_module = stage_module_class(config)
@@ -130,12 +131,14 @@ def lightning_train(
     checkpoint=None,
     checkpoint_resume_dir=None,
     load_only_model_parameters=False,
+    config_file=None
 ):
     stage_module, ckpt_config, default_root_dir, checkpoint = get_stage_module(
         config,
         stage_module_class,
         checkpoint_path=checkpoint,
         checkpoint_resume_dir=checkpoint_resume_dir,
+        hparams_file=config_file
     )
     if (not config.get("variable_with_prefix")) or config.get(
         "add_variable_name_prefix_in_ckpt"
@@ -144,6 +147,11 @@ def lightning_train(
             stage_module._hparams
         )
     trainer = get_trainer(config, default_root_dir)
+
+    if config.get("pruning_allow", False):
+        from .pruning_utils import setup_pruning
+        setup_pruning(stage_module, trainer, config)
+
     if load_only_model_parameters:
         stage_module._hparams = {**stage_module._hparams, **config}
         # Load new config to wandb
