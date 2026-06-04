@@ -196,6 +196,12 @@ def graph_construction_efficiency(lightning_module, plot_config, config):
             f' {os.path.join(config["stage_dir"], filename)}'
         )
 
+        if plot_config.get("save_nparrays", False):
+            npz_fname = f'{os.path.join(config["stage_dir"], filename)}'.replace(
+                ".png", ".npz"
+            )
+            np.savez_compressed(npz_fname, hist=hist, bins=bins, err=err)
+
 
 def graph_construction_efficiency_2D(lightning_module, plot_config: dict, config: dict):
     """_summary_
@@ -456,6 +462,13 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
             "Finish plotting. Find the plot at"
             f' {os.path.join(config["stage_dir"], filename)}'
         )
+
+        if plot_config.get("save_nparrays", False):
+            npz_fname = f'{os.path.join(config["stage_dir"], filename)}'.replace(
+                ".png", ".npz"
+            )
+            np.savez_compressed(npz_fname, hist=hist, bins=bins, err=err)
+
 
 
 def multi_edgecut_graph_scoring_efficiency(lightning_module, plot_config, config):
