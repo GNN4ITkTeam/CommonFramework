@@ -20,3 +20,5 @@ wandb
 scikit-learn
 numba
 black==22.8.0
+polars
+pyarrow

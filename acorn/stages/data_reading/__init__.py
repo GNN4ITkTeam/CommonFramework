@@ -17,6 +17,7 @@ from .models.athena_root_reader import AthenaRootReader
 from .models.athena_cluster_reader import AthenaClusterReader
 from .models.trackml_reader import TrackMLReader
 from .models.acts_reader import ActsReader
+from .models.colliderml_reader import ColliderMLReader
 
 __all__ = [
     "AthenaReader",
@@ -24,4 +25,5 @@ __all__ = [
     "AthenaClusterReader",
     "TrackMLReader",
     "ActsReader",
+    "ColliderMLReader",
 ]
