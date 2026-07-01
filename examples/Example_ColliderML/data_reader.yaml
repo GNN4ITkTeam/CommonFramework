@@ -1,0 +1,51 @@
+# CommonFramework configuration
+#
+# tracker_hits_dir and particles_dir are searched recursively for *.parquet files,
+# so they can point at any ancestor of the actual parquet files.
+# Typical Hugging Face layout after `huggingface-cli download CERN/ColliderML-Release-1`:
+#
+#   <dataset_root>/
+#   ├── ttbar_pu200_tracker_hits/    ← set tracker_hits_dir to this
+#   │   └── data/
+#   │       └── *.parquet
+#   └── ttbar_pu200_particles/       ← set particles_dir to this
+#       └── data/
+#           └── *.parquet
+
+# Pipeline stage name; selects the data-reading orchestration logic
+stage: data_reading
+# Reader class to instantiate for this stage
+model: ColliderMLReader
+# Path to the tracker hits parquet directory (see layout above)
+tracker_hits_dir: /path/to/CERN__ColliderML-Release-1/ttbar_pu200_tracker_hits
+# Path to the particles parquet directory (see layout above)
+particles_dir: /path/to/CERN__ColliderML-Release-1/ttbar_pu200_particles
+# Output directory where processed .pyg event files are written
+stage_dir: /path/to/feature_store
+# Number of parallel worker processes for event processing
+max_workers: 1
+
+# Train / val / test fractions — must sum to 1.
+# The split is randomised via random_seed to ensure reproducibility.
+data_split: [0.95, 0.025, 0.025]
+
+# Save a copy of the event-id → parquet-file mapping to stage_dir after the first discovery scan.
+# On subsequent runs the reader loads this file instead of re-scanning all parquet shards.
+event_mapping: event_map.csv
+
+# Per-hit detector features to extract from the hits parquet and store in the .pyg file
+# Per-particle truth features to extract from the particles parquet and store in the .pyg file
+feature_sets:
+    hit_features: [hit_id, hit_x, hit_y, hit_z, hit_r, hit_phi, hit_eta, hit_detector, hit_volume_id, hit_layer_id]
+    track_features: [track_particle_id, track_particle_pt, track_particle_eta, track_particle_d0, track_particle_z0, track_particle_nhits, track_particle_pdg_id]
+
+# Hit columns used to identify which detector module a hit belongs to (used in module-map graph construction)
+module_columns: [hit_volume_id, hit_layer_id]
+# If false, skip events whose .pyg output file already exists
+overwrite: false
+# If true, keep the hit_*/track_* prefixes in the output Data object attribute names
+variable_with_prefix: True
+# Logging verbosity (DEBUG / INFO / WARNING / ERROR)
+log_level: INFO
+# Seed for random_split when assigning events to train/val/test — ensures the split is reproducible
+random_seed: 42

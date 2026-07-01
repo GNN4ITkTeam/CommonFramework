@@ -148,6 +148,36 @@ class EventReader:
         for dataset_name in ["trainset", "valset", "testset"]:
             self._build_all_pyg(dataset_name)
 
+    def _build_single_pyg_from_df(
+        self,
+        particles: pd.DataFrame,
+        hits: pd.DataFrame,
+        event_id: Union[int, str],
+        output_dir: str = None,
+    ) -> bool:
+        particles = particles.copy()
+        if "particle_id" in particles.columns:
+            particles = particles.rename(columns={"particle_id": "id"})
+        particles = self._add_column_name_prefix(particles, "particle")
+        hits = self._add_column_name_prefix(hits, "hit")
+        hits, particles = self._merge_particles_to_hits(hits, particles)
+        hits = self._add_handengineered_features(hits)
+        hits = self._clean_noise_duplicates(hits)
+        tracks, track_features, hits = self._build_true_tracks(hits, event_id)
+
+        if tracks.size == 0 or len(track_features) == 0 or hits.size == 0:
+            self.log.warning(
+                f"Found issue in building true tracks... skipping event {event_id}"
+            )
+            return False
+
+        hits, particles, tracks = self._custom_processing(hits, particles, tracks)
+        graph = self._build_graph(hits, tracks, track_features, event_id)
+
+        self._save_pyg_data(graph, output_dir, event_id)
+
+        return True
+
     def _build_single_pyg_event(self, event, output_dir=None):
         # Trick to make all workers are using separate CPUs
         # https://stackoverflow.com/questions/15639779/why-does-multiprocessing-use-only-a-single-core-after-i-import-numpy
@@ -162,22 +192,8 @@ class EventReader:
             return
 
         particles = pd.read_csv(event["particles"])
-        particles = self._add_column_name_prefix(particles, "particle")
         hits = pd.read_csv(event["truth"])
-        hits = self._add_column_name_prefix(hits, "hit")
-        hits, particles = self._merge_particles_to_hits(hits, particles)
-        hits = self._add_handengineered_features(hits)
-        hits = self._clean_noise_duplicates(hits)
-        tracks, track_features, hits = self._build_true_tracks(hits)
-        if tracks.size == 0 or track_features == 0 or hits.size == 0:
-            self.log.warning(
-                f"Found issue in building true tracks... skipping event {event_id}"
-            )
-            return
-
-        hits, particles, tracks = self._custom_processing(hits, particles, tracks)
-        graph = self._build_graph(hits, tracks, track_features, event_id)
-        self._save_pyg_data(graph, output_dir, event_id)
+        self._build_single_pyg_from_df(particles, hits, event_id, output_dir)
 
     def _build_all_pyg(self, dataset_name):
         stage_dir = os.path.join(self.config["stage_dir"], dataset_name)
@@ -339,7 +355,7 @@ class EventReader:
         assert all(
             vertex in particles.columns
             for vertex in ["particle_vx", "particle_vy", "particle_vz"]
-        ), "Particles must have vertex information!"
+        ), f"Particles must have vertex information! (event_id={event_id})"
         track_features = self.config["feature_sets"]["track_features"] + [
             "particle_vx",
             "particle_vy",
@@ -354,7 +370,7 @@ class EventReader:
 
         assert (
             "hit_particle_id" in hits.columns and "particle_id" in particles.columns
-        ), "Hits and particles must have a particle_id column!"
+        ), f"Hits and particles must have a particle_id column! (event_id={event_id})"
         hits = hits.merge(
             particles[particle_features],
             left_on="hit_particle_id",
@@ -474,7 +490,7 @@ class EventReader:
 
         return hits
 
-    def _build_true_tracks(self, hits):
+    def _build_true_tracks(self, hits, event_id):
         assert all(
             col in hits.columns
             for col in [
@@ -488,8 +504,8 @@ class EventReader:
                 "particle_vz",
             ]
         ), (
-            "Need to add (particle_id, hit_id), (x,y,z) and (vx,vy,vz) features to hits"
-            " dataframe in custom EventReader class"
+            f"Need to add (particle_id, hit_id), (x,y,z) and (vx,vy,vz) features to hits"
+            f" dataframe in custom EventReader class (event_id={event_id})"
         )
 
         # Sort by increasing distance from production
@@ -547,18 +563,22 @@ class EventReader:
 
         assert (
             hits[hits.hit_id.isin(track_edges.flatten())].hit_particle_id == 0
-        ).sum() == 0, "There are hits in the track edges that are noise"
+        ).sum() == 0, (
+            f"There are hits in the track edges that are noise (event_id={event_id})"
+        )
 
-        track_features = self._get_track_features(hits, track_index_edges, track_edges)
+        track_features = self._get_track_features(
+            hits, track_index_edges, track_edges, event_id
+        )
 
         # Remap
         track_edges, track_features, hits = self.remap_edges(
-            track_edges, track_features, hits
+            track_edges, track_features, hits, event_id
         )
 
         return track_edges, track_features, hits
 
-    def _get_track_features(self, hits, track_index_edges, track_edges):
+    def _get_track_features(self, hits, track_index_edges, track_edges, event_id):
         track_features = {}
         # There may be track_features in the config that are not in the hits dataframe, so loop over the intersection of the two
         track_feature_names = self.config["feature_sets"]["track_features"]
@@ -569,7 +589,7 @@ class EventReader:
             assert (
                 hits[track_feature].values[track_index_edges][0]
                 == hits[track_feature].values[track_index_edges][1]
-            ).all(), f"Track features must be the same for each side of edge: {track_feature}"
+            ).all(), f"Track features must be the same for each side of edge: {track_feature} (event_id={event_id})"
             track_features["track_" + track_feature] = hits[track_feature].values[
                 track_index_edges[0]
             ]
@@ -614,7 +634,7 @@ class EventReader:
 
         return secondary_clusters
 
-    def remap_edges(self, track_edges, track_features, hits):
+    def remap_edges(self, track_edges, track_features, hits, event_id):
         """
         Here we do two things:
         1. Remove duplicate hits from the hit list (since a hit is a node and therefore only exists once), and remap the corresponding truth track edge indices
@@ -629,7 +649,7 @@ class EventReader:
         hits = hits.drop_duplicates(subset="hit_id").sort_values("hit_id")
         assert (
             hits.hit_id == unique_hid
-        ).all(), "If hit IDs are not sequential, this will mess up graph structure!"
+        ).all(), f"If hit IDs are not sequential, this will mess up graph structure! (event_id={event_id})"
 
         track_edges = hid_mapping[track_edges]
 
@@ -645,10 +665,10 @@ class EventReader:
         n_shared_edges = track_edges.shape[1] - unique_track_edges.shape[1]
         if n_shared_edges > 50:
             self.log.warning(
-                f"WARNING : high number of shared EDGES ({n_shared_edges} shared edges for {track_edges.shape[1]} edges in total)"
+                f"WARNING : high number of shared EDGES ({n_shared_edges} shared edges for {track_edges.shape[1]} edges in total) (event_id={event_id})"
             )
 
-        assert n_shared_edges < 100, "Too many shared edges!"
+        assert n_shared_edges < 100, f"Too many shared edges! (event_id={event_id})"
 
         return unique_track_edges, track_features, hits
 
