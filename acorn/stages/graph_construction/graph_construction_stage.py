@@ -37,7 +37,12 @@ import pandas as pd
 from tqdm import tqdm
 import warnings
 
-from acorn.utils.loading_utils import add_variable_name_prefix_in_pyg, infer_num_nodes
+from acorn.utils.loading_utils import (
+    add_variable_name_prefix_in_pyg,
+    infer_num_nodes,
+    load_pyg,
+    pyg_exists,
+)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -280,10 +285,10 @@ class EventDataset(Dataset):
 
         graph_path = (
             f"{event_path}-graph.pyg"
-            if os.path.exists(f"{event_path}-graph.pyg")
+            if pyg_exists(f"{event_path}-graph.pyg")
             else f"{event_path}.pyg"
         )
-        graph = torch.load(graph_path, weights_only=False)
+        graph = load_pyg(graph_path, weights_only=False)
         graph = self.preprocess_graph(graph)
 
         if not self.use_csv:
@@ -318,7 +323,11 @@ class EventDataset(Dataset):
 
         input_data_dir = os.path.join(self.input_dir, self.data_name)
         all_files = os.listdir(input_data_dir) if os.path.isdir(input_data_dir) else []
-        all_files = [f for f in all_files if f.endswith(".csv") or f.endswith(".pyg")]
+        all_files = [
+            f
+            for f in all_files
+            if f.endswith(".csv") or f.endswith(".pyg") or f.endswith(".pyg.gz")
+        ]
         all_event_ids = sorted(
             list({re.findall("[0-9]+", file)[-1] for file in all_files})
         )
@@ -351,7 +360,9 @@ class EventDataset(Dataset):
             evt_id
             for evt_id in all_event_ids
             if f"{prefix}event{evt_id}-graph.pyg" in all_files
+            or f"{prefix}event{evt_id}-graph.pyg.gz" in all_files
             or f"{prefix}event{evt_id}.pyg" in all_files
+            or f"{prefix}event{evt_id}.pyg.gz" in all_files
         ]
 
         if self.use_csv:

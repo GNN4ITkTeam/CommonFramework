@@ -21,7 +21,11 @@ from tqdm import tqdm
 # Local imports
 from ..graph_construction_stage import GraphConstructionStage
 from . import utils
-from acorn.utils.loading_utils import remove_variable_name_prefix_in_pyg
+from acorn.utils.loading_utils import (
+    remove_variable_name_prefix_in_pyg,
+    save_pyg,
+    pyg_exists,
+)
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -77,14 +81,14 @@ class PyMMGGraphBuilder(GraphConstructionStage):
         for graph in tqdm(dataset):
             if graph is None:
                 continue
-            if os.path.exists(os.path.join(output_dir, f"event{graph.event_id}.pyg")):
+            if pyg_exists(os.path.join(output_dir, f"event{graph.event_id}.pyg")):
                 print(f"Graph {graph.event_id} already exists, skipping...")
                 continue
 
             graph = self.build_graph(graph)
             if not self.hparams.get("variable_with_prefix"):
                 graph = remove_variable_name_prefix_in_pyg(graph)
-            torch.save(graph, os.path.join(output_dir, f"event{graph.event_id}.pyg"))
+            save_pyg(graph, os.path.join(output_dir, f"event{graph.event_id}.pyg"))
 
     def build_graph(self, graph):
 

@@ -40,6 +40,7 @@ from acorn.utils import (
     load_datafiles_in_dir,
     get_optimizers,
 )
+from acorn.utils.loading_utils import load_pyg
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -198,7 +199,7 @@ class PartialGraphDataset(Dataset):
 
     def get(self, idx):
         event_path = self.input_paths[idx]
-        event = torch.load(
+        event = load_pyg(
             event_path, map_location=torch.device("cpu"), weights_only=False
         )
         return PartialData(event, **self.hparams["data_config"])

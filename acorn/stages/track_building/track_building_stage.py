@@ -44,7 +44,9 @@ from . import utils
 from acorn.utils.loading_utils import (
     add_variable_name_prefix_in_pyg,
     infer_num_nodes,
+    load_pyg,
     remove_variable_name_prefix_in_pyg,
+    save_pyg,
 )
 
 
@@ -342,7 +344,7 @@ class TrackBuildingStage:
         if not self.hparams.get("variable_with_prefix"):
             graph = remove_variable_name_prefix_in_pyg(graph)
 
-        torch.save(
+        save_pyg(
             graph,
             os.path.join(
                 output_dir, f"{self.event_prefix}event{graph.event_id[0]}.pyg"
@@ -413,7 +415,7 @@ class GraphDataset(Dataset):
 
     def get(self, idx):
         event_path = self.input_paths[idx]
-        event = torch.load(
+        event = load_pyg(
             event_path, map_location=torch.device("cpu"), weights_only=False
         )
         self.preprocess_event(event)

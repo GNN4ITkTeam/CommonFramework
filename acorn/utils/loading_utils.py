@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gzip
+import io
 import os
 from typing import List, Union
 import warnings
@@ -29,6 +31,39 @@ from .mapping_utils import (
     VariableType,
 )
 from .version_utils import get_pyg_data_keys
+
+
+def save_pyg(data, path):
+    """Save a PyG Data object. Writes to path + '.gz' unless ACORN_SAVE_PYG_UNCOMPRESSED is set."""
+    if os.environ.get("ACORN_SAVE_PYG_UNCOMPRESSED", "").lower() in ("1", "true", "yes"):
+        torch.save(data, path)
+    else:
+         buf = io.BytesIO()
+         torch.save(data, buf)
+         tmp_path = path + ".gz.tmp"
+         with gzip.open(tmp_path, "wb", compresslevel=1) as f:
+             f.write(buf.getvalue())
+         os.replace(tmp_path, path + ".gz")
+
+
+def load_pyg(path, **kwargs):
+    """Load a PyG Data object from path. Tries path + '.gz' first, then plain path."""
+    gz_path = path + ".gz"
+    if os.path.exists(gz_path):
+        try:
+            with gzip.open(gz_path, "rb") as f:
+                buf = io.BytesIO(f.read())
+            return torch.load(buf, **kwargs)
+        except Exception as e:
+            raise RuntimeError(f"Error decoding '{path}': {e}").with_traceback(
+                e.__traceback__
+            )
+    return torch.load(path, **kwargs)
+
+
+def pyg_exists(path):
+    """Return True if path or path + '.gz' exists on disk."""
+    return os.path.exists(path) or os.path.exists(path + ".gz")
 
 
 def load_datafiles_in_dir(input_dir, data_name=None, data_num=None):
@@ -53,7 +88,7 @@ def load_dataset_from_dir(input_dir, data_name, data_num):
     """
     data_files = load_datafiles_in_dir(input_dir, data_name, data_num)
 
-    return [torch.load(f, map_location="cpu", weights_only=False) for f in data_files]
+    return [load_pyg(f, map_location="cpu", weights_only=False) for f in data_files]
 
 
 def run_data_tests(datasets: List, required_features, optional_features):
