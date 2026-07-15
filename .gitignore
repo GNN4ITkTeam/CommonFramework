@@ -16,6 +16,7 @@
 **master**
 *env*
 *dist*
+*.so*
 run/
 *local*
 **.ipynb_checkpoints**
