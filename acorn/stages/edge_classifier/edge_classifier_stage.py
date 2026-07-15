@@ -21,7 +21,8 @@ import torch.nn.functional as F
 import torch_geometric.transforms as T
 from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
-from sklearn.metrics import roc_auc_score
+from torchmetrics import AUROC, Metric
+from torchmetrics.classification import BinaryPrecision, BinaryRecall
 import torch
 from class_resolver import ClassResolver
 
@@ -53,6 +54,21 @@ from acorn.stages.graph_construction.models.utils import graph_intersection
 torch.multiprocessing.set_sharing_strategy("file_system")
 
 
+class RatioMetric(Metric):
+    def __init__(self, eps=1e-12):
+        super().__init__()
+        self.eps = eps
+        self.add_state("numerator", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("denominator", default=torch.tensor(0.0), dist_reduce_fx="sum")
+
+    def update(self, numerator, denominator):
+        self.numerator += numerator.float()
+        self.denominator += denominator.float()
+
+    def compute(self):
+        return self.numerator / (self.denominator + self.eps)
+
+
 class EdgeClassifierStage(LightningModule):
     def __init__(self, hparams):
         super().__init__()
@@ -70,6 +86,13 @@ class EdgeClassifierStage(LightningModule):
             base=Dataset,
             default=GraphDataset,
         )
+        self.total_auroc = AUROC(task="binary", thresholds=200)
+        self.target_auroc = AUROC(task="binary", thresholds=200)
+
+        self.target_eff = BinaryRecall()
+        self.target_pur = BinaryPrecision()
+        self.total_pur = BinaryPrecision()
+        self.pur = RatioMetric()
 
     def setup(self, stage="fit"):
         """
@@ -362,61 +385,63 @@ class EdgeClassifierStage(LightningModule):
         return self.shared_evaluation(batch, batch_idx)
 
     def log_metrics(self, output, all_truth, target_truth, loss):
-        scores = torch.sigmoid(output)
+        scores = torch.sigmoid(output).float()  # float() guards 16-bit training
         preds = scores > self.hparams["edge_cut"]
 
-        # Positives
         edge_positive = preds.sum().float()
-
-        # Signal true & signal tp
-        target_true = target_truth.sum().float()
         target_true_positive = (target_truth.bool() & preds).sum().float()
-        all_true_positive = (all_truth.bool() & preds).sum().float()
-
-        total_auc = roc_auc_score(
-            all_truth.cpu().detach(),
-            scores.float().cpu().detach(),
-        )
-
-        truth_without_nontarget = all_truth[(target_truth) | (~all_truth)]
-        scores_without_nontarget = scores[(target_truth) | (~all_truth)]
-        # add torch.sigmoid(output).float() to convert to float in case training is done with 16-bit precision
-        auc = roc_auc_score(
-            truth_without_nontarget.cpu().detach(),
-            scores_without_nontarget.float().cpu().detach(),
-        )
         true_and_fake_positive = (
             edge_positive - (preds & (~target_truth) & all_truth).sum().float()
         )
 
-        target_eff = target_true_positive / target_true
-        target_pur = target_true_positive / edge_positive
-        total_pur = all_true_positive / edge_positive
-        purity = target_true_positive / true_and_fake_positive
-        current_lr = self.optimizers().param_groups[0]["lr"]
+        # Torchmetrics accumulates the pooled epoch counts internally.
+        self.target_eff.update(preds, target_truth.bool())
+        self.target_pur.update(preds, target_truth.bool())
+        self.total_pur.update(preds, all_truth.bool())
+        self.pur.update(target_true_positive, true_and_fake_positive)
 
-        self.log_dict(
-            {
-                "current_lr": current_lr,
-                "eff": target_eff,
-                "target_pur": target_pur,
-                "total_pur": total_pur,
-                "pur": purity,
-                "auc": auc,
-                "total_auc": total_auc,
-            },  # type: ignore
-            sync_dist=True,
-            batch_size=1,
-            on_epoch=True,
+        # AUROC: torchmetrics accumulates internally (stays on GPU)
+        self.total_auroc.update(scores, all_truth.long())
+        mask = target_truth.bool() | (~all_truth.bool())
+        self.target_auroc.update(scores[mask], all_truth[mask].long())
+
+        # log only per-step things that genuinely vary per step
+        self.log(
+            "current_lr",
+            self.optimizers().param_groups[0]["lr"],
             on_step=False,
+            on_epoch=True,
+            batch_size=1,
         )
-
         return preds
 
     def on_train_epoch_start(self):
         self.trainer.strategy.optimizers = [
             self.trainer.lr_scheduler_configs[0].scheduler.optimizer
         ]
+
+    def on_validation_epoch_end(self):
+        self.log_dict(
+            {
+                "target_eff": self.target_eff.compute(),
+                "target_pur": self.target_pur.compute(),
+                "total_pur": self.total_pur.compute(),
+                "pur": self.pur.compute(),
+                "auc": self.target_auroc.compute(),
+                "total_auc": self.total_auroc.compute(),
+            },
+            sync_dist=True,
+        )
+
+        for m in (
+            self.target_eff,
+            self.target_pur,
+            self.total_pur,
+            self.pur,
+            self.total_auroc,
+            self.target_auroc,
+        ):
+            m.reset()
 
     def on_before_optimizer_step(self, optimizer, *args, **kwargs):
         # warm up lr
