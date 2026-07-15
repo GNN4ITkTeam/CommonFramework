@@ -18,6 +18,7 @@ import random
 import torch
 
 from tqdm import tqdm
+from acorn.utils.loading_utils import load_pyg
 from torch_geometric.data import Dataset
 from acorn.utils.version_utils import get_pyg_data_keys
 
@@ -47,7 +48,7 @@ def load_dataset(
         loaded_events = []
         for event in tqdm(all_events[:num_events]):
             loaded_events.append(
-                torch.load(event, map_location=torch.device("cpu"), weights_only=False)
+                load_pyg(event, map_location=torch.device("cpu"), weights_only=False)
             )
 
         print("Events loaded!")
@@ -150,7 +151,7 @@ class LargeDataset(Dataset):
         return len(self.input_paths)
 
     def get(self, idx):
-        event = torch.load(
+        event = load_pyg(
             self.input_paths[idx], map_location=torch.device("cpu"), weights_only=False
         )
 

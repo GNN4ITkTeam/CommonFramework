@@ -21,6 +21,7 @@ from .colliderml_utils import (
     get_tracker_hits_schema,
     get_particles_schema,
 )
+from acorn.utils.loading_utils import pyg_exists
 
 
 class ColliderMLReader(EventReader):
@@ -263,7 +264,7 @@ class ColliderMLReader(EventReader):
         graph_path = os.path.join(
             output_dir, f"{self.event_prefix}event{event_id}-graph.pyg"
         )
-        if os.path.isfile(graph_path):
+        if pyg_exists(graph_path):
             if not self.config.get("overwrite"):
                 self.log.info(f"Graph {event_id} already exists, skipping...")
                 return

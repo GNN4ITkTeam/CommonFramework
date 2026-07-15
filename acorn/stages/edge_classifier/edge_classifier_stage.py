@@ -32,6 +32,9 @@ from acorn.utils.loading_utils import (
     add_variable_name_prefix_in_pyg,
     remove_variable_name_prefix_in_pyg,
     infer_num_nodes,
+    load_pyg,
+    save_pyg,
+    pyg_exists,
 )
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -485,7 +488,7 @@ class EdgeClassifierStage(LightningModule):
         event_id = (
             batch.event_id[0] if isinstance(batch.event_id, list) else batch.event_id
         )
-        if os.path.exists(
+        if pyg_exists(
             os.path.join(
                 self.hparams["stage_dir"],
                 dataset.data_name,
@@ -520,7 +523,7 @@ class EdgeClassifierStage(LightningModule):
         )
         if not self.hparams.get("variable_with_prefix"):
             event = remove_variable_name_prefix_in_pyg(event)
-        torch.save(
+        save_pyg(
             event.cpu(),
             os.path.join(self.hparams["stage_dir"], datatype, f"event{event_id}.pyg"),
         )
@@ -617,7 +620,7 @@ class GraphDataset(Dataset):
 
     def get(self, idx):
         event_path = self.input_paths[idx]
-        event = torch.load(
+        event = load_pyg(
             event_path, map_location=torch.device("cpu"), weights_only=False
         )
         # convert DataBatch to Data instance because some transformations don't work on DataBatch

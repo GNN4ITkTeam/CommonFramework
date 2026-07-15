@@ -32,6 +32,8 @@ import logging
 from acorn.utils.loading_utils import (
     remove_variable_name_prefix_in_pyg,
     variable_name_prefix_map,
+    save_pyg,
+    pyg_exists,
 )
 
 
@@ -185,7 +187,7 @@ class EventReader:
 
         event_id = event["event_id"]
 
-        if os.path.exists(
+        if pyg_exists(
             os.path.join(output_dir, f"{self.event_prefix}event{event_id}-graph.pyg")
         ):
             print(f"Graph {event_id} already exists, skipping...")
@@ -326,7 +328,7 @@ class EventReader:
         """
         if not self.config.get("variable_with_prefix"):
             graph = remove_variable_name_prefix_in_pyg(graph)
-        torch.save(
+        save_pyg(
             graph,
             os.path.join(output_dir, f"{self.event_prefix}event{event_id}-graph.pyg"),
         )

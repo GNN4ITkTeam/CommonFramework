@@ -27,7 +27,11 @@ from .utils import make_mlp, build_edges, graph_intersection
 from ..utils import build_signal_edges  # handle_weighting
 from acorn.utils import handle_weighting
 from acorn.utils.version_utils import get_pyg_data_keys
-from acorn.utils.loading_utils import remove_variable_name_prefix_in_pyg
+from acorn.utils.loading_utils import (
+    remove_variable_name_prefix_in_pyg,
+    save_pyg,
+    pyg_exists,
+)
 from acorn.stages.track_building.utils import rearrange_by_distance
 
 
@@ -519,7 +523,7 @@ class DoubleMetricLearning(GraphConstructionStage, LightningModule):
         event_id = (
             batch.event_id[0] if isinstance(batch.event_id, list) else batch.event_id
         )
-        if os.path.isfile(
+        if pyg_exists(
             os.path.join(self.hparams["stage_dir"], datatype, f"event{event_id}.pyg")
         ):
             return
@@ -543,7 +547,7 @@ class DoubleMetricLearning(GraphConstructionStage, LightningModule):
         )
         if not self.hparams.get("variable_with_prefix"):
             event = remove_variable_name_prefix_in_pyg(event)
-        torch.save(
+        save_pyg(
             event.cpu(),
             os.path.join(self.hparams["stage_dir"], datatype, f"event{event_id}.pyg"),
         )

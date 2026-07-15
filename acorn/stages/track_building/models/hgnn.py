@@ -32,7 +32,7 @@ from acorn.stages.track_building.models.ml_modules.hgnn_models import (
     HierarchicalGNNBlock,
 )
 from acorn.stages.track_building.models.ml_modules.gnn_cells import find_neighbors
-from acorn.utils.loading_utils import remove_variable_name_prefix_in_pyg
+from acorn.utils.loading_utils import remove_variable_name_prefix_in_pyg, save_pyg
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -325,7 +325,7 @@ class HierarchicalGNN(MLTrackBuildingStage):
 
         if not self.hparams.get("variable_with_prefix"):
             batch.full_event = remove_variable_name_prefix_in_pyg(batch.full_event)
-        torch.save(batch.full_event, output_dir)
+        save_pyg(batch.full_event, output_dir)
 
         tracks = (
             pd.DataFrame(
