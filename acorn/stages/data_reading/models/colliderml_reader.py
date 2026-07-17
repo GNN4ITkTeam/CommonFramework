@@ -151,16 +151,6 @@ class ColliderMLReader(EventReader):
         if "module_columns" not in self.config:
             self.config["module_columns"] = []
 
-        # When use_true_positions is set, guarantee hit_x/y/z are stored
-        if self.config.get("use_true_positions"):
-            hit_features = self.config["feature_sets"]["hit_features"]
-            for coord in ["hit_x", "hit_y", "hit_z"]:
-                if coord not in hit_features:
-                    hit_features.append(coord)
-            self.log.info(
-                "use_true_positions=True: hit_x/y/z will be populated from true_x/y/z"
-            )
-
     def get_file_names(self, inputdir, filename_terms: Union[str, list] = None):
         """
         Takes a list of filename terms and searches for all files containing those terms AND a number. Returns the files and numbers.
@@ -300,12 +290,6 @@ class ColliderMLReader(EventReader):
         if "hit_id" not in hits_df.columns:
             hits_df["hit_id"] = np.arange(len(hits_df), dtype=np.int64)
 
-        # Use MC-truth positions instead of digitised ones when requested.
-        if self.config.get("use_true_positions"):
-            hits_df["x"] = hits_df["true_x"]
-            hits_df["y"] = hits_df["true_y"]
-            hits_df["z"] = hits_df["true_z"]
-
         particles_df = particles_df[
             particles_df["particle_id"].isin(hits_df["particle_id"])
         ].copy()
@@ -401,6 +385,11 @@ class ColliderMLReader(EventReader):
         # proper track params) with 0 so the per-edge consistency check passes.
         particles_df["d0"] = particles_df["perigee_d0"].fillna(0.0)
         particles_df["z0"] = particles_df["perigee_z0"].fillna(0.0)
+
+        # Production vertex radius, matching the ACTS/TrackML reader convention.
+        particles_df["radius"] = np.sqrt(
+            particles_df["vx"] ** 2 + particles_df["vy"] ** 2
+        )
 
         return particles_df
 
