@@ -70,7 +70,12 @@ def load_datafiles_in_dir(input_dir, data_name=None, data_num=None):
     if data_name is not None:
         input_dir = os.path.join(input_dir, data_name)
 
-    data_files = [str(path) for path in Path(input_dir).rglob("*.pyg")][:data_num]
+    # load_pyg() takes the plain (non-gz) path and appends '.gz' itself to look
+    # for a compressed file, so strip the '.gz' suffix from any gzipped files
+    # found here to get back to that canonical path.
+    plain_files = {str(path) for path in Path(input_dir).rglob("*.pyg")}
+    gz_files = {str(path)[: -len(".gz")] for path in Path(input_dir).rglob("*.pyg.gz")}
+    data_files = sorted(plain_files | gz_files)[:data_num]
     if len(data_files) == 0:
         warnings.warn(f"No data files found in {input_dir}")
     if data_num is not None:
