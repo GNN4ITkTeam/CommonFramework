@@ -304,6 +304,21 @@ def graph_construction_efficiency_2D(lightning_module, plot_config: dict, config
         print(f"Finish plotting. Find the plot at {save_dir}")
         plt.close()
 
+        if plot_config.get("save_nparrays", False):
+            npz_fname = os.path.join(
+                config["stage_dir"],
+                f"graph_construction_edgewise_efficiency_{x}{y}.npz",
+            )
+            np.savez_compressed(
+                npz_fname,
+                all_target_x=all_target[x].cpu(),
+                all_target_y=all_target[y].cpu(),
+                target_x=target[x].cpu(),
+                target_y=target[y].cpu(),
+                x=x,
+                y=y,
+            )
+
 
 def graph_scoring_efficiency(lightning_module, plot_config, config):
     """
@@ -470,7 +485,6 @@ def graph_scoring_efficiency(lightning_module, plot_config, config):
             np.savez_compressed(npz_fname, hist=hist, bins=bins, err=err)
 
 
-
 def multi_edgecut_graph_scoring_efficiency(lightning_module, plot_config, config):
     """Plot graph scoring efficiency across multiple score cuts
 
@@ -627,11 +641,10 @@ def graph_roc_curve(lightning_module, plot_config, config):
     )
     filename = os.path.join(config["stage_dir"], filename)
     with open(filename, "w") as roc_metrics_file:
-        metrics = {
-            "auc": full_auc_score
-        }
+        metrics = {"auc": full_auc_score}
         json.dump(metrics, roc_metrics_file)
     print("Finish saving AUC metric to file. Find the file at" f" {filename}")
+
 
 def graph_region_efficiency_purity(lightning_module, plot_config, config):
     print(f"Plotting efficiency and purity by region , events from {config['dataset']}")
