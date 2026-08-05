@@ -20,16 +20,51 @@ from torch_scatter import scatter_max
 from numba import njit, types
 from numba.typed import Dict, List
 
+from acorn.cuda_ext import connected_components_weak_int32, process_components_cuda
+from .cc_backend_utils import (
+    compute_component_labels,
+    cudf_series_to_torch,
+    should_use_custom_cuda,
+    torch_tensor_to_cudf_series,
+)
+
+try:
+    import cupy as cp
+    import cudf
+except ImportError:
+    cp = None
+    cudf = None
+
+
+class GroupedTrackTensors:
+    def __init__(self, grouped_hit_ids, counts):
+        self.grouped_hit_ids = grouped_hit_ids
+        self.counts = counts
+
+    def __len__(self):
+        return int(self.counts.numel())
+
+    def __iter__(self):
+        start = 0
+        for track_length in self.counts.detach().cpu().tolist():
+            end = start + track_length
+            yield self.grouped_hit_ids[start:end]
+            start = end
+
 
 def filter_graph(graph, score_name, threshold):
     mask = graph[score_name] > threshold
     edge_index = graph.edge_index[:, mask]
     edge_scores = graph[score_name][mask].float()
+    if hasattr(graph, "hit_id"):
+        hit_id = graph.hit_id
+    else:
+        hit_id = torch.arange(int(graph.num_nodes), device=edge_index.device)
     transform = RemoveIsolatedNodes()
     new_graph = Data(
         edge_index=edge_index,
-        hit_id=graph.hit_id,
-        num_nodes=len(graph.hit_id),
+        hit_id=hit_id,
+        num_nodes=len(graph.hit_x),
         hit_r=graph.hit_r,
         hit_z=graph.hit_z,
     )
@@ -39,77 +74,147 @@ def filter_graph(graph, score_name, threshold):
     return new_graph
 
 
-def process_components(graph, labels, large_component_labels):
-    in_degrees = torch.zeros(graph.num_nodes, dtype=torch.long)
-    out_degrees = torch.zeros(graph.num_nodes, dtype=torch.long)
-    in_degrees.index_add_(
-        0, graph.edge_index[1], torch.ones(graph.num_edges, dtype=torch.long)
-    )
-    out_degrees.index_add_(
-        0, graph.edge_index[0], torch.ones(graph.num_edges, dtype=torch.long)
-    )
+def process_components(graph, labels, large_component_mask, num_components):
+    in_degrees = torch.bincount(graph.edge_index[1], minlength=graph.num_nodes)
+    out_degrees = torch.bincount(graph.edge_index[0], minlength=graph.num_nodes)
 
-    large_component_mask = torch.isin(labels, large_component_labels)
-    small_component_mask = ~large_component_mask
-
-    in_degrees_max = scatter_max(in_degrees, labels, dim=0)[0]
-    out_degrees_max = scatter_max(out_degrees, labels, dim=0)[0]
-
-    simple_path_components = (in_degrees_max <= 1) & (out_degrees_max <= 1)
+    bad_nodes = torch.maximum(in_degrees, out_degrees) > 1
+    bad_components = scatter_max(
+        bad_nodes.to(torch.int32), labels, dim=0, dim_size=num_components
+    )[0].bool()
+    simple_path_components = ~bad_components
 
     simple_path_mask = simple_path_components[labels]
 
     large_component_simple_path_mask = simple_path_mask & large_component_mask
     large_component_complex_path_mask = ~simple_path_mask & large_component_mask
 
-    assert torch.all(
-        large_component_simple_path_mask
-        | large_component_complex_path_mask
-        | small_component_mask
-        == torch.ones_like(labels, dtype=torch.bool)
-    ), "Categorization is not complete and mutually exclusive"
+    # assert torch.all(
+    #     large_component_simple_path_mask
+    #     | large_component_complex_path_mask
+    #     | small_component_mask
+    #     == torch.ones_like(labels, dtype=torch.bool)
+    # ), "Categorization is not complete and mutually exclusive"
 
-    subgraph_simple_paths = graph.subgraph(large_component_simple_path_mask)
-    subgraph_complex_paths = graph.subgraph(large_component_complex_path_mask)
-
-    return subgraph_simple_paths, subgraph_complex_paths
-
-
-def labels_to_lists(simple_path_graph):
-    labels = simple_path_graph.labels
-    hit_ids = simple_path_graph.hit_id
-
-    unique_labels, counts = torch.unique(labels, return_counts=True)
-    mask = labels.unsqueeze(0) == unique_labels.unsqueeze(1)
-    grouped_hit_ids = hit_ids.unsqueeze(0).expand(len(unique_labels), -1)[mask]
-    result = torch.split(grouped_hit_ids, counts.tolist())
-    result = [track.tolist() for track in result]
-
-    return result
-
-
-def get_simple_path(graph):
-    from scipy.sparse.csgraph import connected_components
-    from torch_geometric.utils import to_scipy_sparse_matrix
-
-    adj_matrix = to_scipy_sparse_matrix(graph.edge_index, num_nodes=graph.num_nodes)
-
-    n_components, labels = connected_components(
-        csgraph=adj_matrix, directed=True, connection="weak"
+    src, dst = graph.edge_index
+    complex_edge_mask = (
+        large_component_complex_path_mask[src]
+        & large_component_complex_path_mask[dst]
     )
-    labels = torch.from_numpy(labels).long()
+    subgraph_complex_paths = graph.edge_subgraph(complex_edge_mask)
+    subgraph_complex_paths = RemoveIsolatedNodes()(subgraph_complex_paths)
+
+    return large_component_simple_path_mask, complex_edge_mask, subgraph_complex_paths
+
+
+def labels_to_lists_torch(labels, hit_ids):
+    if labels.numel() == 0:
+        return ()
+
+    _, counts = torch.unique(labels, return_counts=True)
+    grouped_order = torch.argsort(labels, stable=True)
+    grouped_hit_ids = hit_ids[grouped_order]
+    return GroupedTrackTensors(grouped_hit_ids, counts)
+
+
+def labels_to_lists_cudf(labels, hit_ids):
+    if labels.numel() == 0:
+        return ()
+
+    sorted_df = cudf.DataFrame(
+        {
+            "label": torch_tensor_to_cudf_series(labels),
+            "hit_id": torch_tensor_to_cudf_series(hit_ids),
+        }
+    ).sort_values("label")
+    sorted_labels = cudf_series_to_torch(sorted_df["label"]).long()
+    _, counts = torch.unique_consecutive(sorted_labels, return_counts=True)
+    grouped_hit_ids = cudf_series_to_torch(sorted_df["hit_id"])
+    return GroupedTrackTensors(grouped_hit_ids, counts)
+
+
+def labels_to_lists(labels, hit_ids, use_cudf=False):
+    if can_use_cudf(labels.device, use_cudf):
+        return labels_to_lists_cudf(labels, hit_ids)
+    return labels_to_lists_torch(labels, hit_ids)
+
+
+def get_simple_path(graph, use_gpu=False, use_cudf=False, cc_backend="auto"):
+    labels_int32 = None
+    num_nodes = int(graph.num_nodes)
+
+    if should_use_custom_cuda(
+        graph.edge_index.device,
+        use_gpu=use_gpu,
+        cc_backend=cc_backend,
+    ):
+        labels_int32, num_components = connected_components_weak_int32(
+            graph.edge_index[0],
+            graph.edge_index[1],
+            num_nodes,
+        )
+        labels = labels_int32
+    else:
+        labels, num_components = compute_component_labels(
+            graph.edge_index,
+            num_nodes,
+            use_gpu=use_gpu,
+            cc_backend=cc_backend,
+        )
     graph.labels = labels
 
-    unique_labels, counts = torch.unique(labels, return_counts=True)
-    large_component_labels = unique_labels[counts >= 3]
+    component_sizes = torch.bincount(labels, minlength=num_components)
+    large_component_mask = component_sizes[labels] >= 3
 
-    subgraph_simple_paths, subgraph_rest = process_components(
-        graph, labels, large_component_labels
+    if labels_int32 is not None:
+        large_component_simple_path_mask, complex_edge_mask = process_components_cuda(
+            graph.edge_index[0],
+            graph.edge_index[1],
+            labels_int32,
+            large_component_mask,
+            int(graph.num_nodes),
+            num_components,
+        )
+        subgraph_rest = graph.edge_subgraph(complex_edge_mask)
+        subgraph_rest = RemoveIsolatedNodes()(subgraph_rest)
+        complex_node_mask = large_component_mask & ~large_component_simple_path_mask
+    else:
+        large_component_simple_path_mask, complex_edge_mask, subgraph_rest = process_components(
+            graph, labels, large_component_mask, num_components
+        )
+        complex_node_mask = large_component_mask & ~large_component_simple_path_mask
+
+    simple_path_lists = labels_to_lists(
+        labels[large_component_simple_path_mask],
+        graph.hit_id[large_component_simple_path_mask],
+        use_cudf=use_cudf,
     )
 
-    simple_path_lists = labels_to_lists(subgraph_simple_paths)
+    if complex_node_mask.any():
+        kept_node_mask = torch.zeros_like(complex_node_mask)
+        kept_node_mask[graph.edge_index[0, complex_edge_mask]] = True
+        kept_node_mask[graph.edge_index[1, complex_edge_mask]] = True
+        cached_labels = labels[kept_node_mask]
+        _, cached_component_labels = torch.unique(
+            cached_labels,
+            sorted=True,
+            return_inverse=True,
+        )
+        subgraph_rest.cached_component_labels = cached_component_labels
+        subgraph_rest.cached_num_components = int(
+            cached_component_labels.max().item()
+        ) + 1 if cached_component_labels.numel() > 0 else 0
 
     return simple_path_lists, subgraph_rest
+
+
+def can_use_cudf(device, use_cudf):
+    return (
+        use_cudf
+        and device.type == "cuda"
+        and cp is not None
+        and cudf is not None
+    )
 
 
 @njit
@@ -161,6 +266,9 @@ def resolve_ambiguities(tracks, max_ambi_hits):
     resolved_tracks = []
 
     for track in sorted_tracks:
+        if isinstance(track, torch.Tensor):
+            track = track.detach().cpu().tolist()
+
         updated_track = [
             hit_id for hit_id in track if used_hit_ids.get(hit_id, 0) < max_ambi_hits
         ]
@@ -175,6 +283,7 @@ def walk_through(graph, score_name, th_min, th_add, allow_node_reuse, mode, look
     graph = max_add_cuts(graph, score_name, th_min, th_add, lookback=lookback)
     numba_edges = convert_pyg_graph_to_numba(graph, score_name)
     sorted_hit_ids = topological_sort_graph(graph, numba_edges=numba_edges)
+
     tracks = get_tracks(
         numba_edges,
         sorted_hit_ids,
@@ -187,13 +296,11 @@ def walk_through(graph, score_name, th_min, th_add, allow_node_reuse, mode, look
 def max_add_cuts(graph, score_name, th_min, th_add, lookback=False):
     edge_scores = graph[score_name]
     edge_index = graph.edge_index
-
     mask_min = edge_scores > th_min
-    mask_add = edge_scores > th_add
-
     out, argmax = scatter_max(edge_scores, edge_index[0], dim=0)
     mask_max = torch.zeros_like(mask_min, dtype=torch.bool)
     mask_max[argmax[out >= th_min]] = True
+    mask_add = edge_scores > th_add
 
     final_mask = mask_max | mask_add
 

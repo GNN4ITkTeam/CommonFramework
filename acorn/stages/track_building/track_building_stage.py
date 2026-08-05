@@ -337,8 +337,12 @@ class TrackBuildingStage:
             filename = f"{self.event_prefix}event{graph.event_id[0]}.txt"
 
         output_file = os.path.join(tracks_dir, filename)
+        rows = [
+            track.detach().cpu().tolist() if isinstance(track, torch.Tensor) else track
+            for track in tracks
+        ]
         with open(output_file, "w", newline="") as f:
-            csv.writer(f, delimiter=_delimiter).writerows(tracks)
+            csv.writer(f, delimiter=_delimiter).writerows(rows)
 
     def save_graph(self, graph, output_dir):
         if not self.hparams.get("variable_with_prefix"):

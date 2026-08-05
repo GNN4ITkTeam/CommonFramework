@@ -35,6 +35,12 @@ source create_conda_environment.sh
 
 If you have permissions issues, you can also clone with `git clone https://gitlab.cern.ch/gnn4itkteam/acorn.git`.
 
+To also compile the optional ACORN CUDA/C++ extensions under `acorn/cuda_ext`, make sure `nvcc` is available, then run:
+
+```bash
+source create_conda_environment.sh --cuda-ext
+```
+
 ### Check install
 
 To check if the installation is successful, run `python check_acorn.py`. If you see (approximately) the following output, you are good to go!
@@ -140,6 +146,54 @@ pip install git+https://github.com/xju2/FRNN.git
 error: command /usr/bin/gcc failed with exit code 1 
 ```
 **It might be necessary to go into the installation script of FRNN and change the cpp flag from c++14 to c++17**
+
+### Optional ACORN CUDA/C++ Extensions
+-----
+
+ACORN includes optional CUDA/C++ extensions under `acorn/cuda_ext` for GPU connected components, reverse-topological dynamic programming, and path tracing. These extensions are not built by default. To compile them during environment creation, build ACORN in an environment where PyTorch, CUDA, and `nvcc` are available.
+
+```bash
+# Optional, but useful on systems where CUDA is provided by modules.
+# Pick the CUDA module/version that matches your PyTorch CUDA build.
+module load cudatoolkit/12.2
+
+# Create the environment and build the CUDA/C++ extensions.
+source create_conda_environment.sh --cuda-ext
+```
+
+You can also use the convenience wrapper:
+
+```bash
+source scripts/create_conda_environment_with_cuda_ext.sh
+```
+
+To use a non-default conda environment name, pass it as the positional argument:
+
+```bash
+source create_conda_environment.sh acorn_cuda --cuda-ext
+# or
+source scripts/create_conda_environment_with_cuda_ext.sh acorn_cuda
+```
+
+Internally, the installer sets `ACORN_BUILD_CUDA_EXT=1` and runs `pip install -e . --no-build-isolation`. The `--no-build-isolation` flag is important because the build imports PyTorch via `torch.utils.cpp_extension`. Without it, pip may create an isolated build environment where `torch` is not importable.
+
+To check whether the extensions were compiled and can be imported:
+
+```bash
+python - <<'PY'
+from acorn.cuda_ext import (
+    connected_components_available,
+    reverse_topological_dp_available,
+    trace_selected_paths_available,
+)
+
+print("connected components:", connected_components_available())
+print("reverse DP:", reverse_topological_dp_available())
+print("path tracing:", trace_selected_paths_available())
+PY
+```
+
+All three lines should print `True`. If they print `False`, check that `nvcc` is on `PATH`, `CUDA_HOME` points to the CUDA installation if needed, and the CUDA version is compatible with the installed PyTorch build.
 
 ### NOTES
 -----

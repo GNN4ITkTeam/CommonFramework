@@ -22,6 +22,33 @@ from itertools import chain
 import sys
 
 
+def _flatten_track_collection(trks):
+    if not trks:
+        return []
+    if hasattr(trks, "grouped_hit_ids"):
+        return trks.grouped_hit_ids.detach().cpu().tolist()
+    if isinstance(trks[0], torch.Tensor):
+        return torch.cat(trks).detach().cpu().tolist()
+    return list(chain.from_iterable(trks))
+
+
+def _track_lengths(trks):
+    if not trks:
+        return []
+    if hasattr(trks, "counts"):
+        return trks.counts.detach().cpu().tolist()
+    if isinstance(trks[0], torch.Tensor):
+        return [int(track.numel()) for track in trks]
+    return [len(track) for track in trks]
+
+
+def _get_graph_hit_ids(graph):
+    if hasattr(graph, "hit_id"):
+        return graph.hit_id.detach().cpu().numpy()
+    num_nodes = int(graph.num_nodes)
+    return np.arange(num_nodes)
+
+
 def remove_cycles(graph):
     """
     Remove cycles from the graph, simply by pointing all edges outwards
@@ -458,13 +485,14 @@ def add_track_labels(graph, all_trks):
     trkid_offset = 0
 
     for method, trks in all_trks.items():
-        flat_trks += list(chain.from_iterable(trks))
+        track_lengths = _track_lengths(trks)
+        flat_trks += _flatten_track_collection(trks)
         flat_trkid += list(
             chain.from_iterable(
-                [[i + trkid_offset] * len(p) for i, p in enumerate(trks)]
+                [[i + trkid_offset] * track_length for i, track_length in enumerate(track_lengths)]
             )
         )
-        flat_method += list(chain.from_iterable([[method] * len(p) for p in trks]))
+        flat_method += list(chain.from_iterable([[method] * track_length for track_length in track_lengths]))
         trkid_offset += len(trks)
 
     track_df = pd.DataFrame(
@@ -476,7 +504,7 @@ def add_track_labels(graph, all_trks):
     track_df = track_df.drop_duplicates(subset="hit_id")
 
     # In the case that the dataframe hits are out of order with the input graph hits
-    hit_id_df = pd.DataFrame({"hit_id": graph.hit_id})
+    hit_id_df = pd.DataFrame({"hit_id": _get_graph_hit_ids(graph)})
     hit_id_df = hit_id_df.merge(track_df, on="hit_id", how="left")
     hit_id_df.fillna(-1, inplace=True)
     track_id_tensor = torch.from_numpy(hit_id_df.track_id.values).long()
@@ -491,6 +519,13 @@ def join_track_lists(all_trks):
     """
     joined_tracks = []
     for tracks in all_trks.values():
+        if hasattr(tracks, "grouped_hit_ids") and hasattr(tracks, "counts"):
+            start = 0
+            for track_length in tracks.counts.detach().cpu().tolist():
+                end = start + track_length
+                joined_tracks.append(tracks.grouped_hit_ids[start:end])
+                start = end
+            continue
         joined_tracks.extend(tracks)
     return joined_tracks
 

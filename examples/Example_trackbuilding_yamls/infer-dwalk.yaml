@@ -1,0 +1,29 @@
+# CommonFramework configuration
+stage: track_building
+model: DWALK
+input_dir: INPUT_DIR_PATH
+stage_dir: STAGE_DIR_PATH
+
+# Dataset parameters
+data_split: [0, 1, 0] # Number of [training, validation, testing] examples
+
+variable_with_prefix: true
+add_variable_name_prefix: false
+
+# Connected Components and Walkthrough thresholds
+score_cut_cc: 0.01
+score_cut_walk: 
+  min: 0.1
+  add: 0.6
+# path_metrics options: score_weighted_length, length
+path_metrics: score_weighted_length
+use_gpu: true
+# cc_backend options: auto, scipy, cugraph, custom_cuda
+cc_backend: custom_cuda
+use_cudf: false
+
+max_workers: 1
+
+log_level: INFO
+
+on_true_graph: false
