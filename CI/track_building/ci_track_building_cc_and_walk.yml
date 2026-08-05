@@ -1,0 +1,23 @@
+stage: track_building
+model: CCandWalk
+input_dir: /eos/atlas/atlascerngroupdisk/perf-idtracking/GNN4ITk/ATLAS-P2-RUN4-03-00-00_Rel.24/ci_ref/scored_graphs
+stage_dir: tracks_ci_cc_and_walk
+
+data_split: [0, 10, 0] # Number of [training, validation, testing] examples
+
+score_cut_cc: 0.01
+score_cut_walk:
+  min: 0.1
+  add: 0.6
+score_guided_walk: True
+guidance_mode_walk: 2
+
+max_workers: 1
+
+save_graph : False
+
+save_tracks_as_csv : True
+athena_csv_format : True
+event_prefix : track_350200
+
+log_level: INFO
