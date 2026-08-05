@@ -15,5 +15,6 @@ include:
   - ".gitlab/pipelines/.pages-gitlab-ci.yaml"
   - ".gitlab/pipelines/.build-gitlab-ci.yaml"
   - ".gitlab/pipelines/.test-gitlab-ci-dind.yaml"
+  - ".gitlab/pipelines/.test-gitlab-ci-data_reading.yaml"
   - ".gitlab/pipelines/.deploy-gitlab-ci.yaml"
 

@@ -1,0 +1,30 @@
+.run_data_reading_template: &test_cpu_data_reading_template
+  stage: test
+  tags: 
+    - k8s-eos
+  needs: []
+  before_script:
+    # Need to have acces to eos, so login with gnn4itk service account
+    - echo "${gnn4itk_robot_psswd}" | kinit ${gnn4itk_robot_username}@CERN.CH
+    - pwd
+    - ls -la
+    - yum install conda -y
+    - conda init bash
+    - source ~/.bashrc
+    - conda config --set auto_activate_base false
+    - source create_conda_environment-cpu.sh
+  rules:
+    - when: always
+      
+run_data_reading_cpu:
+  <<: *test_cpu_data_reading_template
+  script:
+    - cd CI/data_reading
+    - ./ci_test_data_reading.sh
+
+
+run_data_reading_cpu_skip_csv_comparison:
+  <<: *test_cpu_data_reading_template
+  script:
+    - cd CI/data_reading
+    - ./ci_test_data_reading.sh true
