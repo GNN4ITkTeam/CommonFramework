@@ -1,0 +1,23 @@
+.track_building_template: &track_building_template
+  stage: test
+  tags: 
+    - k8s-eos
+  needs: []
+  before_script:
+    # Need to have acces to eos, so login with gnn4itk service account
+    - echo "${gnn4itk_robot_psswd}" | kinit ${gnn4itk_robot_username}@CERN.CH
+    - pwd
+    - ls -la
+    - yum install conda -y
+    - conda init bash
+    - source ~/.bashrc
+    - conda config --set auto_activate_base false
+    - source create_conda_environment-cpu.sh
+  rules:
+    - when: always
+
+cc_and_walk:
+    <<: *track_building_template
+    script:
+      - cd CI/track_building
+      - ./ci_test_track_building_cc_and_walk.sh
