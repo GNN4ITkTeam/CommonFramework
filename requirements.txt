@@ -15,6 +15,7 @@ uproot<=5.3.1
 class-resolver
 --extra-index-url https://pypi.nvidia.com
 cudf-cu12 
+cuml-cu12
 cugraph-cu12
 onnxruntime
 onnx

@@ -18,6 +18,7 @@ from .models.cc_and_junction_removal import CCandJunctionRemoval
 from .models.cc_and_all_simple_path import WeaklyConnectedComponentsAllSimplePath
 from .models.hgnn import HierarchicalGNN
 from .models.fast_walkthrough import FastWalkthrough
+from .models.dwalk import DWALK
 from .models.pymmg_edge_layer_connector import PyMMGEdgeLayerConnector
 from .models.edge_mending import EdgeMending
 
@@ -28,6 +29,7 @@ __all__ = [
     "WeaklyConnectedComponentsAllSimplePath",
     "HierarchicalGNN",
     "FastWalkthrough",
+    "DWALK",
     "PyMMGEdgeLayerConnector",
     "EdgeMending",
     "utils",

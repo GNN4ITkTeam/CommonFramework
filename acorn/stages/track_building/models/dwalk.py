@@ -24,13 +24,14 @@ from functools import partial
 from ..track_building_stage import TrackBuildingStage
 from ..timing import DeviceTimer
 from . import fast_walkthrough_utils, cc_and_walk_utils
+from . import dwalk_utils
 
 
-class FastWalkthrough(TrackBuildingStage):
+class DWALK(TrackBuildingStage):
     def __init__(self, hparams):
         super().__init__(hparams)
         """
-        Initialise the FastWalkthrough
+        Initialise the DWALK
         """
         self.hparams = hparams
         self.gpu_available = torch.cuda.is_available()
@@ -49,6 +50,7 @@ class FastWalkthrough(TrackBuildingStage):
         working_graph = self.move_graph_to_compute_device(graph)
         total_timer = DeviceTimer(working_graph.edge_index.device)
         total_timer.start()
+
         all_trks = dict()
 
         if self.hparams.get("on_true_graph", False):
@@ -61,7 +63,9 @@ class FastWalkthrough(TrackBuildingStage):
         filtered_graph = fast_walkthrough_utils.filter_graph(
             working_graph, score_name, threshold
         )
+
         filtered_graph = cc_and_walk_utils.remove_cycles(filtered_graph)
+
         all_trks["cc"], filtered_graph = fast_walkthrough_utils.get_simple_path(
             filtered_graph,
             use_gpu=self.hparams.get("use_gpu", False),
@@ -70,28 +74,31 @@ class FastWalkthrough(TrackBuildingStage):
         )
 
         if not self.cc_only:
-            all_trks["walk"] = fast_walkthrough_utils.walk_through(
+            # filtered_graph = self.move_graph_to_compute_device(filtered_graph)
+            all_trks["walk"] = dwalk_utils.walk_through(
                 filtered_graph,
                 score_name,
                 self.hparams["score_cut_walk"]["min"],
                 self.hparams["score_cut_walk"]["add"],
-                self.hparams.get("reuse_hits", False),
-                self.hparams.get("walk_mode", 0),
-                self.hparams.get("lookback", False),
+                self.hparams.get("path_metrics", "length"),
+                self.hparams.get("use_gpu", False),
+                self.hparams.get("use_cudf", False),
+                self.hparams.get("cc_backend", "auto"),
             )
+        else:
+            if hasattr(filtered_graph, "cached_component_labels"):
+                residual_tracks = fast_walkthrough_utils.labels_to_lists(
+                    filtered_graph.cached_component_labels,
+                    filtered_graph.hit_id,
+                    use_cudf=self.hparams.get("use_cudf", False),
+                )
+                all_trks["walk"] = residual_tracks
         graph.time_taken = total_timer.stop()
 
         if self.hparams.get("save_graph", True):
             cc_and_walk_utils.add_track_labels(graph, all_trks)
 
         tracks = cc_and_walk_utils.join_track_lists(all_trks)
-
-        if self.hparams.get("resolve_ambiguities", False) and self.hparams.get(
-            "reuse_hits", False
-        ):
-            tracks = fast_walkthrough_utils.resolve_ambiguities(
-                tracks, self.hparams.get("max_ambi_hits", 2)
-            )
 
         if self.hparams.get("save_tracks", True):
             self.save_tracks(graph, tracks, output_dir)
