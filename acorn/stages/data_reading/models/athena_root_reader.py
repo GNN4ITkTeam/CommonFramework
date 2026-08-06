@@ -17,11 +17,16 @@ import uproot
 import logging
 import warnings
 import numpy as np
+from functools import partial
+
+from tqdm import tqdm
+from tqdm.contrib.concurrent import process_map
 
 from ..data_reading_stage import EventReader
 from . import athena_utils
 from . import athena_root_utils
 from .athena_datatypes import SPACEPOINTS_DATATYPES, PARTICLES_DATATYPES
+from acorn.utils.loading_utils import pyg_exists
 
 
 class AthenaRootReader(EventReader):
@@ -38,6 +43,8 @@ class AthenaRootReader(EventReader):
         self.fix_index_mismatch = self.config.get(
             "fix_index_mismatch", False
         )  # fix bug only for old dump version
+
+        self.config.setdefault("skip_csv_conversion", True)
 
         # Get list of all root files in input_dir (sorted)
         input_sets = {
@@ -124,22 +131,10 @@ class AthenaRootReader(EventReader):
                 f"Selecting overlap space points with flag < {self.config.get('overlap_sp_cut')}"
             )
 
-    def _build_single_csv(self, event, output_dir=None):
-        # Trick to make all workers are using separate CPUs
-        # https://stackoverflow.com/questions/15639779/why-does-multiprocessing-use-only-a-single-core-after-i-import-numpy
-        os.sched_setaffinity(0, range(1000))
-
-        # Check if file already exists
-        if os.path.exists(
-            os.path.join(
-                output_dir, f"{self.event_prefix}event{event:09}-particles.csv"
-            )
-        ) and os.path.exists(
-            os.path.join(output_dir, f"{self.event_prefix}event{event:09}-truth.csv")
-        ):
-            print(f"File for event number {event} already exists, skipping...")
-            return
-
+    def _read_event_dataframes(self, event):
+        """Read one event from ROOT and build the (detectable_particles, truth)
+        dataframes. Shared by the CSV and direct-PyG paths; returns None if the
+        event should be skipped."""
         # Determine which root file and wich TTree entry to read given the event number to be processed
         # In case we use files on grid local disk (with xrootd), we provide the full file name (base name otherwise)
         if self.config["input_dir"] == "XROOTD":
@@ -206,7 +201,7 @@ class AthenaRootReader(EventReader):
             particles = athena_root_utils.read_particles(part_branches)
             if particles is None or len(particles) == 0:
                 warnings.warn(f"No particles found in event number {event}")
-                return
+                return None
             particles = athena_utils.convert_barcodes(particles)
             particles = particles.astype(
                 {k: v for k, v in PARTICLES_DATATYPES.items() if k in particles.columns}
@@ -222,7 +217,7 @@ class AthenaRootReader(EventReader):
                 self.log.warn(
                     f"Not enough spacepoints ({len(spacepoints)}) found in event number {event}"
                 )
-                return
+                return None
 
             self.log.debug("Space points data frame made")
             if self.log.getEffectiveLevel() == logging.DEBUG:
@@ -246,7 +241,7 @@ class AthenaRootReader(EventReader):
             )
             if len(detectable_particles) == 0:
                 self.log.warn(f"No detectable particles found in event {event}")
-                return
+                return None
             self.log.debug("Detectable particles data frame made")
 
             # Get truth spacepoints
@@ -267,14 +262,6 @@ class AthenaRootReader(EventReader):
             detectable_particles = detectable_particles[
                 athena_root_utils.particles_col_order
             ]
-            # Save to CSV
-            truth.to_csv(
-                os.path.join(
-                    output_dir, f"{self.event_prefix}event{int(event):09}-truth.csv"
-                ),
-                index=False,
-            )
-
             if "track_particle_phi" in self.config["feature_sets"]["track_features"]:
                 print("Calculating track_particle_phi for detectable particles")
                 detectable_particles["phi"] = np.arctan2(
@@ -329,14 +316,6 @@ class AthenaRootReader(EventReader):
 
                 detectable_particles["z0"] = vz - R * np.abs(phi_c - phi_v) * pz / pt
 
-            detectable_particles.to_csv(
-                os.path.join(
-                    output_dir, f"{self.event_prefix}event{int(event):09}-particles.csv"
-                ),
-                index=False,
-            )
-            self.log.debug(f"truth.csv and particles.csv made for event {event}")
-
             if self.log.getEffectiveLevel() == logging.DEBUG:
                 print("\n*** Truth ***\n")
                 print(truth)
@@ -345,3 +324,98 @@ class AthenaRootReader(EventReader):
                 print("\n*** Particles ***\n")
                 print(detectable_particles)
                 print(detectable_particles.dtypes)
+
+            return detectable_particles, truth
+
+    def _build_single_csv(self, event, output_dir=None):
+        # Trick to make all workers are using separate CPUs
+        # https://stackoverflow.com/questions/15639779/why-does-multiprocessing-use-only-a-single-core-after-i-import-numpy
+        os.sched_setaffinity(0, range(1000))
+
+        # Check if file already exists
+        if os.path.exists(
+            os.path.join(
+                output_dir, f"{self.event_prefix}event{event:09}-particles.csv"
+            )
+        ) and os.path.exists(
+            os.path.join(output_dir, f"{self.event_prefix}event{event:09}-truth.csv")
+        ):
+            print(f"File for event number {event} already exists, skipping...")
+            return
+
+        result = self._read_event_dataframes(event)
+        if result is None:
+            return
+        detectable_particles, truth = result
+
+        truth.to_csv(
+            os.path.join(
+                output_dir, f"{self.event_prefix}event{int(event):09}-truth.csv"
+            ),
+            index=False,
+        )
+        detectable_particles.to_csv(
+            os.path.join(
+                output_dir, f"{self.event_prefix}event{int(event):09}-particles.csv"
+            ),
+            index=False,
+        )
+        self.log.debug(f"truth.csv and particles.csv made for event {event}")
+
+    def _build_all_pyg(self, dataset_name):
+        # CSVs were requested and written: build graphs from them, as the base class does.
+        if not self.config.get("skip_csv_conversion"):
+            return super()._build_all_pyg(dataset_name)
+
+        if dataset_name == "trainset":
+            dataset = self.trainset
+        elif dataset_name == "valset":
+            dataset = self.valset
+        elif dataset_name == "testset":
+            dataset = self.testset
+        else:
+            self.log.warning(f"Unknown dataset name {dataset_name}")
+            return
+
+        if not dataset:
+            self.log.warning(f"No dataset available for {dataset_name}")
+            return
+
+        stage_dir = os.path.join(self.config["stage_dir"], dataset_name)
+        os.makedirs(stage_dir, exist_ok=True)
+
+        dataset = list(dataset)
+
+        max_workers = self.config.get("max_workers", 1)
+        if max_workers != 1:
+            process_map(
+                partial(self._build_single_pyg_event_from_root, output_dir=stage_dir),
+                dataset,
+                max_workers=max_workers,
+                chunksize=1,
+                desc=f"Building {dataset_name} graphs",
+            )
+        else:
+            for event in tqdm(dataset, desc=f"Building {dataset_name} graphs"):
+                self._build_single_pyg_event_from_root(event, output_dir=stage_dir)
+
+    def _build_single_pyg_event_from_root(self, event_id, output_dir=None):
+        os.sched_setaffinity(0, range(1000))
+
+        event_id_str = f"{int(event_id):09}"
+
+        graph_path = os.path.join(
+            output_dir, f"{self.event_prefix}event{event_id_str}-graph.pyg"
+        )
+        if pyg_exists(graph_path):
+            self.log.info(f"Graph {event_id} already exists, skipping...")
+            return
+
+        result = self._read_event_dataframes(event_id)
+        if result is None:
+            return
+        detectable_particles, truth = result
+
+        self._build_single_pyg_from_df(
+            detectable_particles, truth, event_id_str, output_dir
+        )
