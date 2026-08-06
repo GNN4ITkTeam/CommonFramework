@@ -149,7 +149,7 @@ class AthenaRootReader(EventReader):
         with uproot.open(
             filename + ":" + self.tree_name,
             filter_name=athena_root_utils.all_branches,
-            library="np",
+            library="ak",
         ) as tree:
             self.log.debug(
                 f"Opening file {filename} to read entry {entry} corresponding to event"
@@ -179,22 +179,25 @@ class AthenaRootReader(EventReader):
                 athena_root_utils.particle_branch_names,
                 entry_start=entry,
                 entry_stop=(entry + 1),
-                library="np",
+                library="ak",
             )
+            part_branches = {k: part_branches[k] for k in part_branches.fields}
             self.log.debug("Particles branches read")
             sp_branches = tree.arrays(
                 athena_root_utils.spacepoint_branch_names,
                 entry_start=entry,
                 entry_stop=(entry + 1),
-                library="np",
+                library="ak",
             )
+            sp_branches = {k: sp_branches[k] for k in sp_branches.fields}
             self.log.debug("Space points branches read")
             cl_branches = tree.arrays(
                 athena_root_utils.cluster_branch_names,
                 entry_start=entry,
                 entry_stop=(entry + 1),
-                library="np",
+                library="ak",
             )
+            cl_branches = {k: cl_branches[k] for k in cl_branches.fields}
             self.log.debug("Clusters branches read")
 
             # Read particles
