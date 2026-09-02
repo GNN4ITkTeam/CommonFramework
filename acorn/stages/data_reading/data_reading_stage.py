@@ -119,19 +119,55 @@ class EventReader:
         output_dir = os.path.join(self.config["stage_dir"], dataset_name)
         os.makedirs(output_dir, exist_ok=True)
 
-        # Build CSV files, optionally with multiprocessing
-        max_workers = self.config.get("max_workers", 1)
+        groups = self._group_events(dataset)
+        self._dispatch_groups(
+            groups,
+            self._build_single_csv,
+            output_dir,
+            desc=f"Building {dataset_name} CSV files",
+            max_workers=self.config.get("max_workers", 1),
+        )
+
+    def _resolve_group_key(self, event):
+        """Hashable key identifying events that should be dispatched together
+        as one task (e.g. events read from the same source file). Events run
+        sequentially within a group, so state cached on `self` while
+        processing one event (an open file handle, a bulk-read array) is
+        still valid for the next event in its group. Default: no sharing --
+        every event gets its own group, i.e. the same one-task-per-event
+        dispatch used when there is nothing to group by.
+        """
+        return id(event)
+
+    def _group_events(self, dataset):
+        groups, order = {}, []
+        for evt in dataset:
+            key = self._resolve_group_key(evt)
+            if key not in groups:
+                groups[key] = []
+                order.append(key)
+            groups[key].append(evt)
+        return [groups[key] for key in order]
+
+    def _dispatch_groups(
+        self, groups, build_single_fn, output_dir, desc, max_workers=1
+    ):
+        build_group_fn = partial(self._run_group, build_single_fn=build_single_fn)
         if max_workers != 1:
             process_map(
-                partial(self._build_single_csv, output_dir=output_dir),
-                dataset,
+                partial(build_group_fn, output_dir=output_dir),
+                groups,
                 max_workers=max_workers,
                 chunksize=1,
-                desc=f"Building {dataset_name} CSV files",
+                desc=desc,
             )
         else:
-            for event in tqdm(dataset, desc=f"Building {dataset_name} CSV files"):
-                self._build_single_csv(event, output_dir=output_dir)
+            for group in tqdm(groups, desc=desc):
+                build_group_fn(group, output_dir=output_dir)
+
+    def _run_group(self, events, build_single_fn, output_dir=None):
+        for event in events:
+            build_single_fn(event, output_dir=output_dir)
 
     def _build_single_csv(self, event, output_dir=None):
         """
@@ -209,17 +245,14 @@ class EventReader:
             self.config["max_workers"] if "max_workers" in self.config else None
         )
 
-        if max_workers != 1:
-            process_map(
-                partial(self._build_single_pyg_event, output_dir=stage_dir),
-                csv_events,
-                max_workers=max_workers,
-                chunksize=1,
-                desc=f"Building {dataset_name} graphs",
-            )
-        else:
-            for event in tqdm(csv_events, desc=f"Building {dataset_name} graphs"):
-                self._build_single_pyg_event(event, output_dir=stage_dir)
+        groups = self._group_events(csv_events)
+        self._dispatch_groups(
+            groups,
+            self._build_single_pyg_event,
+            stage_dir,
+            desc=f"Building {dataset_name} graphs",
+            max_workers=max_workers,
+        )
 
     def _build_graph(self, hits, tracks, track_features, event_id):
         """

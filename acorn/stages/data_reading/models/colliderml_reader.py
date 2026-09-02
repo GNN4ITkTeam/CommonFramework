@@ -80,6 +80,14 @@ class ColliderMLReader(EventReader):
         if do_discovery:
             self.event_to_file_map = self._build_event_file_mapping(self.files)
 
+        # Used by _resolve_group_key to group events by source file for locality.
+        self._file_for_event = dict(
+            zip(
+                self.event_to_file_map["event_id"],
+                self.event_to_file_map["tracker_hits"],
+            )
+        )
+
         # Build raw events list from available event IDs
         all_event_ids = sorted(self.event_to_file_map["event_id"].values)
 
@@ -217,28 +225,36 @@ class ColliderMLReader(EventReader):
             self.log.warning(f"No dataset available for {dataset_name}")
             return
 
-        # Sort by file so consecutive events share EOS-cached parquet files.
-        file_for_event = dict(
-            zip(
-                self.event_to_file_map["event_id"],
-                self.event_to_file_map["tracker_hits"],
-            )
-        )
-        dataset = sorted(dataset, key=lambda e: file_for_event[e])
+        # Group events by file, so a worker that receives a group reads its
+        # file's events consecutively -- consecutive events sharing a worker
+        # is what actually lets EOS/OS-level file caching help, unlike a
+        # flat sort where adjacent events can still land on different tasks.
+        groups = self._group_events(dataset)
 
         max_workers = self.config.get("max_workers", 1)
         if max_workers != 1:
             with get_context("spawn").Pool(max_workers) as pool:
                 pool.map(
-                    partial(self._build_single_pyg_event, output_dir=stage_dir),
-                    tqdm(dataset, desc=f"Building {dataset_name} graphs (parquet)"),
+                    partial(
+                        self._run_group,
+                        build_single_fn=self._build_single_pyg_event,
+                        output_dir=stage_dir,
+                    ),
+                    tqdm(groups, desc=f"Building {dataset_name} graphs (parquet)"),
                     chunksize=1,
                 )
         else:
-            for event in tqdm(
-                dataset, desc=f"Building {dataset_name} graphs (parquet)"
+            for group in tqdm(
+                groups, desc=f"Building {dataset_name} graphs (parquet)"
             ):
-                self._build_single_pyg_event(event, output_dir=stage_dir)
+                self._run_group(
+                    group,
+                    build_single_fn=self._build_single_pyg_event,
+                    output_dir=stage_dir,
+                )
+
+    def _resolve_group_key(self, event):
+        return self._file_for_event[event]
 
     def _build_single_pyg_event(self, event_id, output_dir=None):
         """

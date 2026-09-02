@@ -17,10 +17,6 @@ import uproot
 import logging
 import warnings
 import numpy as np
-from functools import partial
-
-from tqdm import tqdm
-from tqdm.contrib.concurrent import process_map
 
 from ..data_reading_stage import EventReader
 from . import athena_utils
@@ -135,14 +131,7 @@ class AthenaRootReader(EventReader):
         """Read one event from ROOT and build the (detectable_particles, truth)
         dataframes. Shared by the CSV and direct-PyG paths; returns None if the
         event should be skipped."""
-        # Determine which root file and wich TTree entry to read given the event number to be processed
-        # In case we use files on grid local disk (with xrootd), we provide the full file name (base name otherwise)
-        if self.config["input_dir"] == "XROOTD":
-            filename = self.evtsmap[event]["fname"]
-        else:
-            fname = os.path.basename(self.evtsmap[event]["fname"])
-            filename = os.path.join(self.config["input_dir"], fname)
-
+        filename = self._resolve_filename(event)
         entry = self.evtsmap[event]["entry"]
 
         # From the TTree extract numpy arrays of interesting TBranches, only for the desired event number
@@ -387,20 +376,14 @@ class AthenaRootReader(EventReader):
         stage_dir = os.path.join(self.config["stage_dir"], dataset_name)
         os.makedirs(stage_dir, exist_ok=True)
 
-        dataset = list(dataset)
-
-        max_workers = self.config.get("max_workers", 1)
-        if max_workers != 1:
-            process_map(
-                partial(self._build_single_pyg_event_from_root, output_dir=stage_dir),
-                dataset,
-                max_workers=max_workers,
-                chunksize=1,
-                desc=f"Building {dataset_name} graphs",
-            )
-        else:
-            for event in tqdm(dataset, desc=f"Building {dataset_name} graphs"):
-                self._build_single_pyg_event_from_root(event, output_dir=stage_dir)
+        groups = self._group_events(dataset)
+        self._dispatch_groups(
+            groups,
+            self._build_single_pyg_event_from_root,
+            stage_dir,
+            desc=f"Building {dataset_name} graphs",
+            max_workers=self.config.get("max_workers", 1),
+        )
 
     def _build_single_pyg_event_from_root(self, event_id, output_dir=None):
         os.sched_setaffinity(0, range(1000))
@@ -422,3 +405,35 @@ class AthenaRootReader(EventReader):
         self._build_single_pyg_from_df(
             detectable_particles, truth, event_id_str, output_dir
         )
+
+    def _resolve_filename(self, event):
+        # Determine which root file to read given the event number to be processed
+        # In case we use files on grid local disk (with xrootd), we provide the full file name (base name otherwise)
+        if self.config["input_dir"] == "XROOTD":
+            return self.evtsmap[event]["fname"]
+        fname = os.path.basename(self.evtsmap[event]["fname"])
+        return os.path.join(self.config["input_dir"], fname)
+
+    def _resolve_group_key(self, event):
+        # When CSVs were converted first, _build_all_pyg falls back to the
+        # base implementation, which groups CSV row dicts (from
+        # get_file_names) rather than the raw event numbers in evtsmap --
+        # those aren't ours to resolve a filename for.
+        if isinstance(event, dict):
+            return super()._resolve_group_key(event)
+        return self._resolve_filename(event)
+
+    def _group_events(self, dataset):
+        """Group events by resolved ROOT file, ordered by file name, so a
+        worker that receives a group reads all of its events from the same
+        file, regardless of chunksize/worker count. This improves locality on
+        network filesystems even without any array-level caching.
+
+        When CSVs were converted first, _build_all_pyg falls back to the base
+        implementation and passes CSV row dicts here instead -- those aren't
+        grouped by ROOT file, so just keep the base class's grouping order.
+        """
+        groups = super()._group_events(dataset)
+        if dataset and isinstance(dataset[0], dict):
+            return groups
+        return sorted(groups, key=lambda events: self._resolve_group_key(events[0]))
