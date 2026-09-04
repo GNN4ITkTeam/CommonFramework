@@ -16,6 +16,7 @@ import os
 
 import numpy as np
 import pandas as pd
+import polars as pl
 import yaml
 from typing import Union
 import glob
@@ -571,18 +572,25 @@ class EventReader:
                     if module_columns[i] in variable_name_prefix_map:
                         module_columns[i] = variable_name_prefix_map[module_columns[i]]
 
-        signal_index_list = (
-            signal.groupby(
-                ["hit_particle_id"] + module_columns,
-                sort=False,
-            )["index"]
-            .agg(lambda x: list(x))
-            .groupby(level=0)
-            .agg(lambda x: list(x))
+        # Two-level list aggregation via polars (avoids pandas _python_agg_general path).
+        # dropna matches pandas groupby's default dropna=True. The explicit sort matches
+        # pandas' groupby(level=0) default sort=True; track order matters downstream for
+        # picking a winner among ambiguous/overlapping edges.
+        signal_pl = (
+            pl.from_pandas(
+                signal[["index", "hit_particle_id"] + module_columns].dropna(
+                    subset=["hit_particle_id"] + module_columns
+                )
+            )
+            .group_by(["hit_particle_id"] + module_columns, maintain_order=True)
+            .agg(pl.col("index"))
+            .sort("hit_particle_id")
+            .group_by("hit_particle_id", maintain_order=True)
+            .agg(pl.col("index"))
         )
 
         track_index_edges = []
-        for row in signal_index_list.values:
+        for row in signal_pl["index"].to_list():
             for i, j in zip(row[:-1], row[1:]):
                 track_index_edges.extend(list(product(i, j)))
 
