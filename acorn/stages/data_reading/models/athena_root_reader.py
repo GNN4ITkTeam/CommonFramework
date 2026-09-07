@@ -248,6 +248,9 @@ class AthenaRootReader(EventReader):
             )
             truth = athena_utils.add_region_labels(truth, self.config["region_labels"])
             truth = athena_utils.add_module_id(truth, self.module_lookup)
+            
+            # Force module id to be int64, as it uint64 cannot be serialized on torch 2.4.0
+            truth["module_id"] = truth["module_id"].astype(np.int64)
 
             # To ease validation when comapring to txt reading, re-order to get same columns ordering
             truth = truth[athena_root_utils.truth_col_order]

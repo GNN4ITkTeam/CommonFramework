@@ -3,6 +3,12 @@ set -e
 
 skip_csv_comparison=${1:-false}
 
+if [ "$skip_csv_comparison" = true ]; then
+    config_file=ci_data_reader_skip_csv.yml
+else
+    config_file=ci_data_reader.yml
+fi
+
 ref_dir=/eos/atlas/atlascerngroupdisk/perf-idtracking/GNN4ITk/ATLAS-P2-RUN4-03-00-00_Rel.24/acorn_data_reading_output/ci_ref/feature_store_ci
 test_dir=feature_store_ci
 
@@ -15,7 +21,7 @@ fi
 echo "--------------------------"
 echo "Running data reading stage"
 echo "--------------------------"
-acorn infer ci_data_reader.yml
+acorn infer $config_file
 
 ls -la $test_dir/trainset
 ls -la $test_dir/valset
