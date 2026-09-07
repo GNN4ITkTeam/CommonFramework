@@ -195,6 +195,15 @@ class EventReader:
         output_dir: str = None,
     ) -> bool:
         particles = particles.copy()
+
+        # Convert columns to 64bit
+        for df in [hits, particles]:
+            for key in df.keys():
+                if df[key].dtype == np.float32:
+                    df[key] = df[key].astype(np.float64)
+                if df[key].dtype == np.int32:
+                    df[key] = df[key].astype(np.int64)
+
         if "particle_id" in particles.columns:
             particles = particles.rename(columns={"particle_id": "id"})
         particles = self._add_column_name_prefix(particles, "particle")

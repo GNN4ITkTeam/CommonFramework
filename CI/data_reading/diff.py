@@ -115,12 +115,20 @@ def compare_pyg(ref_dir, test_dir):
             )
             return False
 
+        passed=True
         for key in ref_tensor.keys():
-
             if key in [ 'config', 'event_id' ]:
                 continue  # Skip config key as it may contain non-tensor data
-                
+
+            if not ref_tensor[key].dtype == test_tensor[key].dtype:
+                passed=False
+                print(f"!!! Type mismatch for file {file_name}, key {key}")
+                print(f"Ref type:  {ref_tensor[key].dtype}")
+                print(f"Test type: {test_tensor[key].dtype}")
+                continue
+
             if not torch.allclose(ref_tensor[key], test_tensor[key], equal_nan=True):
+                passed=False
                 print(f"!!! Data mismatch for file {file_name}, key {key}")
                 print(f"Ref data: {ref_tensor[key]}")
                 print(f"Test data: {test_tensor[key]}")
@@ -132,12 +140,10 @@ def compare_pyg(ref_dir, test_dir):
                 else:
                     n_diff = int(torch.count_nonzero(ref_tensor[key] != test_tensor[key]))
                     print(f"{n_diff} differing elements (of {ref_tensor[key].numel()})")
-                print(f"Difference found in file: {file_name}")
-                return False
 
-
-    print("All .pyg files match between reference and test directories.")
-    return True
+    if passed:
+        print("All .pyg files match between reference and test directories.")
+    return passed
 
 
 if __name__ == "__main__":
