@@ -96,6 +96,13 @@ class EdgeClassifierStage(LightningModule):
         self.target_pur = BinaryPrecision()
         self.total_pur = BinaryPrecision()
         self.pur = RatioMetric()
+        self.val_pt_cuts = []
+        # ModuleList registers the metrics as submodules so Lightning moves them to GPU
+        self.val_pt_cut_metrics = torch.nn.ModuleList()
+        if "validation_eff_pt_cuts" in hparams and hparams["validation_eff_pt_cuts"]:
+            for pt_cut in hparams["validation_eff_pt_cuts"]:
+                self.val_pt_cuts.append(pt_cut)
+                self.val_pt_cut_metrics.append(BinaryRecall())
 
     def setup(self, stage="fit"):
         """
@@ -176,8 +183,11 @@ class EdgeClassifierStage(LightningModule):
             "track_particle_primary",
             "track_particle_pdgId",
             "hit_region",
-            "track_particle_pt",
         ]
+        if self.val_pt_cut_metrics:
+            required_features.append("track_particle_pt")
+        else:
+            optional_features.append("track_particle_pt")
         run_data_tests(
             [
                 dataset
@@ -354,6 +364,7 @@ class EdgeClassifierStage(LightningModule):
     def validation_step(self, batch, batch_idx):
         output_dict = self.shared_evaluation(batch, batch_idx)
         self.log_metrics(
+            output_dict["batch"],
             output_dict["output"],
             output_dict["all_truth"],
             output_dict["target_truth"],
@@ -387,7 +398,7 @@ class EdgeClassifierStage(LightningModule):
     def test_step(self, batch, batch_idx):
         return self.shared_evaluation(batch, batch_idx)
 
-    def log_metrics(self, output, all_truth, target_truth, loss):
+    def log_metrics(self, batch, output, all_truth, target_truth, loss):
         scores = torch.sigmoid(output).float()  # float() guards 16-bit training
         preds = scores > self.hparams["edge_cut"]
 
@@ -416,7 +427,25 @@ class EdgeClassifierStage(LightningModule):
             on_epoch=True,
             batch_size=1,
         )
-        return preds
+
+        if self.val_pt_cut_metrics:
+            # track_target_mask may be absent if the graph wasn't built with target_tracks
+            # conditions; default to "all tracks are targets" like eval_utils.py does.
+            track_target_mask = getattr(
+                batch,
+                "track_target_mask",
+                torch.ones_like(batch.track_to_edge_map, dtype=torch.bool),
+            )
+            has_edge = track_target_mask & (batch.track_to_edge_map >= 0)
+            track_pt = batch.track_particle_pt
+
+            edge_pt = torch.full_like(target_truth, -1, dtype=track_pt.dtype)
+            edge_pt[batch.track_to_edge_map[has_edge]] = track_pt[has_edge]
+
+            for pt_cut, metric in zip(self.val_pt_cuts, self.val_pt_cut_metrics):
+                mask = edge_pt >= pt_cut
+                if mask.any():
+                    metric.update(preds[mask], target_truth[mask])
 
     def on_train_epoch_start(self):
         self.trainer.strategy.optimizers = [
@@ -445,6 +474,13 @@ class EdgeClassifierStage(LightningModule):
             self.target_auroc,
         ):
             m.reset()
+
+        if self.val_pt_cut_metrics:
+            pt_log_dict = {}
+            for pt_cut, metric in zip(self.val_pt_cuts, self.val_pt_cut_metrics):
+                pt_log_dict[f"target_eff_pt{pt_cut:.0f}"] = metric.compute()
+                metric.reset()
+            self.log_dict(pt_log_dict, sync_dist=True)
 
     def on_before_optimizer_step(self, optimizer, *args, **kwargs):
         # warm up lr
