@@ -223,6 +223,16 @@ The new setup introduces the following changes:
 
 Please see the [documentation](https://atlas-gnn-tracking.docs.cern.ch/) for more details, examples and tutorials.
 
+## Environment Variables
+
+| Variable | Effect |
+| --- | --- |
+| `ACORN_SAVE_PYG_UNCOMPRESSED` | Set to `1`, `true` or `yes` to write graphs as plain `.pyg` instead of gzipped `.pyg.gz` (the default). |
+| `ACORN_BUILD_CUDA_EXT` | Build the optional CUDA/C++ extensions at install time, see [above](#optional-acorn-cudac-extensions). |
+
+Reading is unaffected by `ACORN_SAVE_PYG_UNCOMPRESSED`: both flavours are accepted
+everywhere and may be mixed within a dataset directory, where `.pyg.gz` takes precedence.
+
 ## Citing
 
 If this work is useful for your research, please cite our vCHEP2021 and CTD2022 proceedings:
