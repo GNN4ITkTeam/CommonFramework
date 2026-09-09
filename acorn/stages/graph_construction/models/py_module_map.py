@@ -31,7 +31,6 @@ from ..graph_construction_stage import GraphConstructionStage
 from . import utils
 from acorn.utils.loading_utils import (
     remove_variable_name_prefix_in_pyg,
-    load_pyg,
     save_pyg,
     pyg_exists,
 )
@@ -176,7 +175,7 @@ class PyModuleMap(GraphConstructionStage):
                 f"{self.event_prefix}module_map_{method}_event{graph.event_id}.pyg"
             )
 
-            if os.path.exists(os.path.join(output_dir, graph_file_name)):
+            if pyg_exists(os.path.join(output_dir, graph_file_name)):
                 print(f"Graph {graph_file_name} already exists, skipping...")
                 continue
 
