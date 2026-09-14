@@ -71,56 +71,50 @@ argmax: tensor([[5, 5, 3, 4, 0, 1],
 
 ### PyMMG
 
+**PyModuleMapGraph (PyMMG)** provides the `PyMMG_GraphBuilder` and
+`PyMMG_EdgeLayerConnector` models. It is a compiled wrapper around
+[ModuleMapGraph](https://gitlab.cern.ch/gnn4itkteam/ModuleMapGraph), whose C++
+side needs ROOT, Boost and CUDA from the CERN LCG view.
 
-To use **PyModuleMapGraph (PyMMG)** models (e.g. `PyMMG_GraphBuilder`, `PyMMG_EdgeLayerConnector`), install the `pymmg` package in the `acorn` environment:
-
-
-**Binary package (recommended)** 
+#### Install
 
 ```bash
-# Install PyMMG
 conda activate acorn
-python -m pip install --upgrade pip
-pip install --index-url https://gitlab.cern.ch/api/v4/projects/210408/packages/pypi/simple pymodulemapgraph==1.20.1
+pip install --index-url https://gitlab.cern.ch/api/v4/projects/210408/packages/pypi/simple \
+    pymodulemapgraph==1.420.0 --no-deps
 ```
 
-➡️ Replace `1.20.1` with the desired version (see [available versions](https://gitlab.cern.ch/gnn4itkteam/pymodulemapgraph/-/packages)) : **choose a version >= 1.20.1 : Prior versions are non-functional**
+Wheels are published for Python 3.10 to 3.13; `pip` picks the one matching your
+interpreter. PyMMG version numbers encode the ModuleMapGraph version they wrap:
+`1.420.0` is built against MMG 1.4.2. See the
+[available versions](https://gitlab.cern.ch/gnn4itkteam/pymodulemapgraph/-/packages).
 
+#### Use
 
-**From source**
-
-If **CVMFS** is available on your environment, setup **MMG dependencies** (Boost, ROOT, CUDA) via LCG 107 (CUDA-enabled):
+Load the same LCG view the wheel was built against, before running:
 
 ```bash
-# 1) Source LCG 107 (CUDA-enabled) environment
 source /cvmfs/sft.cern.ch/lcg/views/LCG_107_cuda/x86_64-el9-gcc11-opt/setup.sh
-```
-
-**If CVMFS is not available**, ensure you have the required **MMG dependencies** installed and visible to your build:
-
-- Boost
-
-- ROOT
-
-- CUDA
-
-Make sure your compiler and runtime can find them (e.g., via PATH, LD_LIBRARY_PATH, or CMAKE_PREFIX_PATH as appropriate).
-
-```bash
-# 2) Load a recent NVHPC toolchain to get a modern nvcc (example: CC-IN2P3)
-module load HPC_GPU/nvhpc/24.5
-```
-
-```bash
-# 3) Clone (or wget source) and install PyMMG 
-git clone https://gitlab.cern.ch/gnn4itkteam/pymodulemapgraph.git
-cd pymodulemapgraph
-git fetch --all --tags
-git checkout <tag-or-branch>
+unset PYTHONPATH PYTHONHOME
 conda activate acorn
-python -m pip install --upgrade pip
-pip install .
+
+python -c "import pymmg"
 ```
+
+`unset PYTHONPATH PYTHONHOME` is required: the view exports its own Python
+paths, which would otherwise shadow the `acorn` packages. `LD_LIBRARY_PATH` is
+kept, and that is what the extension needs. An import failing on
+`GLIBCXX_3.4.xx not found` means the view was not loaded.
+
+#### If no wheel fits
+
+No published wheel matches your interpreter, or you need an unreleased version:
+build PyMMG from source, following its own
+[README](https://gitlab.cern.ch/gnn4itkteam/pymodulemapgraph#build-from-source),
+then install it into `acorn` with `--no-deps`. Beware that the CUDA toolkit
+used to build must not be newer than the driver; the PyMMG README explains why
+and how to check.
+
 
 ### xrootd
 -----

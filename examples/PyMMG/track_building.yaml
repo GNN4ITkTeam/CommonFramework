@@ -7,7 +7,11 @@ event_prefix: ""
 data_split: [0, 10, 0]
 
 gpu_nb_blocks: 512
-gpu_core: 0
+
+# ModuleMapGraph is CUDA-only and single-GPU. A `devices` list of more than one
+# entry falls back to device 0 with a warning.
+accelerator: cuda
+devices: [0]
 edge_layer_connector_min_hits: 4
 edge_layer_connector_weights_cut: 0.01
 save-graph-on-disk: True

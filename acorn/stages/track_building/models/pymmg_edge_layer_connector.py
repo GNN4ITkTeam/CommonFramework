@@ -17,13 +17,11 @@ import os
 import logging
 import torch
 from tqdm import tqdm
-from tqdm.contrib.concurrent import process_map
-from functools import partial
 
 
 # Local imports
 from ..track_building_stage import TrackBuildingStage
-from .. import utils
+from acorn.utils.pymmg_utils import configure_mmg_device
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -38,22 +36,22 @@ class PyMMGEdgeLayerConnector(TrackBuildingStage):
         try:
             from pymmg import EdgeLayerConnector
         except ImportError:
-            self.log.error("Failed to import EdgeLayerConnector from pymmg. Please ensure pymmg is installed.")
+            self.log.error(
+                "Failed to import EdgeLayerConnector from pymmg. Please ensure pymmg is installed."
+            )
             raise
 
-        if torch.cuda.is_available():
-            self.device = "cuda"
-            self.log.info("Using CUDA for graph construction")
-        else:
-            raise RuntimeError("CUDA runtime not available. MMG currently requires an NVIDIA GPU with CUDA.")
-        self.hparams = hparams
+        device = configure_mmg_device(hparams)
+        self.device = "cuda"
+        self.log.info(f"Using CUDA device index {device}")
 
         self.connector = EdgeLayerConnector(
-            device=int(hparams.get("gpu_core", 0)),
+            device=int(device),
             nb_blocks=int(hparams.get("gpu_nb_blocks", 512)),
             weights_cut=float(hparams.get("edge_layer_connector_weights_cut", 0.01)),
             min_hits=int(hparams.get("edge_layer_connector_min_hits", 4)),
         )
+        self.hparams = hparams
 
     def build_tracks(self, dataset, data_name):
 
