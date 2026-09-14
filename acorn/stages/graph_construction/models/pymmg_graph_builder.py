@@ -21,6 +21,7 @@ from tqdm import tqdm
 # Local imports
 from ..graph_construction_stage import GraphConstructionStage
 from . import utils
+from acorn.utils.pymmg_utils import configure_mmg_device
 from acorn.utils.loading_utils import (
     remove_variable_name_prefix_in_pyg,
     save_pyg,
@@ -38,22 +39,11 @@ class PyMMGGraphBuilder(GraphConstructionStage):
         Initialize the PYMMGGraphBuilder model, a Python wrapper built on PyMMG (https://gitlab.cern.ch/gnn4itkteam/pymodulemapgraph) 
         to interface with ModuleMapGraph (https://gitlab.cern.ch/gnn4itkteam/ModuleMapGraph).
         """
-        try:
-            from pymmg import GraphBuilder
-        except ImportError:
-            self.log.error("Failed to import GraphBuilder from pymmg. Please ensure pymmg is installed.")
-            raise
-
-        if torch.cuda.is_available():
-            self.device = "cuda"
-            self.log.info("Using CUDA for graph construction")
-        else:
-            raise RuntimeError("CUDA runtime not available. MMG currently requires an NVIDIA GPU with CUDA.")
-        self.hparams = hparams
-
         # Logging config
         self.log = logging.getLogger("ModuleMapGraph")
-        log_level = self.hparams["log_level"].upper() if "log_level" in self.hparams else "WARNING"
+        log_level = (
+            hparams["log_level"].upper() if "log_level" in hparams else "WARNING"
+        )
 
         if log_level == "WARNING":
             self.log.setLevel(logging.WARNING)
@@ -64,7 +54,38 @@ class PyMMGGraphBuilder(GraphConstructionStage):
         else:
             raise ValueError(f"Unknown logging level {log_level}")
 
-        self._graph_builder = GraphBuilder(self.hparams["module_map_pattern_path"])
+        try:
+            from pymmg import GraphBuilder
+        except ImportError:
+            self.log.error(
+                "Failed to import GraphBuilder from pymmg. Please ensure pymmg is installed."
+            )
+            raise
+
+        device = configure_mmg_device(hparams)
+        self.device = "cuda"
+        self.log.info(f"Using CUDA device index {device}")
+
+        module_map_path = hparams.get("module_map_pattern_path", None)
+        self.log.debug(f"Module map pattern path: {module_map_path}")
+        if module_map_path is None:
+            raise ValueError(
+                "Module map pattern path is not provided in yaml configuration."
+            )
+        if not (
+            os.path.exists(module_map_path + ".doublets.root")
+            and os.path.exists(module_map_path + ".triplets.root")
+        ):
+            raise ValueError(
+                f"Module map pattern path {module_map_path} is not a valid pattern: missing triplets and/or doublets module map"
+            )
+
+        self._graph_builder = GraphBuilder(
+            module_map_path=module_map_path,
+            device=int(device),
+            nb_blocks=int(hparams.get("nb_blocks", 512)),
+        )
+        self.hparams = hparams
 
     def to(self, device):
         return self
@@ -91,6 +112,8 @@ class PyMMGGraphBuilder(GraphConstructionStage):
             save_pyg(graph, os.path.join(output_dir, f"event{graph.event_id}.pyg"))
 
     def build_graph(self, graph):
+
+        self.log.debug(graph)
 
         graph.edge_index = self._graph_builder.build_edge_index(
             hit_id=graph.hit_id,
