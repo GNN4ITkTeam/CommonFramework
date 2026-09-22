@@ -325,7 +325,7 @@ class HierarchicalGNN(MLTrackBuildingStage):
 
         if not self.hparams.get("variable_with_prefix"):
             batch.full_event = remove_variable_name_prefix_in_pyg(batch.full_event)
-        save_pyg(batch.full_event, output_dir)
+        save_pyg(batch.full_event, output_dir, subdir=self.hparams.get("subdir_size", None))
 
         tracks = (
             pd.DataFrame(

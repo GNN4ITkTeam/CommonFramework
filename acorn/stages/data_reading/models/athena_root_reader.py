@@ -396,7 +396,7 @@ class AthenaRootReader(EventReader):
         graph_path = os.path.join(
             output_dir, f"{self.event_prefix}event{event_id_str}-graph.pyg"
         )
-        if pyg_exists(graph_path):
+        if pyg_exists(graph_path, subdir=self.config.get("subdir_size", None)):
             self.log.info(f"Graph {event_id} already exists, skipping...")
             return
 

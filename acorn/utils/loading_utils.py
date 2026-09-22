@@ -15,6 +15,7 @@
 import gzip
 import io
 import os
+import re
 from typing import List, Union
 import warnings
 import torch
@@ -33,17 +34,41 @@ from .mapping_utils import (
 from .version_utils import get_pyg_data_keys
 
 
-def save_pyg(data, path):
-    """Save a PyG Data object. Writes to path + '.gz' unless ACORN_SAVE_PYG_UNCOMPRESSED is set."""
+def _shard_path(path, subdir):
+    """Insert a shard subdirectory (event_id // subdir) before the filename in path.
+
+    The event id is parsed from the digits following "event" in the filename
+    (e.g. "event123.pyg", "run001_event123-graph.pyg").
+    """
+    dir_name, file_name = os.path.split(path)
+    match = re.search(r"event(\d+)", file_name)
+    if match is None:
+        raise ValueError(
+            f"Cannot derive event id from filename '{file_name}' for subdir sharding"
+        )
+    shard = int(match.group(1)) // subdir
+    return os.path.join(dir_name, str(shard), file_name)
+
+
+def save_pyg(data, path, subdir=None):
+    """Save a PyG Data object. Writes to path + '.gz' unless ACORN_SAVE_PYG_UNCOMPRESSED is set.
+
+    If `subdir` is an int, events are grouped into numbered subdirectories of
+    `subdir` events each (derived from the numeric event id in the filename),
+    to keep any single output directory from growing too large.
+    """
+    if subdir is not None:
+        path = _shard_path(path, subdir)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
     if os.environ.get("ACORN_SAVE_PYG_UNCOMPRESSED", "").lower() in ("1", "true", "yes"):
         torch.save(data, path)
     else:
-         buf = io.BytesIO()
-         torch.save(data, buf)
-         tmp_path = path + ".gz.tmp"
-         with gzip.open(tmp_path, "wb", compresslevel=1) as f:
-             f.write(buf.getvalue())
-         os.replace(tmp_path, path + ".gz")
+        buf = io.BytesIO()
+        torch.save(data, buf)
+        tmp_path = path + ".gz.tmp"
+        with gzip.open(tmp_path, "wb", compresslevel=1) as f:
+            f.write(buf.getvalue())
+        os.replace(tmp_path, path + ".gz")
 
 
 def load_pyg(path, **kwargs):
@@ -61,8 +86,10 @@ def load_pyg(path, **kwargs):
     return torch.load(path, **kwargs)
 
 
-def pyg_exists(path):
-    """Return True if path or path + '.gz' exists on disk."""
+def pyg_exists(path, subdir=None):
+    """Return True if path or path + '.gz' exists on disk (see save_pyg for `subdir`)."""
+    if subdir is not None:
+        path = _shard_path(path, subdir)
     return os.path.exists(path) or os.path.exists(path + ".gz")
 
 

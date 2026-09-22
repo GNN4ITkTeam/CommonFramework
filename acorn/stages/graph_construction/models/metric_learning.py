@@ -497,4 +497,5 @@ class MetricLearning(GraphConstructionStage, LightningModule):
         save_pyg(
             event.cpu(),
             os.path.join(self.hparams["stage_dir"], datatype, f"event{event_id}.pyg"),
+            subdir=self.hparams.get("subdir_size", None),
         )

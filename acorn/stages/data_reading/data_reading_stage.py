@@ -234,7 +234,8 @@ class EventReader:
         event_id = event["event_id"]
 
         if pyg_exists(
-            os.path.join(output_dir, f"{self.event_prefix}event{event_id}-graph.pyg")
+            os.path.join(output_dir, f"{self.event_prefix}event{event_id}-graph.pyg"),
+            subdir=self.config.get("subdir_size", None),
         ):
             print(f"Graph {event_id} already exists, skipping...")
             return
@@ -374,6 +375,7 @@ class EventReader:
         save_pyg(
             graph,
             os.path.join(output_dir, f"{self.event_prefix}event{event_id}-graph.pyg"),
+            subdir=self.config.get("subdir_size", None),
         )
 
     @staticmethod

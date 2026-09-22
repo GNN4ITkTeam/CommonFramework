@@ -125,4 +125,8 @@ class Walkthrough(TrackBuildingStage):
             if not self.hparams.get("variable_with_prefix"):
                 graph = remove_variable_name_prefix_in_pyg(graph)
             # TODO: Graph name file??
-            save_pyg(graph, os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"))
+            save_pyg(
+                graph,
+                os.path.join(output_dir, f"event{graph.event_id[0]}.pyg"),
+                subdir=self.hparams.get("subdir_size", None),
+            )
