@@ -462,11 +462,9 @@ class DoubleMetricLearning(GraphConstructionStage, LightningModule):
         signal_pur = signal_true_pred_edges.shape[1] / pred_edges.shape[1]
         f1 = 2 * (signal_eff * signal_pur) / (signal_eff + signal_pur)
 
-        current_lr = self.optimizers().param_groups[0]["lr"]
         self.log_dict(
             {
                 "val_loss": loss,
-                "lr": current_lr,
                 "total_eff": total_eff,
                 "total_pur": total_pur,
                 "signal_eff": signal_eff,
