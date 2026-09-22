@@ -353,6 +353,7 @@ class TrackBuildingStage:
             os.path.join(
                 output_dir, f"{self.event_prefix}event{graph.event_id[0]}.pyg"
             ),
+            subdir=self.hparams.get("subdir_size", None),
         )
         return graph
 

@@ -522,7 +522,8 @@ class DoubleMetricLearning(GraphConstructionStage, LightningModule):
             batch.event_id[0] if isinstance(batch.event_id, list) else batch.event_id
         )
         if pyg_exists(
-            os.path.join(self.hparams["stage_dir"], datatype, f"event{event_id}.pyg")
+            os.path.join(self.hparams["stage_dir"], datatype, f"event{event_id}.pyg"),
+            subdir=self.hparams.get("subdir_size", None),
         ):
             return
 
@@ -548,5 +549,6 @@ class DoubleMetricLearning(GraphConstructionStage, LightningModule):
         save_pyg(
             event.cpu(),
             os.path.join(self.hparams["stage_dir"], datatype, f"event{event_id}.pyg"),
+            subdir=self.hparams.get("subdir_size", None),
         )
 

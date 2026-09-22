@@ -520,7 +520,8 @@ class EdgeClassifierStage(LightningModule):
                 self.hparams["stage_dir"],
                 dataset.data_name,
                 f"event{event_id}.pyg",
-            )
+            ),
+            subdir=self.hparams.get("subdir_size", None),
         ) and self.hparams.get("skip_existing"):
             return
         if batch.edge_index.shape[1] == 0:
@@ -553,6 +554,7 @@ class EdgeClassifierStage(LightningModule):
         save_pyg(
             event.cpu(),
             os.path.join(self.hparams["stage_dir"], datatype, f"event{event_id}.pyg"),
+            subdir=self.hparams.get("subdir_size", None),
         )
 
     @classmethod

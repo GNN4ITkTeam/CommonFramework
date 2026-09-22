@@ -175,14 +175,21 @@ class PyModuleMap(GraphConstructionStage):
                 f"{self.event_prefix}module_map_{method}_event{graph.event_id}.pyg"
             )
 
-            if pyg_exists(os.path.join(output_dir, graph_file_name)):
+            if pyg_exists(
+                os.path.join(output_dir, graph_file_name),
+                subdir=self.hparams.get("subdir_size", None),
+            ):
                 print(f"Graph {graph_file_name} already exists, skipping...")
                 continue
 
             graph = self.build_graph(graph)
             if not self.hparams.get("variable_with_prefix"):
                 graph = remove_variable_name_prefix_in_pyg(graph)
-            save_pyg(graph, os.path.join(output_dir, graph_file_name))
+            save_pyg(
+                graph,
+                os.path.join(output_dir, graph_file_name),
+                subdir=self.hparams.get("subdir_size", None),
+            )
 
     def build_graph(self, graph):
         """
