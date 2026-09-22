@@ -419,15 +419,6 @@ class EdgeClassifierStage(LightningModule):
         mask = target_truth.bool() | (~all_truth.bool())
         self.target_auroc.update(scores[mask], all_truth[mask].long())
 
-        # log only per-step things that genuinely vary per step
-        self.log(
-            "current_lr",
-            self.optimizers().param_groups[0]["lr"],
-            on_step=False,
-            on_epoch=True,
-            batch_size=1,
-        )
-
         if self.val_pt_cut_metrics:
             # track_target_mask may be absent if the graph wasn't built with target_tracks
             # conditions; default to "all tracks are targets" like eval_utils.py does.

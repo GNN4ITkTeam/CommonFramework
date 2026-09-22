@@ -24,7 +24,7 @@ except ImportError:
     wandb = None
 import yaml
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
 from acorn import stages
 from acorn.core.throughput import ThroughputCallback
@@ -156,12 +156,14 @@ def get_trainer(config, default_root_dir):
 
     throughput_callback = ThroughputCallback()
 
+    lr_monitor_callback = LearningRateMonitor(logging_interval="epoch")
+
     return Trainer(
         accelerator=accelerator,
         devices=devices,
         num_nodes=config["nodes"],
         max_epochs=config["max_epochs"],
-        callbacks=[checkpoint_callback, throughput_callback],
+        callbacks=[checkpoint_callback, throughput_callback, lr_monitor_callback],
         logger=logger,
         precision=config.get("precision", 32),
         strategy=DDPStrategy(find_unused_parameters=False, static_graph=True),
