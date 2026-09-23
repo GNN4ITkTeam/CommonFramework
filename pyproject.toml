@@ -26,3 +26,8 @@ include = ["acorn", "acorn.*"]
 [tool.black]
 line-length = 88
 exclude = '(\.git|\.tox|\.venv|_build|build|dist|acorn\.egg-info|\.venv|docs|functorch)'
+
+[tool.pytest.ini_options]
+markers = [
+    "requires_data: needs the test data archives unpacked into tests/ (see tests/README.md)",
+]

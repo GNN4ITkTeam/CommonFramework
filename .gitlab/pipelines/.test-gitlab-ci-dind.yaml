@@ -2,7 +2,7 @@
 # how much memory is shared between host machine and the docker container which runs the job.
 # It will avoid running into memory issue
 
-run test cpu: &run_test_cpu
+run pytest full: &run_test_cpu
   stage: test
   tags: 
     - docker-privileged-xl
