@@ -45,6 +45,7 @@ common_config = {
 
 
 @pytest.mark.parametrize("true_hits,tol", [[True, 1.0e-9], [False, 1.0e-3]])
+@pytest.mark.requires_data
 def test_reader_positions(tmp_path, true_hits, tol):
     config = common_config.copy()
     config["use_truth_hits"] = true_hits
@@ -80,6 +81,7 @@ def test_reader_positions(tmp_path, true_hits, tol):
 
 
 @pytest.mark.parametrize("true_hits", [True, False])
+@pytest.mark.requires_data
 def test_cell_information(tmp_path, true_hits):
     cell_features = [
         "cell_count",

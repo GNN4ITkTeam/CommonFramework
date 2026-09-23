@@ -1,0 +1,12 @@
+run pytest fast:
+  stage: test
+  tags:
+    - k8s-cvmfs
+  needs: [build_docker_test]
+  image: '$CI_REGISTRY_IMAGE/temporary_images:${CI_COMMIT_REF_SLUG}-test'
+  script:
+    - cd tests
+    - export WANDB_DISABLED=true
+    - pytest -m "not requires_data"
+  rules:
+    - when: always

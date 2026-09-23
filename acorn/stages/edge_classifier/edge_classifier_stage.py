@@ -438,6 +438,8 @@ class EdgeClassifierStage(LightningModule):
                 if mask.any():
                     metric.update(preds[mask], target_truth[mask])
 
+        return preds
+
     def on_train_epoch_start(self):
         self.trainer.strategy.optimizers = [
             self.trainer.lr_scheduler_configs[0].scheduler.optimizer

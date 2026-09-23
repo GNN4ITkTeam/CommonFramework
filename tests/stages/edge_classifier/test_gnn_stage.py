@@ -1,3 +1,7 @@
+import pytest
+
+
+@pytest.mark.requires_data
 def test_stage_load():
     """
     Test the model to ensure it is of the right format and loaded correctly.
@@ -9,6 +13,7 @@ def test_stage_load():
     train("stages/edge_classifier/test_ignn2_config.yaml")
 
 
+@pytest.mark.requires_data
 def test_gnn_infer():
     import os
 

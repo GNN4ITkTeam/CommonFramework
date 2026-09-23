@@ -44,7 +44,7 @@ node_features: [r, phi, z, eta, cluster_r_1, cluster_phi_1, cluster_z_1, cluster
 node_scales: [1000., 3.14159265359, 1000., 1., 1000., 3.14159265359, 1000., 1., 1000., 3.14159265359, 1000., 1.]
 edge_features: [dr, dphi, dz, deta, phislope, rphislope]
 hidden: 8
-n_graph_iters: 1
+n_graph_iters: 3
 n_node_encoder_layers: 2
 n_edge_encoder_layers: 2
 n_node_net_layers: 2
