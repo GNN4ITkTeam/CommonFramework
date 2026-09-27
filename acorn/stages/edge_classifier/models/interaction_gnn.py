@@ -589,8 +589,6 @@ class InteractionGNN2(EdgeClassifierStage):
         if self.hparams["concat"]:
             input_x = x
             input_e = e
-        # Initialize outputs
-        outputs = []
         # Loop over gnn layers
         for i in range(self.hparams["n_graph_iters"]):
             if self.hparams["checkpointing"]:
@@ -601,9 +599,9 @@ class InteractionGNN2(EdgeClassifierStage):
                     self.hparams["node_net_recurrent"]
                     and self.hparams["edge_net_recurrent"]
                 ):
-                    x, e, out = checkpoint(self.message_step, x, e, src, dst)
+                    x, e = checkpoint(self.message_step, x, e, src, dst)
                 else:
-                    x, e, out = checkpoint(self.message_step, x, e, src, dst, i)
+                    x, e = checkpoint(self.message_step, x, e, src, dst, i)
             else:
                 if self.hparams["concat"]:
                     x = torch.cat([x, input_x], dim=-1)
@@ -612,11 +610,10 @@ class InteractionGNN2(EdgeClassifierStage):
                     self.hparams["node_net_recurrent"]
                     and self.hparams["edge_net_recurrent"]
                 ):
-                    x, e, out = self.message_step(x, e, src, dst)
+                    x, e = self.message_step(x, e, src, dst)
                 else:
-                    x, e, out = self.message_step(x, e, src, dst, i)
-            outputs.append(out)
-        return outputs[-1].squeeze(-1)
+                    x, e = self.message_step(x, e, src, dst, i)
+        return self.edge_output_transform(self.edge_decoder(e)).squeeze(-1)
 
     def message_step(self, x, e, src, dst, i=None):
         edge_inputs = torch.cat([e, x[src], x[dst]], dim=-1)  # order dst src x ?
@@ -645,11 +642,7 @@ class InteractionGNN2(EdgeClassifierStage):
         else:
             x_updated = self.node_network[i](node_inputs)
 
-        return (
-            x_updated,
-            e_updated,
-            self.edge_output_transform(self.edge_decoder(e_updated)),
-        )
+        return x_updated, e_updated
 
     def concat(self, x, y):
         return torch.cat([x, y], dim=-1)
@@ -719,8 +712,6 @@ class InteractionGNN2WithPyG(InteractionGNN2):
         # memorize initial encodings for concatenate in the gnn loop if request
         input_x = x.clone()
         input_e = e.clone()
-        # Initialize outputs
-        outputs = []
         # Loop over gnn layers
         for i in range(self.hparams["n_graph_iters"]):
             conv = (
@@ -738,8 +729,7 @@ class InteractionGNN2WithPyG(InteractionGNN2):
                 in_out_diff_agg=self.hparams.get("in_out_diff_agg"),
             )
 
-            outputs.append(self.edge_output_transform(self.edge_decoder(e)))
-        return outputs[-1].squeeze(-1)
+        return self.edge_output_transform(self.edge_decoder(e)).squeeze(-1)
 
 
 class HeteroMixin:
