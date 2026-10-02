@@ -60,7 +60,11 @@ def save_pyg(data, path, subdir=None):
     if subdir is not None:
         path = _shard_path(path, subdir)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-    if os.environ.get("ACORN_SAVE_PYG_UNCOMPRESSED", "").lower() in ("1", "true", "yes"):
+    if os.environ.get("ACORN_SAVE_PYG_UNCOMPRESSED", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
         torch.save(data, path)
     else:
         buf = io.BytesIO()
@@ -73,7 +77,12 @@ def save_pyg(data, path, subdir=None):
 
 def load_pyg(path, **kwargs):
     """Load a PyG Data object from path. Tries path + '.gz' first, then plain path."""
-    gz_path = path + ".gz"
+
+    # to remove warnings observed with more recent verions of torch than 2.4
+    kwargs.setdefault("weights_only", False)
+
+    gz_path = path if Path(path).suffix == ".gz" else path + ".gz"
+
     if os.path.exists(gz_path):
         try:
             with gzip.open(gz_path, "rb") as f:

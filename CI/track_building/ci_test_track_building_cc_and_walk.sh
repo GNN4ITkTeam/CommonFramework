@@ -20,4 +20,4 @@ ls -la $test_dir/valset_tracks
 echo "----------------------"
 echo "Comparing to reference"
 echo "----------------------"
-python diff.py $ref_dir $test_dir/valset_tracks
+python ../diff.py $ref_dir $test_dir track_building

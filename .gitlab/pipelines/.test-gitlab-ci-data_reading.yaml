@@ -1,6 +1,6 @@
 .run_data_reading_template: &test_cpu_data_reading_template
   stage: test
-  tags: 
+  tags:
     - k8s-eos
   needs: []
   before_script:
@@ -12,10 +12,11 @@
     - conda init bash
     - source ~/.bashrc
     - conda config --set auto_activate_base false
-    - source create_conda_environment-cpu.sh
+    - source create_conda_environment-cpu.sh acorn-cpu
+    - pip install xrootd fsspec-xrootd
   rules:
     - when: always
-      
+
 run_data_reading_cpu:
   <<: *test_cpu_data_reading_template
   script:
