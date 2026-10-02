@@ -1,0 +1,20 @@
+stage: graph_construction
+model: PyModuleMap
+input_dir: /eos/atlas/atlascerngroupdisk/perf-idtracking/GNN4ITk/ATLAS-P2-RUN4-03-00-00_Rel.24/acorn_data_reading_output/ci_ref/feature_store_ci_ttbar_pu0
+stage_dir: graphs_ci_PyModuleMap
+
+event_prefix: ttbar_pu0_v9
+
+variable_with_prefix: true # Set to true to use the new naming scheme (with prefix to indicate the variable type)
+
+# Dataset parameters
+data_split: [0, 100, 0] # Number of [training, validation, testing] examples
+
+module_map:
+  path: /eos/atlas/atlascerngroupdisk/perf-idtracking/GNN4ITk/ATLAS-P2-RUN4-03-00-00_Rel.24/module_maps/v9/ttbar_EFTrack_single_part_MMG_1.4.1/ptmin_1GeV/module_map_ttbar_EFTrack_single_part_MMG_1.4.1_ptmin_1GeV_cleaned_meanrms_computed.triplets.root
+  method: meanrms # can be [minmax, meanrms, hybrid]
+  tolerance: 0.0000000001
+  threshold_factor_rms : 5 # meaningful only for meanrms and hybrid
+
+max_workers: 1
+log_level: INFO

@@ -17,6 +17,7 @@ include:
   - ".gitlab/pipelines/.test-gitlab-ci-unit.yaml"
   - ".gitlab/pipelines/.test-gitlab-ci-dind.yaml"
   - ".gitlab/pipelines/.test-gitlab-ci-data_reading.yaml"
+  - ".gitlab/pipelines/.test-gitlab-ci-graph_building.yaml"
   - ".gitlab/pipelines/.test-gitlab-ci-track_building.yaml"
   - ".gitlab/pipelines/.deploy-gitlab-ci.yaml"
 

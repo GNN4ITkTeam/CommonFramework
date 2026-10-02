@@ -1,6 +1,17 @@
 #!/usr/bin/bash
 set -e
 
+lscpu
+
+# To disable modern AVX512 instructions
+# otherwise few differences are obesreved on 'track_redundant_split_edges'
+# because the refference data were produce on an AMD Milan CPU which does not support AVX512 instructions.
+export NPY_DISABLE_CPU_FEATURES="AVX512F,AVX512CD,AVX512BW,AVX512DQ,AVX512VL,AVX512_SKX"
+export MKL_CBWR=COMPATIBLE
+export OPENBLAS_CORETYPE=Haswell
+export ONEDNN_MAX_CPU_ISA=AVX2
+export MKL_ENABLE_INSTRUCTIONS=AVX2
+
 skip_csv_comparison=${1:-false}
 
 if [ "$skip_csv_comparison" = true ]; then
@@ -32,7 +43,7 @@ echo "Comparing to reference"
 echo "----------------------"
 if [ "$skip_csv_comparison" = true ]; then
     echo "Skipping .csv comparison as requested."
-    python diff.py $ref_dir $test_dir --skip_csv_comparison
+    python ../diff.py $ref_dir $test_dir data_reading --skip_csv_comparison
 else
-    python diff.py $ref_dir $test_dir
+    python ../diff.py $ref_dir $test_dir data_reading
 fi

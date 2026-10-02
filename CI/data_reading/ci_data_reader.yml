@@ -1,10 +1,10 @@
 stage: data_reading
 model: AthenaRootReader
-input_dir: /eos/atlas/atlascerngroupdisk/perf-idtracking/GNN4ITk/ATLAS-P2-RUN4-03-00-00_Rel.24/dumps/v9/user.avallier.mc21_14TeV.601229.PhPy8EG_A14_ttbar_hdamp258p75_SingleLep.DumpGNNITk_v9.e8514_s4345_r15583_EXT0
-input_sets: 
-    train: ttbar_EFTrack_pu200_v9_ci_train.txt
-    valid: ttbar_EFTrack_pu200_v9_ci_valid.txt
-    test: ttbar_EFTrack_pu200_v9_ci_test.txt
+input_dir: XROOTD
+input_sets:
+    train: xrootd_ttbar_EFTrack_pu200_v9_ci_train.txt
+    valid: xrootd_ttbar_EFTrack_pu200_v9_ci_valid.txt
+    test: xrootd_ttbar_EFTrack_pu200_v9_ci_test.txt
 
 stage_dir: feature_store_ci
 
@@ -17,9 +17,9 @@ variable_with_prefix: true # Set to true to use the new naming scheme (with pref
 # Feature Configurations
 feature_sets:
     hit_features: [hit_id, hit_x, hit_y, hit_z, hit_r, hit_phi, hit_eta, hit_region, hit_module_id,
-                hit_cluster_x_1, hit_cluster_y_1, hit_cluster_z_1, hit_cluster_x_2, hit_cluster_y_2, hit_cluster_z_2, 
+                hit_cluster_x_1, hit_cluster_y_1, hit_cluster_z_1, hit_cluster_x_2, hit_cluster_y_2, hit_cluster_z_2,
                 hit_cluster_r_1, hit_cluster_phi_1, hit_cluster_eta_1, hit_cluster_r_2, hit_cluster_phi_2, hit_cluster_eta_2,
-                hit_norm_x_1, hit_norm_y_1, hit_norm_x_2, hit_norm_y_2, 
+                hit_norm_x_1, hit_norm_y_1, hit_norm_x_2, hit_norm_y_2,
                 hit_norm_z_1, hit_eta_angle_1, hit_phi_angle_1, hit_eta_angle_2, hit_phi_angle_2, hit_norm_z_2,
                 hit_count_1, hit_charge_count_1, hit_loc_eta_1, hit_loc_phi_1, hit_localDir0_1, hit_localDir1_1, hit_localDir2_1,
                 hit_lengthDir0_1, hit_lengthDir1_1, hit_lengthDir2_1, hit_glob_eta_1, hit_glob_phi_1,

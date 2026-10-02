@@ -1,10 +1,10 @@
 stage: data_reading
 model: AthenaRootReader
-input_dir: /eos/atlas/atlascerngroupdisk/perf-idtracking/GNN4ITk/ATLAS-P2-RUN4-03-00-00_Rel.24/dumps/v9/user.avallier.mc21_14TeV.601229.PhPy8EG_A14_ttbar_hdamp258p75_SingleLep.DumpGNNITk_v9.e8514_s4345_r15583_EXT0
+input_dir: XROOTD
 input_sets:
-    train: ttbar_EFTrack_pu200_v9_ci_train.txt
-    valid: ttbar_EFTrack_pu200_v9_ci_valid.txt
-    test: ttbar_EFTrack_pu200_v9_ci_test.txt
+    train: xrootd_ttbar_EFTrack_pu200_v9_ci_train.txt
+    valid: xrootd_ttbar_EFTrack_pu200_v9_ci_valid.txt
+    test: xrootd_ttbar_EFTrack_pu200_v9_ci_test.txt
 
 stage_dir: feature_store_ci
 

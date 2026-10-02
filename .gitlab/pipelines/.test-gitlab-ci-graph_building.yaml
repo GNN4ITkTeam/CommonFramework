@@ -1,7 +1,7 @@
-.track_building_template: &track_building_template
+.graph_building_template: &graph_building_template
   stage: test
   tags:
-    - k8s-eos
+    - k8s-gpu
   needs: []
   before_script:
     # Need to have acces to eos, so login with gnn4itk service account
@@ -12,12 +12,12 @@
     - conda init bash
     - source ~/.bashrc
     - conda config --set auto_activate_base false
-    - source create_conda_environment-cpu.sh acorn-cpu
+    - source create_conda_environment_cu13.sh acorn-cu13
   rules:
     - when: always
 
-cc_and_walk:
-    <<: *track_building_template
+PyModuleMap:
+    <<: *graph_building_template
     script:
-      - cd CI/track_building
-      - ./ci_test_track_building_cc_and_walk.sh
+      - cd CI/graph_building
+      - ./ci_test_graph_building_PyModuleMap.sh
