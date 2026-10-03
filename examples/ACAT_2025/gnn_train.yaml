@@ -43,6 +43,16 @@ input_cut: 0.05
 edge_cut: 0.5
 node_features: [hit_r, hit_phi, hit_z, hit_eta, hit_cluster_r_1, hit_cluster_phi_1, hit_cluster_z_1, hit_cluster_eta_1, hit_cluster_r_2, hit_cluster_phi_2, hit_cluster_z_2, hit_cluster_eta_2]
 node_scales: [1000., 3.14159265359, 1000., 1., 1000., 3.14159265359, 1000., 1., 1000., 3.14159265359, 1000., 1.]
+# Replacing an angle by its cosine and sine removes the discontinuity at +/- pi
+# that the network otherwise has to learn around. Any feature named with `cosphi`
+# or `sinphi` is derived from the matching `phi` one, so the same works for
+# hit_cluster_cosphi_1, hit_cluster_sinphi_2, and so on. Derived features are
+# already bounded in [-1, 1]: give them a scale of 1.
+# Uncomment the two lines below, and comment the two above, to train on that
+# variant. Note it changes the input width (here 12 -> 13), so checkpoints
+# trained with the lines above cannot be resumed from.
+#node_features: [hit_r, hit_cosphi, hit_sinphi, hit_z, hit_eta, hit_cluster_r_1, hit_cluster_phi_1, hit_cluster_z_1, hit_cluster_eta_1, hit_cluster_r_2, hit_cluster_phi_2, hit_cluster_z_2, hit_cluster_eta_2]
+#node_scales: [1000., 1., 1., 1000., 1., 1000., 3.14159265359, 1000., 1., 1000., 3.14159265359, 1000., 1.]
 edge_features: [edge_dr, edge_dphi, edge_dz, edge_deta, edge_phislope, edge_rphislope]
 #edge_features: None
 hidden: 128
