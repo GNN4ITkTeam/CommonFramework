@@ -367,6 +367,47 @@ def reset_angle(angles):
     return angles
 
 
+#: Node features that are a function of an angle, keyed by the substring that
+#: identifies them in a feature name.
+_ANGLE_DERIVED_NODE_FEATURES = {"cosphi": torch.cos, "sinphi": torch.sin}
+
+
+def handle_node_features(event, node_features):
+    """Derive the requested node features that are functions of an existing angle.
+
+    Asking for ``hit_cosphi`` and ``hit_sinphi`` in ``node_features`` builds them
+    from ``hit_phi``.  The rule is textual, so it covers every angle the graph
+    carries: ``hit_cluster_cosphi_1`` is derived from ``hit_cluster_phi_1``, and
+    which angles get the treatment is decided in the config alone.
+
+    The point of the pair is to remove the discontinuity of phi at +/- pi, which a
+    network fed raw phi has to learn around.
+
+    A feature already present in the event is left alone, so a value written by an
+    earlier stage takes precedence over the derivation -- the same contract as
+    ``handle_edge_features``.
+
+    Must run *before* ``scale_features``: that step divides angles by pi, and the
+    cosine of a scaled angle is not the cosine of the angle.  Give derived features
+    a scale of 1.0, they are already bounded.
+    """
+    for feature in node_features:
+        if feature in get_pyg_data_keys(event):
+            continue
+        for name, function in _ANGLE_DERIVED_NODE_FEATURES.items():
+            if name not in feature:
+                continue
+            angle = feature.replace(name, "phi")
+            if angle not in get_pyg_data_keys(event):
+                raise ValueError(
+                    f"Node feature {feature} is derived from {angle}, which the"
+                    f" event does not carry. Node-like keys available:"
+                    f" {sorted(k for k in get_pyg_data_keys(event) if k.startswith('hit_'))}"
+                )
+            event[feature] = function(event[angle])
+            break
+
+
 def handle_edge_features(event, edge_features):
     src, dst = event.edge_index
 

@@ -46,6 +46,7 @@ from acorn.utils import (
     handle_hard_cuts,
     remap_from_mask,
     handle_edge_features,
+    handle_node_features,
     get_optimizers,
     get_condition_lambda,
     get_variable_type,
@@ -679,6 +680,10 @@ class GraphDataset(Dataset):
         event = self.apply_hard_cuts(event)
         event = self.construct_weighting(event)
         event = self.handle_edge_list(event)
+        if self.hparams.get("node_features") is not None:
+            event = self.add_node_features(
+                event
+            )  # derived angles need the unscaled values
         event = self.scale_features(event)
         if self.hparams.get("edge_features") is not None:
             event = self.add_edge_features(
@@ -775,6 +780,14 @@ class GraphDataset(Dataset):
             [event.track_to_edge_map, track_to_edge_map], dim=0
         )
 
+        return event
+
+    def add_node_features(self, event):
+        if "node_features" in self.hparams.keys():
+            assert isinstance(
+                self.hparams["node_features"], list
+            ), "Node features must be a list of strings"
+            handle_node_features(event, self.hparams["node_features"])
         return event
 
     def add_edge_features(self, event):
@@ -956,6 +969,10 @@ class HeteroGraphDataset(GraphDataset, HeteroGraphMixin):
         event = self.construct_weighting(event)
         event = self.handle_edge_list(event)
         event = self.add_edge_features(event)
+        if self.hparams.get("node_features") is not None:
+            event = self.add_node_features(
+                event
+            )  # derived angles need the unscaled values
         event = self.scale_features(event)
         event = Data(**event.to_dict())
         event = self.get_input_data(event)
