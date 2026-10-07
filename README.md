@@ -76,35 +76,48 @@ argmax: tensor([[5, 5, 3, 4, 0, 1],
 [ModuleMapGraph](https://gitlab.cern.ch/gnn4itkteam/ModuleMapGraph), whose C++
 side needs ROOT, Boost and CUDA from the CERN LCG view.
 
-#### Install
+#### Set up the shell
 
-```bash
-conda activate acorn
-pip install --index-url https://gitlab.cern.ch/api/v4/projects/210408/packages/pypi/simple \
-    pymodulemapgraph==1.420.0 --no-deps
-```
-
-Wheels are published for Python 3.10 to 3.13; `pip` picks the one matching your
-interpreter. PyMMG version numbers encode the ModuleMapGraph version they wrap:
-`1.420.0` is built against MMG 1.4.2. See the
-[available versions](https://gitlab.cern.ch/gnn4itkteam/pymodulemapgraph/-/packages).
-
-#### Use
-
-Load the same LCG view the wheel was built against, before running:
+The same environment serves to install PyMMG and to run it:
 
 ```bash
 source /cvmfs/sft.cern.ch/lcg/views/LCG_107_cuda/x86_64-el9-gcc11-opt/setup.sh
 unset PYTHONPATH PYTHONHOME
 conda activate acorn
-
-python -c "import pymmg"
 ```
 
 `unset PYTHONPATH PYTHONHOME` is required: the view exports its own Python
-paths, which would otherwise shadow the `acorn` packages. `LD_LIBRARY_PATH` is
-kept, and that is what the extension needs. An import failing on
-`GLIBCXX_3.4.xx not found` means the view was not loaded.
+paths, which would otherwise shadow the `acorn` packages and pin the
+interpreter to the LCG version. `LD_LIBRARY_PATH` is kept, and that is what the
+extension needs.
+
+Activate the environment **after** sourcing the view, so that its interpreter
+takes precedence. In the other order, `pip` and `python` would be the LCG ones.
+
+#### Install
+
+```bash
+pip install --index-url https://gitlab.cern.ch/api/v4/projects/210408/packages/pypi/simple \
+    pymodulemapgraph==1.430.0 --no-deps
+```
+
+Wheels are published for Python 3.10 to 3.13; `pip` picks the one matching your
+interpreter. PyMMG version numbers encode the ModuleMapGraph version they wrap:
+`1.430.0` is built against MMG 1.4.3. See the
+[available versions](https://gitlab.cern.ch/gnn4itkteam/pymodulemapgraph/-/packages).
+
+`--no-deps` keeps `pip` from resolving `torch` and `numpy`, which the
+environment already provides.
+
+#### Run
+
+```bash
+python -c "import pymmg"
+```
+
+An import failing on `GLIBCXX_3.4.xx not found` means the LCG view was not
+loaded: the extension finds ROOT and Boost through its embedded `RPATH`, but not
+the C++ runtime it was compiled against.
 
 #### If no wheel fits
 
