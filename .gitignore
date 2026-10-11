@@ -22,3 +22,4 @@ run/
 **.ipynb_checkpoints**
 build/
 notebooks/
+.venv/

@@ -54,6 +54,28 @@ def check():
         print("[Optional] frnn not found")
 
     try:
+        from acorn.cuda_ext import (
+            connected_components_available,
+            reverse_topological_dp_available,
+            trace_selected_paths_available,
+        )
+
+        print(
+            "cuda_ext connected components: ",
+            connected_components_available(),
+        )
+        print(
+            "cuda_ext reverse topological dp: ",
+            reverse_topological_dp_available(),
+        )
+        print(
+            "cuda_ext trace selected paths: ",
+            trace_selected_paths_available(),
+        )
+    except ImportError:
+        print("cuda_ext not found (optional, only built with make install-cuda-ext)")
+
+    try:
         import cugraph
 
         print("cugraph: ", cugraph.__version__)

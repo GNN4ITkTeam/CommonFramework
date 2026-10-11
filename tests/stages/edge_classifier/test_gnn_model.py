@@ -256,7 +256,6 @@ def test_construct_weighting():
 
 def _old_log_metrics_for_test(output, all_truth, target_truth, edge_cut):
     import torch
-
     from torchmetrics import AUROC
 
     scores = torch.sigmoid(output)
@@ -325,7 +324,6 @@ def test_epoch_end_metrics_are_pooled_from_hand_computed_counts():
                   target_eff_pt2000 = 2/3
     """
     import torch
-
     from torch_geometric.data import Data
 
     from acorn.stages.edge_classifier.edge_classifier_stage import EdgeClassifierStage
@@ -372,6 +370,8 @@ def test_epoch_end_metrics_are_pooled_from_hand_computed_counts():
     preds_2 = model.log_metrics(
         batch_2, output_2, all_truth_2, target_truth_2, loss=torch.tensor(0.0)
     )
+    preds_1 = torch.sigmoid(output_1) > model.hparams["edge_cut"]
+    preds_2 = torch.sigmoid(output_2) > model.hparams["edge_cut"]
     model.on_validation_epoch_end()
 
     expected_metrics = {

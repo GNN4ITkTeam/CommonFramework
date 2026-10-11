@@ -70,3 +70,17 @@ test create conda env:
     - docker stop conda_container 
   rules:
     - when: always
+
+test create uv env:
+  <<: *run_test_cpu
+  needs: []
+  script:
+    - cd ..
+    - pwd
+    - docker run -dit --rm --shm-size=8g -v $(pwd):/acorn --name uv_container registry.cern.ch/docker.io/library/python:3.10 /bin/bash
+    - docker exec -w /acorn uv_container python -m pip install uv
+    - docker exec -w /acorn uv_container make install
+    - docker exec -w /acorn/tests -e WANDB_DISABLED=true -e UV_PROJECT_ENVIRONMENT=.venv-gpu uv_container uv run --extra gpu -m pytest --cov --cov-report term --cov-report xml:coverage.xml
+    - docker stop uv_container
+  rules:
+    - when: always

@@ -10,6 +10,7 @@ readme = { file = "README.md", content-type = "text/markdown" }
 license = { text = "Apache License, Version 2.0" }
 authors = [{ name = "GNN4ITK Team", email = "atlas-sw-gnn-tracking@cern.ch" }]
 keywords = ["ATLAS", "track reconstruction", "graph networks", "machine learning"]
+requires-python = ">=3.10"
 
 [project.urls]
 Homepage = "https://gitlab.cern.ch/gnn4itkteam/acorn"
@@ -20,6 +21,44 @@ g4i-infer = "acorn.core.infer_stage:main"
 g4i-eval = "acorn.core.eval_stage:main"
 acorn = "acorn.core.entrypoint_stage:cli"
 
+[project.optional-dependencies]
+gpu = ["cudf-cu12", "cugraph-cu12"]
+xrootd = ["xrootd"]
+
+[dependency-groups]
+runtime = [
+    "tqdm",
+    "ipykernel",
+    "atlasify",
+    "trackml @ git+https://github.com/LAL/trackml-library@master",
+    "networkx",
+    "seaborn",
+    "pyyaml",
+    "click",
+    "lightning==2.4.0",
+    "torch==2.4.0",
+    "torchvision==0.19.0",
+    "torchaudio==2.4.0",
+    "torch-geometric",
+    "pyg_lib==0.4.0+pt24cu121",
+    "torch_scatter==2.1.2+pt24cu121",
+    "torch_sparse==0.6.18+pt24cu121",
+    "torch_cluster==1.6.3+pt24cu121",
+    "torch_spline_conv==1.2.2+pt24cu121",
+    "numpy<2",
+    "uproot<=5.3.1",
+    "class-resolver",
+    "onnxruntime",
+    "onnx",
+    "MonkeyType",
+    "wandb",
+    "scikit-learn",
+    "numba",
+    "polars",
+    "pyarrow",
+]
+dev = ["pytest", "pytest-cov", "black==22.8.0", "setuptools", "wheel"]
+
 [tool.setuptools.packages.find]
 include = ["acorn", "acorn.*"]
 
@@ -27,6 +66,15 @@ include = ["acorn", "acorn.*"]
 line-length = 88
 exclude = '(\.git|\.tox|\.venv|_build|build|dist|acorn\.egg-info|\.venv|docs|functorch)'
 
+[tool.uv]
+default-groups = ["dev", "runtime"]
+index-strategy = "unsafe-best-match"
+extra-index-url = [
+    "https://download.pytorch.org/whl/cu121",
+    "https://pypi.nvidia.com",
+]
+find-links = ["https://data.pyg.org/whl/torch-2.4.0+cu121.html"]
+no-build-isolation-package = ["acorn"]
 [tool.pytest.ini_options]
 markers = [
     "requires_data: needs the test data archives unpacked into tests/ (see tests/README.md)",
