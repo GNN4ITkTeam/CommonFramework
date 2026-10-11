@@ -41,6 +41,89 @@ To also compile the optional ACORN CUDA/C++ extensions under `acorn/cuda_ext`, m
 source create_conda_environment.sh --cuda-ext
 ```
 
+### Install with uv (faster, optional)
+
+As an alternative to conda, you can use [uv](https://docs.astral.sh/uv/) for a faster setup:
+
+```bash
+# GPU (CUDA 12.1)
+git clone --recurse-submodules ssh://git@gitlab.cern.ch:7999/gnn4itkteam/acorn.git && cd acorn
+make install
+```
+This is the uv equivalent of `source create_conda_environment.sh`. It creates a default GPU-compatible virtual environment with all CUDA libraries. 
+
+A CPU-compatible environment is created by running
+```bash
+# CPU-only (no RAPIDS packages)
+make install-cpu
+```
+and one with xrootd by running
+```bash
+# GPU + xrootd (for CERN grid data access)
+make install-xrootd
+```
+
+To also compile the optional ACORN CUDA/C++ extensions under `acorn/cuda_ext` (GPU connected components, reverse-topological DP, and path tracing), make sure `nvcc` is available, then run:
+
+```bash
+# Optional, but useful on systems where CUDA is provided by modules.
+# Pick a CUDA module/version whose major version matches your PyTorch CUDA build.
+module load cudatoolkit/12.2 gcc/12.2.0
+make install-cuda-ext
+```
+
+The extensions are **not** built by default. `make install-cuda-ext` sets `ACORN_BUILD_CUDA_EXT=1` and rebuilds acorn without build isolation (uv installs the environment dependencies first, so torch is importable at build time). To check whether they were compiled and can be imported:
+
+```bash
+make run python -c "from acorn.cuda_ext import connected_components_available, reverse_topological_dp_available, trace_selected_paths_available; print('connected components:', connected_components_available()); print('reverse DP:', reverse_topological_dp_available()); print('path tracing:', trace_selected_paths_available())"
+```
+
+All three lines should print `True`. If they print `False`, check that `nvcc` is on `PATH`, `CUDA_HOME` points to the CUDA installation if needed, and the CUDA major version matches your PyTorch CUDA build.
+
+Each install target creates a fully viable virtual environment, and runs `check_acorn.py` automatically after syncing. You do **NOT** need to create all three if you only want to run with a single environment. You can re-run the check at any time with `make check`. To remove the environments, run `make clean`.
+
+No `source .venv/bin/activate` is needed — `uv` resolves the project environment automatically. Activation is only required for interactive Python/ipython sessions.
+
+**Running commands:** use `make run` with the environment selected automatically (GPU node → `.venv-gpu`, otherwise `.venv-cpu`):
+
+```bash
+make run acorn infer ...
+```
+
+or the equivalent direct `uv` command:
+
+```bash
+uv run acorn infer ...
+```
+
+**Parallel environments:** each install target uses its own environment by default (`install` → `.venv-gpu`, `install-cpu` → `.venv-cpu`, `install-xrootd` → `.venv-xrootd`). Override any of them with `ENV=`:
+
+```bash
+make install ENV=.venv_custom
+```
+
+```bash
+# run a command in a specific environment
+make run ENV=.venv-cpu acorn infer ...
+UV_PROJECT_ENVIRONMENT=.venv-cpu uv run acorn infer ...
+```
+
+**Lockfile regeneration:** If you modify `pyproject.toml` dependencies, regenerate the lockfile:
+
+```bash
+uv lock --refresh
+```
+
+**Optional packages installed outside uv (e.g. FRNN):** `uv sync` makes the environment match `uv.lock` exactly, so it **removes** packages that were installed manually (see [FRNN](#frnn)). Either re-install them afterwards (`make install-frnn`), or sync without pruning:
+
+```bash
+uv sync --inexact
+```
+
+`uv run` (used by `make run` / `make check`) does not prune, so it is safe.
+
+The conda-based installation remains fully supported — see `create_conda_environment.sh` above.
+
 ### Check install
 
 To check if the installation is successful, run `python check_acorn.py`. If you see (approximately) the following output, you are good to go!
@@ -94,13 +177,7 @@ extension needs.
 Activate the environment **after** sourcing the view, so that its interpreter
 takes precedence. In the other order, `pip` and `python` would be the LCG ones.
 
-#### Install
-
-```bash
-pip install --index-url https://gitlab.cern.ch/api/v4/projects/210408/packages/pypi/simple \
-    pymodulemapgraph==1.430.0 --no-deps
 ```
-
 Wheels are published for Python 3.10 to 3.13; `pip` picks the one matching your
 interpreter. PyMMG version numbers encode the ModuleMapGraph version they wrap:
 `1.430.0` is built against MMG 1.4.3. See the
@@ -142,17 +219,53 @@ For NERSC Perlmutter HPC users, the default `cudatoolkit` is 11.7 as of writing 
 ### FRNN
 -----
 
-It is optional to install `FRNN` for faster (~3x) GPU nearest neighbor search. For NERSC Perlmutter HPC users. run `module load cmake/3.30.2` and `module load gcc/12.2.0` , then run the following commands.
+`FRNN` is an optional GPU nearest-neighbour library that gives ~3x faster graph
+construction. It is **not** published on PyPI and is **not** tracked in
+`pyproject.toml` / `uv.lock`, so `uv` does not manage it. Build and install it
+into your uv environment with:
+
 ```bash
+make install-frnn                 # or: scripts/install_frnn.sh [ENV_DIR]
+```
+
+The script builds `frnn` and its runtime dependency `prefix_sum` in a throwaway
+venv and copies both into the target environment, leaving everything else
+untouched. It handles the sharp edges of the build for you:
+
+* picks a CUDA toolkit whose **major** version matches your torch CUDA build and
+  pins `CPATH` to it. The HPC SDK keeps cuBLAS headers under
+  `math_libs/<cuda>/include`; a stale `CPATH` from another toolkit otherwise
+  fails with `cudaEmulation... has not been declared`;
+* uses `g++-13`, because the default `c++` on Perlmutter is GCC 7.5, which is
+  too old for the extension;
+* compiles for the local GPU architecture (detected via `nvidia-smi`);
+* installs `prefix_sum` too, since `frnn` imports it at runtime.
+
+Verify with `make check` (or `python check_acorn.py`) — the output should say
+`frnn found`.
+
+> **Re-run it after every `uv sync`.** Because FRNN is not in the lockfile,
+> `uv sync` (and therefore `make install`, `make install-cpu`,
+> `make install-xrootd` and `make install-cuda-ext`) treats `frnn` and
+> `prefix_sum` as extraneous and **uninstalls them**. Either re-run
+> `make install-frnn`, or sync without pruning:
+>
+> ```bash
+> uv sync --inexact
+> ```
+>
+> `uv run` (used by `make run` / `make check`) does not prune, so it is safe.
+
+Manual install, for reference (Perlmutter). This is what the script automates:
+
+```bash
+module load cmake/3.30.2 gcc/12.2.0
 pip install git+https://github.com/asnaylor/prefix_sum.git
 pip install git+https://github.com/xju2/FRNN.git
 ```
 
-**: If you got this error message:**
-```bash
-error: command /usr/bin/gcc failed with exit code 1 
-```
-**It might be necessary to go into the installation script of FRNN and change the cpp flag from c++14 to c++17**
+If you hit `error: command /usr/bin/gcc failed with exit code 1`, the host
+compiler is too old — rebuild with a modern one (`CXX=g++-13 CC=gcc-13`).
 
 ### Optional ACORN CUDA/C++ Extensions
 -----
