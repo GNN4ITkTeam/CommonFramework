@@ -343,6 +343,171 @@ The new setup introduces the following changes:
 
 Please see the [documentation](https://atlas-gnn-tracking.docs.cern.ch/) for more details, examples and tutorials.
 
+## IGNN3 Edge Classifier
+
+`IGNN3` is an interaction network for directed graphs that aggregates incoming and
+outgoing edge latents separately. It is built to be exported and run from C++:
+the network itself is a plain `nn.Module` (`IGNN3Net`) owned by the Lightning
+stage as `self.net`, and what gets exported is literally `IGNN3Net.forward` — the
+same code path evaluated in Python, so the artifact and the reference
+implementation cannot drift apart. Aggregation uses native `scatter_add_` rather
+than `torch_scatter`, which ONNX and `torch.export` cannot represent.
+
+### Minimal configuration
+
+```yaml
+model: IGNN3
+stage: edge_classifier
+tensor_forward: true   # required by IGNN3, see below
+
+node_features: [hit_r, hit_phi, hit_z, hit_eta]
+node_scales:   [1000., 3.14159265359, 1000., 1.]
+edge_features: [edge_dr, edge_dphi, edge_dz, edge_deta]
+
+hidden: 128
+n_graph_iters: 8
+n_node_encoder_layers: 3
+n_edge_encoder_layers: 3
+n_node_net_layers: 3
+n_edge_net_layers: 3
+n_edge_decoder_layers: 3
+hidden_activation: LeakyReLU
+output_activation: LeakyReLU
+layernorm: true
+output_layer_norm: false
+edge_output_transform_final_activation: null   # must stay null: the loss takes logits
+edge_output_transform_final_layer_norm: false
+edge_cut: 0.5
+```
+
+`node_scales` must have one entry per `node_features` entry. Leave `edge_features`
+out (or empty) to build the initial edge features from the two node latents
+instead of reading them from the graph.
+
+Activations are resolved as `getattr(torch.nn, <name>)`, so any `torch.nn`
+activation class works (`ReLU`, `LeakyReLU`, `GELU`, `SiLU`, `ELU`, `Mish`,
+`Tanh`, ...). They are instantiated with no arguments, so their defaults apply and
+cannot be tuned from the config. Two things to watch:
+
+- `edge_output_transform_final_activation` must stay `null`. The loss is
+  `binary_cross_entropy_with_logits`, which expects raw logits.
+- `output_layer_norm` and `output_batch_norm` are applied **only** when the
+  corresponding output activation is not `null` — `make_mlp` nests them inside that
+  branch. Setting `output_layer_norm: true` alongside `output_activation: null` does
+  nothing. This also makes `edge_output_transform_final_layer_norm` inert, since the
+  final activation has to be `null`.
+
+### How the stage passes data to the model
+
+`EdgeClassifierStage` supports two calling conventions, selected by
+`tensor_forward`. The same path serves training, validation, test and inference —
+`predict_step` goes through `shared_evaluation` — so the convention is consistent
+everywhere.
+
+| `tensor_forward` | The model's `forward` receives |
+| --- | --- |
+| `false` (default) | the PyG batch object, as `forward(batch)`, and reads the features it needs off it. |
+| `true` | plain tensors, as `forward(x, edge_index, edge_attr)`. |
+
+**`IGNN3` requires `tensor_forward: true`.** Its `forward` has a typed tensor
+signature, which is what makes it scriptable and exportable; handed a batch object
+it would fail. The legacy convention is kept for models whose `forward` expects
+the batch.
+
+With `tensor_forward: true` the stage builds the tensors itself:
+
+- `x` stacks the `node_features` in the order they are declared, cast to float32
+  whatever the dtype stored in the graph;
+- `edge_index` is taken from the batch as is;
+- `edge_attr` stacks the `edge_features`, in declaration order — and when no
+  `edge_features` are declared, `forward` is called with **two arguments only**,
+  leaving the model to build the initial edge features from the node latents.
+
+Because the tensors are built from `node_features` and `edge_features`, those two
+lists are the single source of truth for the input dimensions: the encoders are
+sized from their lengths, so adding or removing a feature changes the first layer
+shape and makes existing checkpoints incompatible.
+
+### Architecture
+
+| Key | Values | Default | Effect |
+| --- | --- | --- | --- |
+| `src_dst_aggr` | `concat`, `inner_product_and_diff`, `inner_divide_and_diff` | `concat` | How an edge latent is combined with its two node latents to feed the edge network. |
+| `edge_attr` | same three values | `concat` | How initial edge features are built from node latents. Only used when no `edge_features` are declared. |
+| `aggr` | `sum`, `mean` | `sum` | Reduction used when scattering edge latents onto nodes. |
+| `in_out_diff_agg` | bool | `true` | Keep incoming and outgoing aggregations separate (node network input is `3 * hidden`) instead of summing them (`2 * hidden`). |
+| `n_graph_iters` | int | `8` | Message passing iterations. Sets the number of node/edge networks. |
+
+### Training performance
+
+| Key | Values | Default | Effect |
+| --- | --- | --- | --- |
+| `compile` | bool | `false` | Compile the whole network as a single graph with `torch.compile`. Measured at 1.57x eager on an A100, against 1.28x when compiling each MLP separately. |
+| `compile_kwargs` | dict | `{dynamic: true}` | Passed to `torch.compile`. `dynamic: true` is the default because node and edge counts differ for every event, and the static default recompiles on each new size. |
+| `checkpointing` | bool | `false` | Gradient checkpointing over each message passing step. |
+| `ckpting_reentrant` | bool | `false` | Use the reentrant `torch.utils.checkpoint` implementation. |
+
+`torch.compile` is incompatible with non-reentrant checkpointing. With
+`checkpointing: true` and `ckpting_reentrant: false`, compilation is skipped and a
+warning is emitted; set `ckpting_reentrant: true` to use both.
+
+### Export
+
+Add an `export` block to write deployable artifacts into `<stage_dir>/artifacts/`
+whenever `ModelCheckpoint` saves a new best model:
+
+```yaml
+export:
+  jit: true               # model.jit.pt    -- torch.jit.script, for the libtorch backend
+  onnx: true              # model.onnx      -- for the onnxrt and tensorrt backends
+  torch_export: true      # model.export.pt2
+  dynamic_shapes: true    # register node and edge counts as dynamic dimensions
+  example_num_nodes: 50000
+  example_num_edges: 500000
+```
+
+The `hparams` are embedded in the TorchScript archive (as `hparams.json`) and in
+the ONNX metadata, so a deployed model carries its own configuration. Export
+always starts from a clean, non-compiled copy of the network, so the artifacts are
+identical whether or not `compile` was enabled during training.
+
+### Inference timing
+
+Set `time_inference: true` to log the wall-clock time of the forward pass during
+evaluation, as `infer_ms` and `infer_ms_per_edge` per step and
+`val_infer_ms_mean` / `test_infer_ms_mean` per epoch. Timing uses
+`torch.cuda.Event` on GPU and excludes data loading, loss and metric computation.
+
+### Configuration is validated
+
+Keys that name an internal attribute rather than a config key used to be accepted
+by YAML and silently ignored, so a run could report an architecture it never used.
+They now raise and name the key they were mistaken for:
+
+| Rejected key | Intended key |
+| --- | --- |
+| `src_dst_aggr_mode` | `src_dst_aggr` |
+| `edge_attr_mode` | `edge_attr` |
+| `aggr_mode` | `aggr` |
+
+An unknown *value* also raises instead of falling through to the default, so a
+misspelled `inner_prod_and_diff` no longer runs as `concat`.
+
+### Backward compatibility
+
+`InteractionGNNNew` remains available as an alias, so `model: InteractionGNNNew`
+keeps resolving to `IGNN3`. Checkpoints written under the previous layout load
+unchanged: a `load_state_dict` pre-hook moves flat keys under `net.` and
+normalises the `_orig_mod.` prefix that `torch.compile` inserts, in either
+direction, so compiled and plain checkpoints are interchangeable.
+
+Two options were removed. `mean_output_scores` (averaging per-iteration edge
+scores during training) and `inference_score_cuts` (dynamic edge pruning between
+message passing iterations) are no longer read. Pruning altered the scores of the
+surviving edges, assigned a large negative logit to pruned ones which distorted
+downstream metrics, and produced data-dependent tensor shapes incompatible with
+`torch.export`, ONNX and TensorRT.
+
 ## Environment Variables
 
 | Variable | Effect |
