@@ -240,6 +240,63 @@ class EdgeClassifierStage(LightningModule):
         ]
         return dataloaders
 
+    def _forward_from_batch(self, batch):
+        """Call forward either with a batch object (legacy) or with unpacked tensors.
+
+        Set ``tensor_forward: true`` in the config to unpack node/edge features
+        from the batch and pass them as separate tensors to ``forward(x,
+        edge_index, edge_attr)``.  This keeps models that require typed tensor
+        signatures (TorchScript / torch.export) compatible with the stage while
+        preserving backward compatibility for models whose ``forward`` accepts a
+        full batch object.
+
+        When ``time_inference: true`` is set in the config, the forward pass is
+        timed during evaluation (not training) and logged as
+        ``infer_ms`` and ``infer_ms_per_edge``.
+        """
+        do_time = self.hparams.get("time_inference", False) and not self.training
+
+        if do_time:
+            is_cuda = self.device.type == "cuda"
+            if is_cuda:
+                start_event = torch.cuda.Event(enable_timing=True)
+                end_event   = torch.cuda.Event(enable_timing=True)
+                start_event.record()
+            else:
+                import time as _time
+                _t0 = _time.perf_counter()
+
+        if not self.hparams.get("tensor_forward", False):
+            output = self(batch)
+        else:
+            x = torch.stack(
+                [batch[feature] for feature in self.hparams["node_features"]], dim=-1
+            ).float()
+            edge_index = batch.edge_index
+            edge_features = self.hparams.get("edge_features")
+            if edge_features:
+                edge_attr = torch.stack(
+                    [batch[feature] for feature in edge_features], dim=-1
+                ).float()
+                output = self(x, edge_index, edge_attr)
+            else:
+                output = self(x, edge_index)
+
+        if do_time:
+            if is_cuda:
+                end_event.record()
+                torch.cuda.synchronize()
+                elapsed_ms = start_event.elapsed_time(end_event)
+            else:
+                elapsed_ms = (_time.perf_counter() - _t0) * 1000
+            n_edges = batch.edge_index.shape[1]
+            self.log("infer_ms",          elapsed_ms,
+                     on_step=True, on_epoch=True, batch_size=1, sync_dist=False)
+            self.log("infer_ms_per_edge", elapsed_ms / max(n_edges, 1),
+                     on_step=True, on_epoch=True, batch_size=1, sync_dist=False)
+
+        return output
+
     def configure_optimizers(self):
         optimizer, scheduler = get_optimizers(self.parameters(), self.hparams)
         return optimizer, scheduler
@@ -251,7 +308,7 @@ class EdgeClassifierStage(LightningModule):
             and batch.edge_index.shape[1] > max_training_graph_size
         ):
             return None
-        output = self(batch)
+        output = self._forward_from_batch(batch)
         loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
         self.log(
@@ -343,7 +400,7 @@ class EdgeClassifierStage(LightningModule):
             )
 
     def shared_evaluation(self, batch, batch_idx):
-        output = self(batch)
+        output = self._forward_from_batch(batch)
         loss, pos_loss, neg_loss = self.loss_function(output, batch)
 
         scores = torch.sigmoid(output)

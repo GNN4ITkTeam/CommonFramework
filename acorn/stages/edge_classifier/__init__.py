@@ -26,6 +26,7 @@ from .models.jittable_gnn import (
     ChainedInteractionGNN2,
     GNNFilterJitable,
 )
+from .models.ignn3 import IGNN3, InteractionGNNNew
 
 __all__ = [
     "InteractionGNN",
@@ -38,5 +39,8 @@ __all__ = [
     "RecurrentInteractionGNN2",
     "ChainedInteractionGNN2",
     "GNNFilterJitable",
-    "InteractionGNN2Pruning"
+    "InteractionGNN2Pruning",
+    "IGNN3",
+    # Deprecated alias for IGNN3, kept so existing configs and checkpoints load.
+    "InteractionGNNNew",
 ]

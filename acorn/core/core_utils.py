@@ -24,7 +24,11 @@ except ImportError:
     wandb = None
 import yaml
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
+from pytorch_lightning.callbacks import (
+    Callback,
+    LearningRateMonitor,
+    ModelCheckpoint,
+)
 
 from acorn import stages
 from acorn.core.throughput import ThroughputCallback
@@ -32,6 +36,157 @@ from acorn.stages import *  # noqa
 from pytorch_lightning.strategies.ddp import DDPStrategy
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.loggers.wandb import WandbLogger
+
+
+class InferenceTimingCallback(Callback):
+    """Measure and log the wall-clock time of the validation and test forward pass.
+
+    Times only the model forward — excludes data loading, loss computation,
+    and metric logging.  Results are logged as ``val_infer_ms_mean`` /
+    ``test_infer_ms_mean`` and ``*_ms_per_edge`` via Lightning's standard
+    ``log`` mechanism (visible in CSV / WandB).
+
+    Activated by adding ``time_inference: true`` to the training config.
+
+    Uses ``torch.cuda.Event`` on GPU for accurate kernel-level timing, and
+    ``time.perf_counter`` on CPU.
+    """
+
+    def __init__(self):
+        self._val_times   = []
+        self._val_edges   = []
+        self._test_times  = []
+        self._test_edges  = []
+        self._start_event = None
+        self._end_event   = None
+        self._t0          = None
+
+    # ── shared helpers ────────────────────────────────────────────────────────
+
+    def _start_timer(self, pl_module):
+        if pl_module.device.type == "cuda":
+            self._start_event = torch.cuda.Event(enable_timing=True)
+            self._end_event   = torch.cuda.Event(enable_timing=True)
+            self._start_event.record()
+        else:
+            import time
+            self._t0 = time.perf_counter()
+
+    def _stop_timer(self, pl_module, batch, times, edges):
+        if pl_module.device.type == "cuda":
+            self._end_event.record()
+            torch.cuda.synchronize()
+            elapsed_ms = self._start_event.elapsed_time(self._end_event)
+        else:
+            import time
+            elapsed_ms = (time.perf_counter() - self._t0) * 1000
+        times.append(elapsed_ms)
+        if hasattr(batch, "edge_index"):
+            edges.append(batch.edge_index.shape[1])
+
+    def _log_and_reset(self, pl_module, times, edges, prefix):
+        if not times:
+            return
+        mean_ms     = sum(times) / len(times)
+        mean_edges  = sum(edges) / len(edges) if edges else 1.0
+        ms_per_edge = mean_ms / mean_edges if mean_edges > 0 else 0.0
+        pl_module.log(f"{prefix}_infer_ms_mean",     mean_ms,     on_epoch=True, sync_dist=False)
+        pl_module.log(f"{prefix}_infer_ms_per_edge", ms_per_edge, on_epoch=True, sync_dist=False)
+        print(f"[InferenceTiming/{prefix}] mean: {mean_ms:.1f} ms/graph  "
+              f"({ms_per_edge*1e6:.2f} ns/edge,  {len(times)} graphs)")
+        times.clear()
+        edges.clear()
+
+    # ── validation hooks ──────────────────────────────────────────────────────
+
+    def on_validation_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx=0):
+        if trainer.global_rank != 0:
+            return
+        self._start_timer(pl_module)
+
+    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
+        if trainer.global_rank != 0:
+            return
+        self._stop_timer(pl_module, batch, self._val_times, self._val_edges)
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        if trainer.global_rank != 0:
+            return
+        self._log_and_reset(pl_module, self._val_times, self._val_edges, "val")
+
+    # ── test hooks ────────────────────────────────────────────────────────────
+
+    def on_test_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx=0):
+        if trainer.global_rank != 0:
+            return
+        self._start_timer(pl_module)
+
+    def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
+        if trainer.global_rank != 0:
+            return
+        self._stop_timer(pl_module, batch, self._test_times, self._test_edges)
+
+    def on_test_epoch_end(self, trainer, pl_module):
+        if trainer.global_rank != 0:
+            return
+        self._log_and_reset(pl_module, self._test_times, self._test_edges, "test")
+
+
+class ModelExportCallback(Callback):
+    """Export the best model to TorchScript and/or torch.export after each epoch.
+
+    Triggered whenever ``ModelCheckpoint`` saves a new best checkpoint, so the
+    exported files always reflect the best model seen so far.  Requires the
+    Lightning module to implement ``_get_export_model``,
+    ``_make_export_example_inputs``, ``_save_jit``, and
+    ``_save_torch_export`` (provided by ``IGNN3``).
+
+    Activated by adding an ``export`` dict to the training config:
+
+    .. code-block:: yaml
+
+        export:
+          jit: true
+          torch_export: true
+          example_num_nodes: 50000
+          example_num_edges: 500000
+          dynamic_shapes: true
+    """
+
+    def __init__(self):
+        self._last_best_path = None
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        export_cfg = getattr(pl_module, "hparams", {}).get("export") or {}
+        if not export_cfg:
+            return
+        if trainer.global_rank != 0:
+            return
+        if not hasattr(pl_module, "_get_export_model"):
+            return
+
+        ckpt_callback = trainer.checkpoint_callback
+        if ckpt_callback is None:
+            return
+
+        # Only export when ModelCheckpoint has written a new best file
+        current_best = ckpt_callback.best_model_path
+        if not current_best or current_best == self._last_best_path:
+            return
+        self._last_best_path = current_best
+
+        save_dir = os.path.join(pl_module.hparams["stage_dir"], "artifacts")
+        os.makedirs(save_dir, exist_ok=True)
+
+        export_model = pl_module._get_export_model()
+        example_inputs = pl_module._make_export_example_inputs(export_cfg)
+
+        if export_cfg.get("jit", False):
+            pl_module._save_jit(export_model, example_inputs, save_dir)
+        if export_cfg.get("onnx", False):
+            pl_module._save_onnx(export_model, example_inputs, save_dir)
+        if export_cfg.get("torch_export", False):
+            pl_module._save_torch_export(export_model, example_inputs, save_dir, export_cfg)
 
 
 def str_to_class(stage, model):
@@ -158,12 +313,18 @@ def get_trainer(config, default_root_dir):
 
     lr_monitor_callback = LearningRateMonitor(logging_interval="epoch")
 
+    callbacks = [checkpoint_callback, throughput_callback, lr_monitor_callback]
+    if config.get("export"):
+        callbacks.append(ModelExportCallback())
+    if config.get("time_inference"):
+        callbacks.append(InferenceTimingCallback())
+
     return Trainer(
         accelerator=accelerator,
         devices=devices,
         num_nodes=config["nodes"],
         max_epochs=config["max_epochs"],
-        callbacks=[checkpoint_callback, throughput_callback, lr_monitor_callback],
+        callbacks=callbacks,
         logger=logger,
         precision=config.get("precision", 32),
         strategy=DDPStrategy(find_unused_parameters=False, static_graph=True),
