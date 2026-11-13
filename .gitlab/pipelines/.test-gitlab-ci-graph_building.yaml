@@ -13,11 +13,14 @@
     - source ~/.bashrc
     - conda config --set auto_activate_base false
     - source create_conda_environment_cu13.sh acorn-cu13
+    - pip install xrootd fsspec-xrootd
+    - mkdir -p CI/graph_building/tmp_feature_store_ci_ttbar_pu0/valset
+    - cp /eos/atlas/atlascerngroupdisk/perf-idtracking/GNN4ITk/ATLAS-P2-RUN4-03-00-00_Rel.24/acorn_data_reading_output/ci_ref/feature_store_ci_ttbar_pu0/valset/only_100evts/*.pyg* CI/graph_building/tmp_feature_store_ci_ttbar_pu0/valset/
   rules:
     - when: always
 
 PyModuleMap:
-    <<: *graph_building_template
-    script:
-      - cd CI/graph_building
-      - ./ci_test_graph_building_PyModuleMap.sh
+  <<: *graph_building_template
+  script:
+    - cd CI/graph_building
+    - ./ci_test_graph_building_PyModuleMap.sh
