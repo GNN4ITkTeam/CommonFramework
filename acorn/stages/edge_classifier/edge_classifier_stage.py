@@ -534,16 +534,6 @@ class EdgeClassifierStage(LightningModule):
             self.log_dict(pt_log_dict, sync_dist=True)
 
     def on_before_optimizer_step(self, optimizer, *args, **kwargs):
-        # warm up lr
-        if (self.hparams["warmup"] is not None) and (
-            self.trainer.current_epoch < self.hparams["warmup"]
-        ):
-            lr_scale = min(
-                1.0, float(self.trainer.current_epoch + 1) / self.hparams["warmup"]
-            )
-            for pg in optimizer.param_groups:
-                pg["lr"] = lr_scale * self.hparams["lr"]
-
         # after reaching minimum learning rate, stop LR decay
         for pg in optimizer.param_groups:
             pg["lr"] = max(pg["lr"], self.hparams.get("min_lr", 0))

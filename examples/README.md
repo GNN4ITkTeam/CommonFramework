@@ -13,3 +13,7 @@ The examples are listed below:
 3. [TrackML Pipeline with Metric Learning, (Optional Filter), GNN and Connected Components)](./Example_3)
 4. ~~[Training a Custom Pipeline](./Example_4)~~
 5. ~~[Approved ITk V1 Public Release](./Public_Release_V1)~~
+
+Additional focused examples:
+
+- [Learning-rate scheduling with a local CPU smoke test](./Example_scheduler)

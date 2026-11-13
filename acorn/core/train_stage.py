@@ -146,7 +146,11 @@ def lightning_train(
         stage_module._hparams = add_variable_name_prefix_in_config(
             stage_module._hparams
         )
-    trainer = get_trainer(config, default_root_dir)
+    trainer_config = dict(config)
+    # Callback selection also needs the scheduler when it is inherited from a checkpoint.
+    if "scheduler" not in trainer_config:
+        trainer_config["scheduler"] = stage_module.hparams.get("scheduler")
+    trainer = get_trainer(trainer_config, default_root_dir)
 
     if config.get("pruning_allow", False):
         from .pruning_utils import setup_pruning

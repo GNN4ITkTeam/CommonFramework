@@ -343,6 +343,8 @@ The new setup introduces the following changes:
 
 Please see the [documentation](https://atlas-gnn-tracking.docs.cern.ch/) for more details, examples and tutorials.
 
+See [learning-rate scheduling](examples/Example_scheduler/README.md) for configuration and a locally testable YAML example.
+
 ## IGNN3 Edge Classifier
 
 `IGNN3` is an interaction network for directed graphs that aggregates incoming and

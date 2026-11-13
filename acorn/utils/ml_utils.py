@@ -14,6 +14,7 @@
 
 import torch.nn as nn
 import torch
+from pytorch_lightning import Callback
 
 
 def make_mlp(
@@ -73,8 +74,58 @@ def make_mlp(
     return nn.Sequential(*layers)
 
 
+def get_warmup_scale(index, warmup):
+    """Linear LR multiplier for a zero-based epoch or optimizer-update index."""
+    return min(1.0, (index + 1) / warmup) if warmup else 1.0
+
+
+class PlateauWarmupCallback(Callback):
+    def on_before_optimizer_step(self, trainer, pl_module, optimizer):
+        config = pl_module.hparams
+        warmup = config.get("warmup")
+        if (
+            config.get("scheduler") == "ReduceLROnPlateau"
+            and warmup
+            and trainer.current_epoch < warmup
+        ):
+            lr = config["lr"] * get_warmup_scale(trainer.current_epoch, warmup)
+            for group in optimizer.param_groups:
+                group["lr"] = lr
+
+
+def _validate_scheduler_config(hparams):
+    """Validate configuration and return the scheduler name, interval and warmup."""
+    interval = hparams.get("scheduler_interval", "epoch")
+    assert interval in {"epoch", "step"}, "scheduler_interval must be 'epoch' or 'step'"
+    assert (
+        "warmup_steps" not in hparams
+    ), "Use warmup with scheduler_interval: step instead of warmup_steps"
+    if interval == "step":
+        assert hparams["lr"] > 0, "Step scheduling requires lr > 0"
+    warmup = hparams.get("warmup") or 0
+    assert (
+        isinstance(warmup, int) and warmup >= 0
+    ), "warmup must be a nonnegative integer"
+    name = hparams.get("scheduler") or "StepLR"
+    assert (
+        name != "ReduceLROnPlateau" or interval == "epoch"
+    ), "ReduceLROnPlateau requires scheduler_interval: epoch"
+    assert isinstance(hparams["patience"], int) and hparams["patience"] >= (
+        0 if name == "ReduceLROnPlateau" else 1
+    ), "Invalid scheduler patience"
+    if name not in {"StepLR", "ReduceLROnPlateau", "CosineAnnealingWarmRestarts"}:
+        raise ValueError(f"Unknown scheduler: {name}")
+    if warmup:
+        assert hparams["lr"] > 0, "Warmup requires lr > 0"
+        assert (
+            0 <= hparams.get("min_lr", 0) <= hparams["lr"]
+        ), "Warmup requires 0 <= min_lr <= lr"
+    return name, interval, warmup
+
+
 def get_optimizers(parameters, hparams):
     """Get the optimizer and scheduler."""
+    name, interval, warmup = _validate_scheduler_config(hparams)
     weight_decay = hparams.get("lr_weight_decay", 0.01)
     optimizer = [
         torch.optim.AdamW(
@@ -87,54 +138,54 @@ def get_optimizers(parameters, hparams):
         )
     ]
 
-    if (
-        "scheduler" not in hparams
-        or hparams["scheduler"] is None
-        or hparams["scheduler"] == "StepLR"
-    ):
-        scheduler = [
-            {
-                "scheduler": torch.optim.lr_scheduler.StepLR(
-                    optimizer[0],
-                    step_size=hparams["patience"],
-                    gamma=hparams["factor"],
-                ),
-                "interval": "epoch",
-                "frequency": 1,
-            }
-        ]
-    elif hparams["scheduler"] == "ReduceLROnPlateau":
-        metric_mode = hparams.get("metric_mode", "min")
-        metric_to_monitor = hparams.get("metric_to_monitor", "val_loss")
-        scheduler = [
+    if name == "ReduceLROnPlateau":
+        return optimizer, [
             {
                 "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer[0],
-                    mode=metric_mode,
+                    mode=hparams.get("metric_mode", "min"),
                     factor=hparams["factor"],
                     patience=hparams["patience"],
-                    verbose=True,
                 ),
                 "interval": "epoch",
                 "frequency": 1,
-                "monitor": metric_to_monitor,
+                "monitor": hparams.get("metric_to_monitor", "val_loss"),
             }
         ]
-    elif hparams["scheduler"] == "CosineAnnealingWarmRestarts":
-        scheduler = [
-            {
-                "scheduler": torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-                    optimizer[0],
-                    T_0=hparams["patience"],
-                    T_mult=2,
-                    eta_min=1e-8,
-                    last_epoch=-1,
+
+    phases = []
+    if warmup:
+        phases.append(
+            torch.optim.lr_scheduler.LinearLR(
+                optimizer[0],
+                start_factor=max(
+                    1.0 / warmup, hparams.get("min_lr", 0) / hparams["lr"]
                 ),
-                "interval": "epoch",
-                "frequency": 1,
-            }
-        ]
-    else:
-        raise ValueError(f"Unknown scheduler: {hparams['scheduler']}")
+                end_factor=1.0,
+                total_iters=max(1, warmup - 1),
+            )
+        )
+    if name == "StepLR":
+        phases.append(
+            torch.optim.lr_scheduler.StepLR(
+                optimizer[0], step_size=hparams["patience"], gamma=hparams["factor"]
+            )
+        )
+    elif name == "CosineAnnealingWarmRestarts":
+        phases.append(
+            torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+                optimizer[0],
+                T_0=hparams["patience"],
+                T_mult=2,
+                eta_min=hparams.get("min_lr", 1e-8),
+            )
+        )
+    schedule = (
+        torch.optim.lr_scheduler.SequentialLR(optimizer[0], phases, milestones=[warmup])
+        if len(phases) > 1
+        else phases[0]
+    )
+    config = {"scheduler": schedule, "interval": interval, "frequency": 1}
+    scheduler = [config]
 
     return optimizer, scheduler
