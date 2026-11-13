@@ -32,6 +32,7 @@ from pytorch_lightning.callbacks import (
 
 from acorn import stages
 from acorn.core.throughput import ThroughputCallback
+from acorn.utils.ml_utils import PlateauWarmupCallback
 from acorn.stages import *  # noqa
 from pytorch_lightning.strategies.ddp import DDPStrategy
 from pytorch_lightning.loggers import CSVLogger
@@ -311,9 +312,11 @@ def get_trainer(config, default_root_dir):
 
     throughput_callback = ThroughputCallback()
 
-    lr_monitor_callback = LearningRateMonitor(logging_interval="epoch")
-
+    lr_monitor_callback = LearningRateMonitor(logging_interval=None)
     callbacks = [checkpoint_callback, throughput_callback, lr_monitor_callback]
+    if config.get("scheduler") == "ReduceLROnPlateau":
+        callbacks.append(PlateauWarmupCallback())
+
     if config.get("export"):
         callbacks.append(ModelExportCallback())
     if config.get("time_inference"):
@@ -324,6 +327,7 @@ def get_trainer(config, default_root_dir):
         devices=devices,
         num_nodes=config["nodes"],
         max_epochs=config["max_epochs"],
+        val_check_interval=config.get("val_check_interval", 1.0),
         callbacks=callbacks,
         logger=logger,
         precision=config.get("precision", 32),

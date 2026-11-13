@@ -1,0 +1,9 @@
+# Scheduler settings to copy into a stage training config.
+# The local smoke test uses synthetic data; see README.md in this directory.
+scheduler: StepLR
+scheduler_interval: step  # Omit or use epoch to count epochs instead.
+warmup: 4  # Optimizer updates before the decay schedule starts.
+patience: 6  # Optimizer updates between decays, after warmup.
+lr: 0.01
+factor: 0.5
+min_lr: 0.0
