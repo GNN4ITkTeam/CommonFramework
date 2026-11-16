@@ -18,7 +18,9 @@ import pytest
 import torch
 from torch_geometric.data import Data
 
+from acorn.stages.edge_classifier.edge_classifier_stage import GraphDataset
 from acorn.utils.loading_utils import (
+    handle_edge_features,
     handle_node_features,
     load_datafiles_in_dir,
     load_pyg,
@@ -172,3 +174,104 @@ def test_handle_node_features_must_run_before_scaling(angle_event):
     handle_node_features(scaled, ["hit_cosphi"])
 
     assert (angle_event.hit_cosphi - scaled.hit_cosphi).abs().max() > 0.5
+
+
+EDGE_FEATURES = [
+    "edge_dr",
+    "edge_dphi",
+    "edge_dz",
+    "edge_deta",
+    "edge_phislope",
+    "edge_rphislope",
+]
+
+
+@pytest.fixture
+def edge_event():
+    """An event whose edges include one that crosses the +/- pi discontinuity.
+
+    Hits 0 and 1 sit 0.083 rad apart across the discontinuity, so the wrapped
+    difference along edge 0 is small while the raw one is close to a full turn.
+    Edge 2 joins two hits at the same radius, the case phislope clamps.
+    """
+    return Data(
+        hit_r=torch.tensor([300.0, 310.0, 500.0, 500.0], dtype=torch.float64),
+        hit_phi=torch.tensor([3.1, -3.1, 0.2, 0.4], dtype=torch.float64),
+        hit_z=torch.tensor([10.0, 20.0, 30.0, 40.0], dtype=torch.float64),
+        hit_eta=torch.tensor([0.1, 0.2, 0.3, 0.4], dtype=torch.float64),
+        edge_index=torch.tensor([[0, 1, 2], [1, 2, 3]]),
+        num_nodes=4,
+    )
+
+
+def _scaled(event, phi_scale):
+    """The event as ``scale_features`` leaves it: r and z in metres, phi / phi_scale."""
+    scaled = event.clone()
+    scaled.hit_r = scaled.hit_r / 1000.0
+    scaled.hit_z = scaled.hit_z / 1000.0
+    scaled.hit_phi = scaled.hit_phi / phi_scale
+    return scaled
+
+
+def test_handle_edge_features_does_not_depend_on_phi_scaling(edge_event):
+    """Feeding the network cos/sin instead of phi must not change the edge features.
+
+    Without phi among the node features, ``hit_phi`` stays in radians. Before
+    ``phi_scale`` existed this inflated edge_dphi by pi and wrapped it at 1 rad,
+    corrupting phislope and rphislope with it, all within a plausible range.
+    """
+    with_phi = _scaled(edge_event, torch.pi)
+    with_cos_sin = _scaled(edge_event, 1.0)
+
+    handle_edge_features(with_phi, EDGE_FEATURES, phi_scale=torch.pi)
+    handle_edge_features(with_cos_sin, EDGE_FEATURES, phi_scale=1.0)
+
+    for feature in EDGE_FEATURES:
+        torch.testing.assert_close(with_cos_sin[feature], with_phi[feature])
+
+
+def test_handle_edge_features_wraps_dphi_across_pi(edge_event):
+    event = _scaled(edge_event, 1.0)
+
+    handle_edge_features(event, ["edge_dphi"], phi_scale=1.0)
+
+    expected = (2 * torch.pi - 6.2) / torch.pi
+    torch.testing.assert_close(
+        event.edge_dphi[0], torch.tensor(expected, dtype=torch.float64)
+    )
+    assert event.edge_dphi.abs().max() < 1.0
+
+
+def test_handle_edge_features_default_assumes_phi_divided_by_pi(edge_event):
+    """The default keeps the historical behaviour, for callers that pass nothing."""
+    default = _scaled(edge_event, torch.pi)
+    explicit = _scaled(edge_event, torch.pi)
+
+    handle_edge_features(default, EDGE_FEATURES)
+    handle_edge_features(explicit, EDGE_FEATURES, phi_scale=torch.pi)
+
+    for feature in EDGE_FEATURES:
+        assert torch.equal(default[feature], explicit[feature])
+
+
+@pytest.mark.parametrize(
+    "hparams,expected",
+    [
+        ({"node_features": ["hit_r", "hit_phi"], "node_scales": [1000.0, 3.14]}, 3.14),
+        (
+            {
+                "node_features": ["hit_r", "hit_cosphi", "hit_sinphi"],
+                "node_scales": [1000.0, 1.0, 1.0],
+            },
+            1.0,
+        ),
+        ({"node_features": ["hit_r", "hit_phi"]}, 1.0),
+        ({}, 1.0),
+    ],
+)
+def test_graph_dataset_phi_scale_follows_the_config(hparams, expected):
+    """``hit_phi`` is only scaled when it is a node feature and scales are given."""
+    dataset = GraphDataset.__new__(GraphDataset)
+    dataset.hparams = hparams
+
+    assert dataset.phi_scale() == expected

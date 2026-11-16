@@ -408,15 +408,29 @@ def handle_node_features(event, node_features):
             break
 
 
-def handle_edge_features(event, edge_features):
+def _edge_dphi(event, src, dst, phi_scale):
+    """Phi difference along each edge, wrapped into [-pi, pi], in units of pi."""
+    dphi = (event.hit_phi[dst] - event.hit_phi[src]) * phi_scale
+    return reset_angle(dphi) / torch.pi
+
+
+def handle_edge_features(event, edge_features, phi_scale=torch.pi):
+    """Build the requested edge features from the node features of the event.
+
+    ``phi_scale`` is the factor ``hit_phi`` has been divided by: pi once
+    ``scale_features`` has run with ``hit_phi`` among the node features, 1.0 when
+    ``hit_phi`` is still in radians -- as it is when only ``hit_cosphi`` and
+    ``hit_sinphi`` are fed to the network.  Whatever its value, ``edge_dphi`` comes
+    out as the wrapped phi difference divided by pi.  Taking the default on an
+    unscaled ``hit_phi`` inflates ``edge_dphi`` by pi and wraps it at 1 rad instead
+    of pi, a mistake that stays bounded and so goes unnoticed.
+    """
     src, dst = event.edge_index
 
     if "edge_dr" in edge_features and not ("edge_dr" in get_pyg_data_keys(event)):
         event.edge_dr = event.hit_r[dst] - event.hit_r[src]
     if "edge_dphi" in edge_features and not ("edge_dphi" in get_pyg_data_keys(event)):
-        event.edge_dphi = (
-            reset_angle((event.hit_phi[dst] - event.hit_phi[src]) * torch.pi) / torch.pi
-        )
+        event.edge_dphi = _edge_dphi(event, src, dst, phi_scale)
     if "edge_dz" in edge_features and not ("edge_dz" in get_pyg_data_keys(event)):
         event.edge_dz = event.hit_z[dst] - event.hit_z[src]
     if "edge_deta" in edge_features and not ("edge_deta" in get_pyg_data_keys(event)):
@@ -425,9 +439,7 @@ def handle_edge_features(event, edge_features):
         "edge_phislope" in get_pyg_data_keys(event)
     ):
         dr = event.hit_r[dst] - event.hit_r[src]
-        dphi = (
-            reset_angle((event.hit_phi[dst] - event.hit_phi[src]) * torch.pi) / torch.pi
-        )
+        dphi = _edge_dphi(event, src, dst, phi_scale)
         phislope = dphi / dr
         event.edge_phislope = phislope
     if "edge_phislope" in edge_features:
@@ -440,9 +452,7 @@ def handle_edge_features(event, edge_features):
     ):
         r_ = (event.hit_r[dst] + event.hit_r[src]) / 2.0
         dr = event.hit_r[dst] - event.hit_r[src]
-        dphi = (
-            reset_angle((event.hit_phi[dst] - event.hit_phi[src]) * torch.pi) / torch.pi
-        )
+        dphi = _edge_dphi(event, src, dst, phi_scale)
         phislope = dphi / dr
         phislope = torch.nan_to_num(phislope, nan=0.0, posinf=100, neginf=-100)
         phislope = torch.clamp(phislope, -100, 100)
