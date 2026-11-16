@@ -842,8 +842,24 @@ class GraphDataset(Dataset):
             assert isinstance(
                 self.hparams["edge_features"], list
             ), "Edge features must be a list of strings"
-            handle_edge_features(event, self.hparams["edge_features"])
+            handle_edge_features(
+                event, self.hparams["edge_features"], phi_scale=self.phi_scale()
+            )
         return event
+
+    def phi_scale(self):
+        """The factor ``scale_features`` divides ``hit_phi`` by, 1.0 if it leaves it.
+
+        ``hit_phi`` is only scaled when it is a node feature, which it no longer is
+        once the network takes ``hit_cosphi`` and ``hit_sinphi`` instead.  The edge
+        features still need it, in radians then.  Assumes ``scale_features`` has
+        already run, as ``GraphDataset.preprocess_event`` orders it.
+        """
+        node_features = self.hparams.get("node_features") or []
+        node_scales = self.hparams.get("node_scales")
+        if node_scales is None or "hit_phi" not in node_features:
+            return 1.0
+        return node_scales[node_features.index("hit_phi")]
 
     def scale_features(self, event):
         """
